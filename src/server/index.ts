@@ -353,12 +353,119 @@ app.use("/*", serveStatic({ root: "./src/client/dist" }));
 // Export app for testing
 export { app };
 
+// CLI flag parsing
+interface CLIFlags {
+  port: number;
+  noBrowser: boolean;
+  projectPath: string | null;
+  showHelp: boolean;
+}
+
+function parseArgs(): CLIFlags {
+  const args = process.argv.slice(2);
+  const flags: CLIFlags = {
+    port: 50234,
+    noBrowser: false,
+    projectPath: null,
+    showHelp: false,
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === "--help" || arg === "-h") {
+      flags.showHelp = true;
+    } else if (arg === "--no-browser") {
+      flags.noBrowser = true;
+    } else if (arg === "--port") {
+      const portValue = args[i + 1];
+      if (portValue && !isNaN(parseInt(portValue))) {
+        flags.port = parseInt(portValue);
+        i++;
+      }
+    } else if (arg === "--project") {
+      const projectPath = args[i + 1];
+      if (projectPath) {
+        flags.projectPath = projectPath;
+        i++;
+      }
+    }
+  }
+
+  return flags;
+}
+
+function printHelp(): void {
+  console.log(`
+OCWatch Server - Real-time OpenCode Activity Monitor
+
+Usage: bun run src/server/index.ts [options]
+
+Options:
+  --port <number>      Server port (default: 50234)
+  --no-browser         Skip auto-opening browser
+  --project <path>     Set default project filter
+  --help, -h           Show this help message
+
+Examples:
+  bun run src/server/index.ts
+  bun run src/server/index.ts --port 50999
+  bun run src/server/index.ts --no-browser
+  bun run src/server/index.ts --project /path/to/project
+`);
+}
+
+async function openBrowser(url: string): Promise<void> {
+  try {
+    // Check if running in headless environment
+    const isHeadless =
+      !process.env.DISPLAY &&
+      !process.env.WAYLAND_DISPLAY &&
+      process.env.CI !== "true";
+
+    if (isHeadless) {
+      console.log(`📱 Open browser: ${url}`);
+      return;
+    }
+
+    // macOS only for v1
+    const proc = Bun.spawn(["open", url], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+
+    // Wait for process to complete (non-blocking)
+    proc.exited.catch(() => {
+      // Silently ignore errors
+    });
+  } catch (error) {
+    // Fallback: just print URL
+    console.log(`📱 Open browser: ${url}`);
+  }
+}
+
 // Start server
-const port = 50234;
+const flags = parseArgs();
+
+if (flags.showHelp) {
+  printHelp();
+  process.exit(0);
+}
+
+const port = flags.port;
+const url = `http://localhost:${port}`;
 
 export default {
   port,
   fetch: app.fetch,
 };
 
-console.log(`🚀 OCWatch server running on http://localhost:${port}`);
+// Print startup message
+console.log(`🚀 OCWatch server running on ${url}`);
+console.log(`📋 Press Ctrl+C to stop`);
+
+// Auto-open browser if not disabled
+if (!flags.noBrowser) {
+  openBrowser(url).catch(() => {
+    // Silently ignore errors
+  });
+}

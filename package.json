@@ -6,7 +6,7 @@
   "main": "src/server/index.ts",
   "scripts": {
     "dev": "bun run src/server/index.ts",
-    "start": "bun run src/server/index.ts",
+    "start": "bun run src/server/index.ts --no-browser",
     "test": "bun test",
     "build": "bun build ./src/client/index.tsx --outdir ./dist --target browser"
   },
