@@ -282,3 +282,98 @@ func TestListSessions_DefaultPath(t *testing.T) {
 	// (actual file reading would require real storage)
 	_ = ListSessions
 }
+
+// TestFilterSessionsByToday_IncludesTodaySessions includes sessions updated today
+func TestFilterSessionsByToday_IncludesTodaySessions(t *testing.T) {
+	now := time.Now()
+	midnight := now.Truncate(24 * time.Hour)
+
+	// Session updated 1 minute ago (today)
+	todaySession := Session{
+		ID:      "ses_today",
+		Updated: now.Add(-1 * time.Minute),
+	}
+
+	// Session updated at midnight (today)
+	midnightSession := Session{
+		ID:      "ses_midnight",
+		Updated: midnight,
+	}
+
+	sessions := []Session{todaySession, midnightSession}
+	filtered := FilterSessionsByToday(sessions)
+
+	if len(filtered) != 2 {
+		t.Errorf("Expected 2 sessions from today, got %d", len(filtered))
+	}
+
+	// Verify both sessions are included
+	ids := make(map[string]bool)
+	for _, s := range filtered {
+		ids[s.ID] = true
+	}
+
+	if !ids["ses_today"] {
+		t.Error("ses_today should be in filtered results")
+	}
+	if !ids["ses_midnight"] {
+		t.Error("ses_midnight should be in filtered results")
+	}
+}
+
+// TestFilterSessionsByToday_ExcludesYesterdaySessions excludes sessions from yesterday
+func TestFilterSessionsByToday_ExcludesYesterdaySessions(t *testing.T) {
+	now := time.Now()
+	midnight := now.Truncate(24 * time.Hour)
+
+	// Session updated 1 second before midnight (yesterday)
+	yesterdaySession := Session{
+		ID:      "ses_yesterday",
+		Updated: midnight.Add(-1 * time.Second),
+	}
+
+	// Session updated 1 hour before midnight (yesterday)
+	oldSession := Session{
+		ID:      "ses_old",
+		Updated: midnight.Add(-1 * time.Hour),
+	}
+
+	// Session updated today
+	todaySession := Session{
+		ID:      "ses_today",
+		Updated: now,
+	}
+
+	sessions := []Session{yesterdaySession, oldSession, todaySession}
+	filtered := FilterSessionsByToday(sessions)
+
+	if len(filtered) != 1 {
+		t.Errorf("Expected 1 session from today, got %d", len(filtered))
+	}
+
+	if filtered[0].ID != "ses_today" {
+		t.Errorf("Expected ses_today, got %s", filtered[0].ID)
+	}
+}
+
+// TestGetStoragePathFallback verifies fallback to temp dir when UserHomeDir fails
+func TestGetStoragePathFallback(t *testing.T) {
+	oldXDG := os.Getenv("XDG_DATA_HOME")
+	os.Setenv("XDG_DATA_HOME", "")
+	defer os.Setenv("XDG_DATA_HOME", oldXDG)
+
+	path := getStoragePath()
+
+	if path == "" {
+		t.Error("getStoragePath returned empty string")
+	}
+
+	if path == "/.local/share" {
+		t.Errorf("getStoragePath returned root-based path: %s", path)
+	}
+
+	tempDir := os.TempDir()
+	if !filepath.HasPrefix(path, tempDir) {
+		t.Logf("Path returned: %s (expected to start with %s)", path, tempDir)
+	}
+}

@@ -3,19 +3,21 @@ package session
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
 )
 
 type Session struct {
-	ID        string
-	Slug      string
-	ProjectID string
-	Directory string
-	Title     string
-	Created   time.Time
-	Updated   time.Time
+	ID              string
+	Slug            string
+	ProjectID       string
+	ProjectWorktree string
+	Directory       string
+	Title           string
+	Created         time.Time
+	Updated         time.Time
 }
 
 type sessionJSON struct {
@@ -36,8 +38,9 @@ func getStoragePath() string {
 	}
 
 	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join(home, ".local", "share")
+	if err != nil || home == "" {
+		log.Printf("Warning: UserHomeDir failed, using temp dir: %v", err)
+		return filepath.Join(os.TempDir(), "ocwatch")
 	}
 
 	return filepath.Join(home, ".local", "share")
@@ -111,6 +114,19 @@ func FilterActiveSessions(sessions []Session, withinMinutes int) []Session {
 
 	for _, s := range sessions {
 		if s.Updated.After(cutoff) {
+			filtered = append(filtered, s)
+		}
+	}
+
+	return filtered
+}
+
+func FilterSessionsByToday(sessions []Session) []Session {
+	midnight := time.Now().Truncate(24 * time.Hour)
+	var filtered []Session
+
+	for _, s := range sessions {
+		if s.Updated.After(midnight) || s.Updated.Equal(midnight) {
 			filtered = append(filtered, s)
 		}
 	}
