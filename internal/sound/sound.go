@@ -64,7 +64,9 @@ func (sm *SoundManager) Play(event SoundEvent) {
 
 	// Play sound in goroutine to avoid blocking
 	go func() {
+		execCommandMu.RLock()
 		cmd := execCommand("afplay", soundPath)
+		execCommandMu.RUnlock()
 		_ = cmd.Run()
 	}()
 }
@@ -105,3 +107,4 @@ func eventToSound(event SoundEvent) string {
 
 // execCommand is a variable that can be mocked in tests
 var execCommand = exec.Command
+var execCommandMu sync.RWMutex
