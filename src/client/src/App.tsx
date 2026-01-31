@@ -12,6 +12,9 @@ function AppContent() {
     planProgress, 
     selectedSessionId, 
     setSelectedSessionId,
+    projects,
+    selectedProjectId,
+    setSelectedProjectId,
     loading,
     error 
   } = useAppContext();
@@ -41,6 +44,9 @@ function AppContent() {
         sessions={sessions}
         selectedId={selectedSessionId}
         onSelect={setSelectedSessionId}
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        onProjectSelect={setSelectedProjectId}
       />
       
       <div className="flex-1 flex flex-col min-w-0 relative h-full">

@@ -90,6 +90,15 @@ export interface Boulder {
 }
 
 /**
+ * ProjectInfo represents a project with session count
+ */
+export interface ProjectInfo {
+  id: string;
+  directory: string;
+  sessionCount: number;
+}
+
+/**
  * RingBuffer is a generic circular buffer with fixed capacity
  * Automatically drops oldest items when capacity is exceeded
  */

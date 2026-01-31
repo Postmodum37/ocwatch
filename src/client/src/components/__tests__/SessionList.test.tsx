@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SessionList } from '../SessionList';
-import type { SessionMetadata } from '@shared/types';
+import type { SessionMetadata, ProjectInfo } from '@shared/types';
 import { describe, it, expect, vi } from 'vitest';
 
 const mockSessions: SessionMetadata[] = [
@@ -10,7 +10,7 @@ const mockSessions: SessionMetadata[] = [
     directory: '/tmp/p1',
     title: 'Active Session',
     createdAt: new Date(),
-    updatedAt: new Date(), // Just now
+    updatedAt: new Date(),
   },
   {
     id: '2',
@@ -18,7 +18,28 @@ const mockSessions: SessionMetadata[] = [
     directory: '/tmp/p1',
     title: 'Idle Session',
     createdAt: new Date(Date.now() - 1000000),
-    updatedAt: new Date(Date.now() - 3600000), // 1 hour ago
+    updatedAt: new Date(Date.now() - 3600000),
+  },
+  {
+    id: '3',
+    projectID: 'p2',
+    directory: '/tmp/p2',
+    title: 'Project 2 Session',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];
+
+const mockProjects: ProjectInfo[] = [
+  {
+    id: 'p1',
+    directory: '/tmp/p1',
+    sessionCount: 2,
+  },
+  {
+    id: 'p2',
+    directory: '/tmp/p2',
+    sessionCount: 1,
   },
 ];
 
@@ -53,5 +74,111 @@ describe('SessionList', () => {
     const activeItem = screen.getByTestId('session-item-1');
     expect(activeItem.className).toContain('bg-background');
     expect(activeItem.className).toContain('border-l-accent');
+  });
+
+  it('renders project dropdown button', () => {
+    render(
+      <SessionList 
+        sessions={mockSessions} 
+        selectedId={null} 
+        onSelect={() => {}}
+        projects={mockProjects}
+        selectedProjectId={null}
+        onProjectSelect={() => {}}
+      />
+    );
+    expect(screen.getByTestId('project-dropdown-button')).toBeDefined();
+  });
+
+  it('opens dropdown when button is clicked', () => {
+    render(
+      <SessionList 
+        sessions={mockSessions} 
+        selectedId={null} 
+        onSelect={() => {}}
+        projects={mockProjects}
+        selectedProjectId={null}
+        onProjectSelect={() => {}}
+      />
+    );
+    
+    const button = screen.getByTestId('project-dropdown-button');
+    fireEvent.click(button);
+    expect(screen.getByTestId('project-dropdown-menu')).toBeDefined();
+  });
+
+  it('filters sessions by selected project', () => {
+    render(
+      <SessionList 
+        sessions={mockSessions} 
+        selectedId={null} 
+        onSelect={() => {}}
+        projects={mockProjects}
+        selectedProjectId="p1"
+        onProjectSelect={() => {}}
+      />
+    );
+    
+    expect(screen.getByText('Active Session')).toBeDefined();
+    expect(screen.getByText('Idle Session')).toBeDefined();
+    expect(screen.queryByText('Project 2 Session')).toBeNull();
+  });
+
+  it('shows all sessions when no project is selected', () => {
+    render(
+      <SessionList 
+        sessions={mockSessions} 
+        selectedId={null} 
+        onSelect={() => {}}
+        projects={mockProjects}
+        selectedProjectId={null}
+        onProjectSelect={() => {}}
+      />
+    );
+    
+    expect(screen.getByText('Active Session')).toBeDefined();
+    expect(screen.getByText('Idle Session')).toBeDefined();
+    expect(screen.getByText('Project 2 Session')).toBeDefined();
+  });
+
+  it('calls onProjectSelect when project option is clicked', () => {
+    const onProjectSelect = vi.fn();
+    render(
+      <SessionList 
+        sessions={mockSessions} 
+        selectedId={null} 
+        onSelect={() => {}}
+        projects={mockProjects}
+        selectedProjectId={null}
+        onProjectSelect={onProjectSelect}
+      />
+    );
+    
+    const button = screen.getByTestId('project-dropdown-button');
+    fireEvent.click(button);
+    
+    const projectOption = screen.getByTestId('project-option-p1');
+    fireEvent.click(projectOption);
+    
+    expect(onProjectSelect).toHaveBeenCalledWith('p1');
+  });
+
+  it('shows session count in project dropdown', () => {
+    render(
+      <SessionList 
+        sessions={mockSessions} 
+        selectedId={null} 
+        onSelect={() => {}}
+        projects={mockProjects}
+        selectedProjectId={null}
+        onProjectSelect={() => {}}
+      />
+    );
+    
+    const button = screen.getByTestId('project-dropdown-button');
+    fireEvent.click(button);
+    
+    expect(screen.getByText('(2)')).toBeDefined();
+    expect(screen.getByText('(1)')).toBeDefined();
   });
 });
