@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tomas/ocwatch/internal/plan"
@@ -61,44 +63,60 @@ func main() {
 		}
 	}
 
-	// Handle graceful shutdown on OS signals
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	// Start the log watcher which returns a channel for log entries
 	entryChan := w.Start()
-	quitChan := make(chan struct{})
 
 	var shutdownOnce sync.Once
 	shutdown := func() {
 		shutdownOnce.Do(func() {
-			close(quitChan)
+			cancel()
 			w.Stop()
+
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer shutdownCancel()
+
+			done := make(chan struct{})
+			go func() {
+				wg.Wait()
+				close(done)
+			}()
+
+			select {
+			case <-done:
+			case <-shutdownCtx.Done():
+				log.Println("Warning: goroutines did not exit within timeout")
+			}
 		})
 	}
 
-	// Main processing loop: consumes log entries and updates app state
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			select {
 			case entry := <-entryChan:
 				if entry != nil {
 					appState.UpdateFromLogEntry(entry)
 				}
-			case <-quitChan:
+			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 
-	// Shutdown coordinator: waits for signal and stops the watcher
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		<-sigChan
 		shutdown()
 		os.Exit(0)
 	}()
 
-	// Initialize and run the Bubble Tea TUI
 	p := tea.NewProgram(uiModel, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("Error running program: %v", err)
