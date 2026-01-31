@@ -13,6 +13,8 @@ import (
 
 type tickMsg time.Time
 
+const sidebarWidth = 28
+
 type Model struct {
 	state  *state.State
 	styles Styles
@@ -130,8 +132,11 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
+	if m.width < 80 || m.height < 24 {
+		return fmt.Sprintf("Terminal too small: %dx%d (min 80x24)", m.width, m.height)
+	}
+
 	// Layout constants
-	const sidebarWidth = 28
 	showSidebar := m.width >= 60
 
 	// Status bar is always full width at the bottom
