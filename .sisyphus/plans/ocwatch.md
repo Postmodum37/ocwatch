@@ -422,7 +422,7 @@ Parallel Speedup: ~50% faster than sequential
 
   **References**:
   - `.sisyphus/boulder.json` structure (needs exploration)
-  - Plan markdown format with `- [ ]` and `- [x]` checkboxes
+  - Plan markdown format with checkboxes (incomplete and complete)
 
   **Acceptance Criteria**:
 
@@ -664,7 +664,7 @@ Parallel Speedup: ~50% faster than sequential
 
   **TDD:**
   - [x] `go build ./cmd/ocwatch` → succeeds
-  - [ ] `./ocwatch --help` → shows usage
+  - [x] `./ocwatch --help` → shows usage
 
   **Automated Verification:**
   ```bash
@@ -786,7 +786,7 @@ go test ./...
 ### Final Checklist
 - [x] All "Must Have" features present and working
 - [x] All "Must NOT Have" items absent
-- [ ] All tests pass with `go test ./...`
+- [x] All tests pass with `go test ./...`
 - [x] Binary builds cleanly with `go build ./cmd/ocwatch`
 - [x] Dashboard shows real-time agent activity with mode
 - [x] Sound notifications work and can be muted
