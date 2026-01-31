@@ -172,8 +172,8 @@ func (m Model) View() string {
 
 	// Dynamic split of available height among panels
 	panelHeight := availableScrollHeight / 3
-	if panelHeight < 3 {
-		panelHeight = 3
+	if panelHeight < 1 {
+		panelHeight = 1
 	}
 
 	// Render Sessions panel with optional scrolling

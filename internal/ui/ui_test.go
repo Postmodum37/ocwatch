@@ -174,3 +174,20 @@ func TestScrollBoundsEnforced(t *testing.T) {
 		t.Errorf("scrollOffset should not exceed maxScroll of %d, got %d", maxScroll, m.scrollOffset)
 	}
 }
+
+func TestPanelHeightSmallTerminal(t *testing.T) {
+	s := state.NewState()
+	m := NewModel(s)
+	m.width = 80
+	m.height = 15
+
+	output := m.View()
+	if output == "" {
+		t.Error("View returned empty string on small terminal")
+	}
+
+	lines := len(output)
+	if lines > m.height*m.width {
+		t.Logf("View output size: %d chars (terminal: %dx%d)", lines, m.width, m.height)
+	}
+}
