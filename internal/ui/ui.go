@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -96,6 +97,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedSessionIdx = 0
 			m.state.SetSelectedSession("")
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			// Session selection uses 1-indexed keys (1-9) for UX,
+			// but arrays are 0-indexed, so we subtract 1 for array access.
+			// key "1" selects index 0, "2" selects index 1, etc.
 			keyNum := int(msg.String()[0] - '0')
 			if keyNum > 0 && keyNum <= len(m.allSessions) {
 				m.selectedSessionIdx = keyNum

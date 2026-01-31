@@ -191,3 +191,36 @@ func TestPanelHeightSmallTerminal(t *testing.T) {
 		t.Logf("View output size: %d chars (terminal: %dx%d)", lines, m.width, m.height)
 	}
 }
+
+func TestSmallTerminalMessage(t *testing.T) {
+	s := state.NewState()
+	m := NewModel(s)
+	m.width = 60
+	m.height = 20
+
+	output := m.View()
+	if output == "" {
+		t.Error("View returned empty string for small terminal")
+	}
+
+	if !contains(output, "Terminal too small") {
+		t.Errorf("View did not show 'Terminal too small' message for 60x20 terminal, got: %q", output)
+	}
+
+	if !contains(output, "60x20") {
+		t.Errorf("View did not show terminal dimensions in message, got: %q", output)
+	}
+
+	if !contains(output, "80x24") {
+		t.Errorf("View did not show minimum size requirement, got: %q", output)
+	}
+}
+
+func contains(s, substr string) bool {
+	for i := 0; i < len(s)-len(substr)+1; i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
