@@ -39,3 +39,21 @@
   ```
 - **Type Safety**: `reactflow` exports types like `Node` and `Edge`. With `verbatimModuleSyntax: true`, these MUST be imported as `import type { Node, Edge } ...`.
 - **Vitest**: To use globals (`describe`, `it`) in a Vite project, add `/// <reference types="vitest" />` to `vite.config.ts`.
+
+## Task 11: Session List Sidebar (2026-01-31)
+
+### Completed
+- ✅ Created `src/client/src/components/SessionList.tsx` with fixed 280px sidebar.
+- ✅ Implemented status indicators (icon + dot) and relative time formatting.
+- ✅ Configured `@shared` alias in `tsconfig.app.json` and `vite.config.ts`.
+- ✅ Integrated into `App.tsx` (merging with parallel changes).
+- ✅ Verified with Unit Tests (`bun x vitest`) and Visual Verification (Playwright).
+
+### Key Decisions
+- **Path Alias**: Configured `@shared` alias to allow clean imports from the shared folder, which is outside the `src/client` root.
+- **Visuals**: Used `bg-surface` for sidebar to distinguish from `bg-background` main area.
+- **Testing**: Used `vitest` via `bun x vitest` because `bun test` lacks DOM environment by default and project was configured for Vitest (jsdom).
+
+### Gotchas
+- **Parallel Work**: `App.tsx` was modified by another task during my work. I had to ensure my integration respected the existing content (`AgentTree`).
+- **TypeScript**: `tsc -b` is strict about `verbatimModuleSyntax` and references. Had to fix type imports in multiple files to get a clean build.
