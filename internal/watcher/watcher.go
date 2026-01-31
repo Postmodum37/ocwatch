@@ -47,6 +47,8 @@ func (w *Watcher) Stop() {
 	close(w.entryChan)
 }
 
+// watch handles the main watcher loop, using both fsnotify and a ticker
+// to ensure we always tail the most recent log file even if fsnotify events are missed.
 func (w *Watcher) watch() {
 	defer w.wg.Done()
 
@@ -61,6 +63,7 @@ func (w *Watcher) watch() {
 	}
 
 	currentFile := ""
+	// Periodic check as a fallback for fsnotify
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -70,6 +73,7 @@ func (w *Watcher) watch() {
 			return
 
 		case <-ticker.C:
+			// Fallback: check if a newer log file exists
 			mostRecent := w.findMostRecentLogFile()
 			if mostRecent != "" && mostRecent != currentFile {
 				w.switchToFile(mostRecent)
@@ -81,8 +85,10 @@ func (w *Watcher) watch() {
 				return
 			}
 
+			// When a new log file is created, switch to it
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				if strings.HasSuffix(event.Name, ".log") {
+					// Small delay to ensure file is ready for reading
 					time.Sleep(50 * time.Millisecond)
 					mostRecent := w.findMostRecentLogFile()
 					if mostRecent != "" && mostRecent != currentFile {

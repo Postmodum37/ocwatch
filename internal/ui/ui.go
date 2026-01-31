@@ -102,25 +102,27 @@ func (m Model) View() string {
 	// Let's assume we stack them for now to ensure we meet the "Create ... panels" requirement clearly.
 	// But to save space, maybe we reduce borders?
 
+	// Calculate fixed heights for non-scrollable areas
 	header := renderHeader(m.styles, m.width, true)
 	stats := renderStats(m.styles, m.state, m.width)
 	planView := renderPlanProgress(m.styles, m.planProgress, m.boulder, m.width)
 	statusBar := renderStatusBar(m.styles, m.width)
 
+	// Available height for the three main scrollable panels
 	fixedHeight := lipgloss.Height(header) + lipgloss.Height(stats) + lipgloss.Height(planView) + lipgloss.Height(statusBar)
 	availableHeight := m.height - fixedHeight
 
 	if availableHeight < 10 {
-		availableHeight = 10 // Force some minimum
+		availableHeight = 10 // Ensure a minimum usable area
 	}
 
-	// Split available height among 3 panels (Sessions, Agents, Tools)
+	// Dynamic split of available height among panels
 	panelHeight := availableHeight / 3
 	if panelHeight < 3 {
 		panelHeight = 3
 	}
 
-	// Sessions
+	// Render Sessions panel with optional scrolling
 	sessionsActive := m.activePanel == 0
 	sessionsScroll := 0
 	if sessionsActive {
@@ -128,8 +130,7 @@ func (m Model) View() string {
 	}
 	sessionsView := renderSessions(m.styles, m.state, m.width, panelHeight, sessionsScroll, sessionsActive)
 
-	// Agents
-	// Get a session ID (just first one for now)
+	// Render Agent Tree panel
 	sessMap := m.state.GetAllSessions()
 	var sessionID string
 	for id := range sessMap {
@@ -139,10 +140,7 @@ func (m Model) View() string {
 	agentsActive := m.activePanel == 1
 	agentView := renderAgentTree(m.styles, m.state, sessionID, m.width, panelHeight, agentsActive)
 
-	// Tools
-	// Tools panel in panels.go doesn't support scrolling arg yet, but we should probably add it or just ignore for now
-	// Looking at panels.go: renderToolActivity(styles, s, width, height) - no scroll offset.
-	// We'll just render it.
+	// Render Tool Activity panel
 	toolView := renderToolActivity(m.styles, m.state, m.width, panelHeight)
 
 	return lipgloss.JoinVertical(

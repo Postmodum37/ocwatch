@@ -58,18 +58,22 @@ func main() {
 		}
 	}
 
+	// Handle graceful shutdown on OS signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
+	// Start the log watcher which returns a channel for log entries
 	entryChan := w.Start()
 	quitChan := make(chan struct{})
 
+	// Main processing loop: consumes log entries and updates app state
 	go func() {
 		for {
 			select {
 			case entry := <-entryChan:
 				if entry != nil {
 					appState.UpdateFromLogEntry(entry)
+					// Play notification sound when a new agent starts
 					soundMgr.Play(sound.AgentStarted)
 				}
 			case <-quitChan:
@@ -78,6 +82,7 @@ func main() {
 		}
 	}()
 
+	// Shutdown coordinator: waits for signal and stops the watcher
 	go func() {
 		<-sigChan
 		close(quitChan)
@@ -85,6 +90,7 @@ func main() {
 		os.Exit(0)
 	}()
 
+	// Initialize and run the Bubble Tea TUI
 	p := tea.NewProgram(uiModel, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("Error running program: %v", err)

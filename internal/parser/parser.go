@@ -102,10 +102,12 @@ func isValidLogLevel(level string) bool {
 	return validLevels[level]
 }
 
+// parseKeyValue extracts a key and its value from a "key=value" or "key=\"value\"" string.
+// It handles quoted values that may contain spaces or other special characters.
 func parseKeyValue(part string) (string, string) {
 	// Handle quoted values like title="New session created"
 	if strings.Contains(part, "=\"") {
-		// Use regex to extract key and quoted value
+		// Regex to extract key and everything inside quotes
 		re := regexp.MustCompile(`^(\w+)="([^"]*)"`)
 		matches := re.FindStringSubmatch(part)
 		if len(matches) == 3 {
@@ -113,7 +115,7 @@ func parseKeyValue(part string) (string, string) {
 		}
 	}
 
-	// Handle simple key=value
+	// Handle simple key=value pairs
 	if idx := strings.Index(part, "="); idx != -1 {
 		key := part[:idx]
 		value := part[idx+1:]
