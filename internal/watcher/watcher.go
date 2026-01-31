@@ -1,6 +1,7 @@
 package watcher
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -21,6 +22,7 @@ type Watcher struct {
 	mu        sync.Mutex
 	tailer    *tail.Tail
 	stopOnce  sync.Once
+	logger    *log.Logger
 }
 
 func NewWatcher(logDir string) *Watcher {
@@ -29,6 +31,12 @@ func NewWatcher(logDir string) *Watcher {
 		entryChan: make(chan *parser.LogEntry, 1000),
 		stopChan:  make(chan struct{}),
 	}
+}
+
+func (w *Watcher) SetLogger(logger *log.Logger) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.logger = logger
 }
 
 func (w *Watcher) Start() chan *parser.LogEntry {
@@ -175,6 +183,12 @@ func (w *Watcher) tailLines(tailer *tail.Tail) {
 
 			entry, err := parser.ParseLine(line.Text)
 			if err != nil {
+				w.mu.Lock()
+				logger := w.logger
+				w.mu.Unlock()
+				if logger != nil {
+					logger.Printf("[DEBUG] Parse error: %v | line: %s", err, line.Text)
+				}
 				continue
 			}
 

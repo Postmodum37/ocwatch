@@ -1,7 +1,9 @@
 package watcher
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -387,5 +389,98 @@ func TestRapidFileSwitch(t *testing.T) {
 			// The race detector will catch issues even if we don't read all entries
 			return
 		}
+	}
+}
+
+func TestParseErrorsLogged(t *testing.T) {
+	tmpDir := getTempDir(t)
+
+	// Create a logger that writes to a buffer
+	var logBuffer bytes.Buffer
+	logger := log.New(&logBuffer, "", 0)
+
+	w := NewWatcher(tmpDir)
+	w.SetLogger(logger)
+
+	ch := w.Start()
+	defer w.Stop()
+
+	time.Sleep(300 * time.Millisecond)
+
+	// Create a log file with both valid and invalid lines
+	logFile := filepath.Join(tmpDir, "2026-01-31T120000.log")
+	content := `INFO 2026-01-31T12:00:00 +0ms service=valid1
+invalid line without proper format
+INFO 2026-01-31T12:00:01 +0ms service=valid2
+`
+	if err := os.WriteFile(logFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create log file: %v", err)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Drain valid entries
+	validCount := 0
+	timeout := time.After(3 * time.Second)
+	for validCount < 2 {
+		select {
+		case entry := <-ch:
+			if entry != nil {
+				validCount++
+			}
+		case <-timeout:
+			t.Fatalf("timeout: expected 2 valid entries, got %d", validCount)
+		}
+	}
+
+	// Check that parse error was logged
+	logOutput := logBuffer.String()
+	if logOutput == "" {
+		t.Fatal("expected parse error to be logged, but log buffer is empty")
+	}
+
+	if !bytes.Contains([]byte(logOutput), []byte("[DEBUG]")) {
+		t.Errorf("expected [DEBUG] in log output, got: %s", logOutput)
+	}
+
+	if !bytes.Contains([]byte(logOutput), []byte("Parse error")) {
+		t.Errorf("expected 'Parse error' in log output, got: %s", logOutput)
+	}
+
+	if !bytes.Contains([]byte(logOutput), []byte("invalid line without proper format")) {
+		t.Errorf("expected line content in log output, got: %s", logOutput)
+	}
+}
+
+func TestParseErrorsNotLoggedWhenNoLogger(t *testing.T) {
+	tmpDir := getTempDir(t)
+
+	w := NewWatcher(tmpDir)
+	// Don't set a logger - should not panic
+
+	ch := w.Start()
+	defer w.Stop()
+
+	time.Sleep(300 * time.Millisecond)
+
+	// Create a log file with an invalid line
+	logFile := filepath.Join(tmpDir, "2026-01-31T120000.log")
+	content := `invalid line without proper format
+INFO 2026-01-31T12:00:00 +0ms service=valid
+`
+	if err := os.WriteFile(logFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create log file: %v", err)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Should receive the valid entry without panic
+	select {
+	case entry := <-ch:
+		if entry == nil || entry.Service != "valid" {
+			t.Fatal("failed to read valid entry")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timeout waiting for valid entry")
 	}
 }
