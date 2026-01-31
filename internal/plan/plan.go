@@ -22,13 +22,6 @@ type PlanProgress struct {
 	Progress  float64
 }
 
-type Plan struct {
-}
-
-func NewPlan() *Plan {
-	return &Plan{}
-}
-
 func ReadBoulder(projectDir string) (*Boulder, error) {
 	boulderPath := filepath.Join(projectDir, ".sisyphus", "boulder.json")
 
