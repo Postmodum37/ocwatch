@@ -27,8 +27,8 @@ func renderSidebar(styles Styles, sessions []session.Session, selectedIdx int, h
 		}
 
 		line1Text := prefix + projectName
-		if len(line1Text) > 24 {
-			line1Text = line1Text[:23] + "…"
+		if len(line1Text) > 23 {
+			line1Text = line1Text[:22] + "…"
 		}
 
 		slug := sess.Slug
@@ -37,8 +37,8 @@ func renderSidebar(styles Styles, sessions []session.Session, selectedIdx int, h
 		}
 
 		line2Text := "   " + slug
-		if len(line2Text) > 24 {
-			line2Text = line2Text[:23] + "…"
+		if len(line2Text) > 23 {
+			line2Text = line2Text[:22] + "…"
 		}
 
 		line1 := styles.NormalText.Render(fmt.Sprintf("%-24s", line1Text))
