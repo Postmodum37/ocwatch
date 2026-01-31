@@ -18,15 +18,6 @@ type LogEntry struct {
 	Mode       string
 }
 
-// Parser handles parsing of OpenCode activity logs
-type Parser struct {
-}
-
-// NewParser creates a new Parser instance
-func NewParser() *Parser {
-	return &Parser{}
-}
-
 // ParseLine parses a single log line and extracts fields
 // Format: LEVEL TIMESTAMP +Xms key=value key=value ...
 func ParseLine(line string) (*LogEntry, error) {
