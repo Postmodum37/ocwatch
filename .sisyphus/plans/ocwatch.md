@@ -204,8 +204,8 @@ Parallel Speedup: ~50% faster than sequential
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] `go mod tidy` completes without errors
-  - [ ] `go build ./...` succeeds (empty packages)
+  - [x] `go mod tidy` completes without errors
+  - [x] `go build ./...` succeeds (empty packages)
 
   **Automated Verification:**
   ```bash
@@ -257,9 +257,9 @@ Parallel Speedup: ~50% faster than sequential
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `internal/parser/parser_test.go`
-  - [ ] Test cases: valid LLM entry, valid session entry, malformed line, empty line
-  - [ ] `go test ./internal/parser/...` → PASS (4+ tests)
+  - [x] Test file: `internal/parser/parser_test.go`
+  - [x] Test cases: valid LLM entry, valid session entry, malformed line, empty line
+  - [x] `go test ./internal/parser/...` → PASS (4+ tests)
 
   **Automated Verification:**
   ```bash
@@ -320,9 +320,9 @@ Parallel Speedup: ~50% faster than sequential
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `internal/session/session_test.go`
-  - [ ] Test with mock session files in temp directory
-  - [ ] `go test ./internal/session/...` → PASS
+  - [x] Test file: `internal/session/session_test.go`
+  - [x] Test with mock session files in temp directory
+  - [x] `go test ./internal/session/...` → PASS
 
   **Automated Verification:**
   ```bash
@@ -373,9 +373,9 @@ Parallel Speedup: ~50% faster than sequential
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `internal/state/state_test.go`
-  - [ ] Tests for: concurrent updates, ring buffer overflow, agent tree building
-  - [ ] `go test -race ./internal/state/...` → PASS
+  - [x] Test file: `internal/state/state_test.go`
+  - [x] Tests for: concurrent updates, ring buffer overflow, agent tree building
+  - [x] `go test -race ./internal/state/...` → PASS
 
   **Automated Verification:**
   ```bash
@@ -427,9 +427,9 @@ Parallel Speedup: ~50% faster than sequential
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `internal/plan/plan_test.go`
-  - [ ] Tests for: valid boulder, missing boulder, valid plan parsing, missing plan
-  - [ ] `go test ./internal/plan/...` → PASS
+  - [x] Test file: `internal/plan/plan_test.go`
+  - [x] Tests for: valid boulder, missing boulder, valid plan parsing, missing plan
+  - [x] `go test ./internal/plan/...` → PASS
 
   **Automated Verification:**
   ```bash
@@ -488,8 +488,8 @@ Parallel Speedup: ~50% faster than sequential
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `internal/ui/ui_test.go`
-  - [ ] Tests for: Model.Init, Model.Update (key events), View rendering
+  - [x] Test file: `internal/ui/ui_test.go`
+  - [x] Tests for: Model.Init, Model.Update (key events), View rendering
 
   **Automated Verification:**
   ```bash
@@ -549,8 +549,8 @@ Parallel Speedup: ~50% faster than sequential
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `internal/watcher/watcher_test.go`
-  - [ ] Tests for: find latest file, tail new lines, detect new file
+  - [x] Test file: `internal/watcher/watcher_test.go`
+  - [x] Tests for: find latest file, tail new lines, detect new file
 
   **Automated Verification:**
   ```bash
@@ -609,8 +609,8 @@ Parallel Speedup: ~50% faster than sequential
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `internal/sound/sound_test.go`
-  - [ ] Tests for: mute toggle, event dispatch (mock audio)
+  - [x] Test file: `internal/sound/sound_test.go`
+  - [x] Tests for: mute toggle, event dispatch (mock audio)
 
   **Automated Verification:**
   ```bash
@@ -663,7 +663,7 @@ Parallel Speedup: ~50% faster than sequential
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] `go build ./cmd/ocwatch` → succeeds
+  - [x] `go build ./cmd/ocwatch` → succeeds
   - [ ] `./ocwatch --help` → shows usage
 
   **Automated Verification:**
@@ -784,11 +784,11 @@ go test ./...
 ```
 
 ### Final Checklist
-- [ ] All "Must Have" features present and working
-- [ ] All "Must NOT Have" items absent
+- [x] All "Must Have" features present and working
+- [x] All "Must NOT Have" items absent
 - [ ] All tests pass with `go test ./...`
-- [ ] Binary builds cleanly with `go build ./cmd/ocwatch`
-- [ ] Dashboard shows real-time agent activity with mode
-- [ ] Sound notifications work and can be muted
-- [ ] Graceful handling of missing files/data
-- [ ] README documents installation and usage
+- [x] Binary builds cleanly with `go build ./cmd/ocwatch`
+- [x] Dashboard shows real-time agent activity with mode
+- [x] Sound notifications work and can be muted
+- [x] Graceful handling of missing files/data
+- [x] README documents installation and usage
