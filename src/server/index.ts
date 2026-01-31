@@ -7,7 +7,7 @@ import {
   listProjects,
   checkStorageExists,
 } from "./storage/sessionParser";
-import { listMessages } from "./storage/messageParser";
+import { listMessages, getFirstAssistantMessage } from "./storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "./storage/boulderParser";
 import type { SessionMetadata, MessageMeta, PlanProgress } from "../shared/types";
 import { errorHandler, notFoundHandler } from "./middleware/error";
@@ -318,40 +318,52 @@ app.get("/api/poll", async (c) => {
     (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
   );
 
-  const limitedSessions = sortedSessions.slice(0, 20);
+   const limitedSessions = sortedSessions.slice(0, 20);
 
-  // Find active session (most recent with activity < 5 minutes)
-  let activeSession: SessionMetadata | null = null;
-  for (const session of limitedSessions) {
-    const messages = await listMessages(session.id);
-    const lastMessage = messages.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    )[0];
+   // Enrich sessions with agent and modelID from first assistant message
+   const sessionsWithAgent = await Promise.all(
+     limitedSessions.map(async (session) => {
+       const firstAssistantMsg = await getFirstAssistantMessage(session.id);
+       return {
+         ...session,
+         agent: firstAssistantMsg?.agent || null,
+         modelID: firstAssistantMsg?.modelID || null,
+       };
+     })
+   );
 
-    if (lastMessage && now - lastMessage.createdAt.getTime() < 5 * 60 * 1000) {
-      activeSession = session;
-      break;
-    }
-  }
+   // Find active session (most recent with activity < 5 minutes)
+   let activeSession: SessionMetadata | null = null;
+   for (const session of limitedSessions) {
+     const messages = await listMessages(session.id);
+     const lastMessage = messages.sort(
+       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+     )[0];
 
-  // Get plan progress from current directory
-  let planProgress: PlanProgress | null = null;
-  try {
-    const cwd = process.cwd();
-    const boulder = await parseBoulder(cwd);
-    if (boulder?.activePlan) {
-      planProgress = await calculatePlanProgress(boulder.activePlan);
-    }
-  } catch (error) {
-    // Silently fail if no plan found
-  }
+     if (lastMessage && now - lastMessage.createdAt.getTime() < 5 * 60 * 1000) {
+       activeSession = session;
+       break;
+     }
+   }
 
-  const pollData: PollResponse = {
-    sessions: limitedSessions,
-    activeSession,
-    planProgress,
-    lastUpdate: now,
-  };
+   // Get plan progress from current directory
+   let planProgress: PlanProgress | null = null;
+   try {
+     const cwd = process.cwd();
+     const boulder = await parseBoulder(cwd);
+     if (boulder?.activePlan) {
+       planProgress = await calculatePlanProgress(boulder.activePlan);
+     }
+   } catch (error) {
+     // Silently fail if no plan found
+   }
+
+   const pollData: PollResponse = {
+     sessions: sessionsWithAgent,
+     activeSession,
+     planProgress,
+     lastUpdate: now,
+   };
 
   // Generate ETag
   const etag = generateETag(pollData);
