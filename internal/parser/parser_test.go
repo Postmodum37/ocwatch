@@ -152,3 +152,27 @@ func TestParseLine_DifferentLogLevels(t *testing.T) {
 		})
 	}
 }
+
+func TestParseLine_TimestampWithZ(t *testing.T) {
+	line := "INFO 2026-01-31T10:05:40Z +1ms service=test"
+
+	entry, err := ParseLine(line)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if entry == nil {
+		t.Fatal("expected non-nil entry")
+	}
+
+	// Verify timestamp parses correctly (should not have double Z)
+	expectedTime, _ := time.Parse(time.RFC3339, "2026-01-31T10:05:40Z")
+	if !entry.Timestamp.Equal(expectedTime) {
+		t.Errorf("timestamp mismatch: got %v, want %v", entry.Timestamp, expectedTime)
+	}
+
+	if entry.Service != "test" {
+		t.Errorf("service mismatch: got %q, want %q", entry.Service, "test")
+	}
+}

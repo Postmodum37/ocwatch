@@ -47,7 +47,10 @@ func ParseLine(line string) (*LogEntry, error) {
 
 	// Extract timestamp (RFC3339 format)
 	timestampStr := parts[1]
-	timestamp, err := time.Parse(time.RFC3339, timestampStr+"Z")
+	if !strings.HasSuffix(timestampStr, "Z") {
+		timestampStr += "Z"
+	}
+	timestamp, err := time.Parse(time.RFC3339, timestampStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timestamp: %s", timestampStr)
 	}
