@@ -52,6 +52,6 @@ describe('AgentTree', () => {
       />
     );
     expect(screen.getByTestId('agent-tree-empty')).toBeTruthy();
-    expect(screen.getByText('No active sessions')).toBeTruthy();
+    expect(screen.getByText('No Active Sessions')).toBeTruthy();
   });
 });

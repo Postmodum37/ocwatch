@@ -1,63 +1,84 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2025-01-31
-**Commit:** cb24f89
+**Generated:** 2026-02-01
+**Stack:** TypeScript + Bun + React
 **Branch:** main
 
 ## OVERVIEW
 
-Real-time TUI dashboard monitoring OpenCode agent activity. Tails logs from `~/.local/share/opencode/log/`, displays sessions, agents, tool calls, and plan progress. Built with Go + Bubble Tea.
+Real-time web dashboard monitoring OpenCode agent activity. Reads from `~/.local/share/opencode/storage/`, displays sessions, agents, tool calls, and plan progress. Built with TypeScript, Bun, Hono (backend), and React + Vite (frontend).
 
 ## STRUCTURE
 
 ```
 ocwatch/
-├── cmd/ocwatch/main.go     # Entry point: flags, watcher, UI init, signal handling
-├── internal/
-│   ├── parser/             # Log line parsing (LogEntry struct)
-│   ├── plan/               # .sisyphus/boulder.json progress tracking
-│   ├── session/            # Session + Project loading from OpenCode storage
-│   ├── state/              # Thread-safe app state (RingBuffer, AgentInfo, ToolCall)
-│   ├── ui/                 # Bubble Tea Model, panels, sidebar, styles
-│   └── watcher/            # fsnotify + tail for log file monitoring
-├── go.mod                  # github.com/tomas/ocwatch, Go 1.25.6
-└── ocwatch                 # Compiled binary (arm64)
+├── src/
+│   ├── server/              # Bun + Hono backend
+│   │   ├── index.ts         # Server entry point, routes, static serving
+│   │   ├── storage/         # OpenCode storage parsers (session, message, part, boulder)
+│   │   ├── watcher/         # fs.watch + dirty-flag cache
+│   │   ├── cache/           # In-memory cache with TTL
+│   │   └── __tests__/       # Server unit tests
+│   ├── client/              # React + Vite frontend
+│   │   ├── src/
+│   │   │   ├── components/  # UI components (SessionList, AgentTree, ToolCalls, PlanProgress)
+│   │   │   ├── hooks/       # React hooks (usePolling)
+│   │   │   ├── store/       # AppContext (React Context API)
+│   │   │   └── styles/      # Tailwind CSS
+│   │   └── __tests__/       # Component tests (Vitest)
+│   ├── shared/              # Shared types and utilities
+│   │   ├── types/           # TypeScript types (SessionMetadata, MessageMeta, etc.)
+│   │   └── utils/           # RingBuffer, utilities
+│   └── __tests__/           # Integration tests
+├── package.json             # Bun project config
+└── tsconfig.json            # TypeScript config
 ```
 
 ## WHERE TO LOOK
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Add new log field | `internal/parser/parser.go` | Update `LogEntry` struct + `ParseLine()` |
-| New UI panel | `internal/ui/panels.go` | Add `renderXxx()` function, call from `ui.go` View() |
-| Track new state | `internal/state/state.go` | Add field to `State`, create Get/Set methods with mutex |
-| Session filtering | `internal/session/session.go` | `FilterSessionsByToday()`, `FilterActiveSessions()` |
-| Plan progress | `internal/plan/plan.go` | `CalculateProgress()` counts markdown checkboxes |
-| Key bindings | `internal/ui/ui.go` | `Update()` method, `tea.KeyMsg` switch |
+| Add new API endpoint | `src/server/index.ts` | Add route handler, use storage parsers |
+| New UI component | `src/client/src/components/` | Create `.tsx` file, use Tailwind classes |
+| Track new state | `src/client/src/store/AppContext.tsx` | Add to context state, create setter |
+| Session filtering | `src/server/storage/sessionParser.ts` | `filterSessionsByTime()`, `filterActiveSessions()` |
+| Plan progress | `src/server/storage/boulderParser.ts` | `parseBoulder()` reads `.sisyphus/boulder.json` |
+| Add new type | `src/shared/types/index.ts` | Export from shared types |
+| Polling logic | `src/client/src/hooks/usePolling.ts` | ETag caching, 2s interval |
 
 ## CODE MAP
 
 | Symbol | Type | Location | Role |
 |--------|------|----------|------|
-| `main()` | func | cmd/ocwatch/main.go | Entry: flags → watcher → state → UI loop |
-| `Model` | struct | internal/ui/ui.go | Bubble Tea model (state, styles, panels, scroll) |
-| `State` | struct | internal/state/state.go | Thread-safe app state with RWMutex |
-| `LogEntry` | struct | internal/parser/parser.go | Parsed log: Timestamp, Service, Agent, Mode, etc |
-| `Watcher` | struct | internal/watcher/watcher.go | fsnotify + tail, emits LogEntry via channel |
-| `Session` | struct | internal/session/session.go | OpenCode session metadata |
-| `RingBuffer` | struct | internal/state/state.go | Fixed-size circular buffer (1000 entries max) |
+| `app` | Hono | src/server/index.ts | Main server app with routes |
+| `usePolling` | hook | src/client/src/hooks/usePolling.ts | Polls `/api/poll` every 2s with ETag |
+| `AppProvider` | component | src/client/src/store/AppContext.tsx | Global state provider (sessions, projects, plan) |
+| `SessionList` | component | src/client/src/components/SessionList.tsx | Sidebar with session list + project dropdown |
+| `AgentTree` | component | src/client/src/components/AgentTree.tsx | React Flow tree visualization |
+| `ToolCalls` | component | src/client/src/components/ToolCalls.tsx | Collapsible tool calls panel |
+| `PlanProgress` | component | src/client/src/components/PlanProgress.tsx | Plan progress display |
+| `parseSession` | function | src/server/storage/sessionParser.ts | Parse session JSON from storage |
+| `parseBoulder` | function | src/server/storage/boulderParser.ts | Parse boulder.json for plan progress |
+| `RingBuffer` | class | src/shared/utils/RingBuffer.ts | Fixed-size circular buffer (1000 max) |
+| `createWatcher` | function | src/server/watcher/index.ts | fs.watch with dirty-flag pattern |
 
 ## CONVENTIONS
 
-- **Thread safety**: All `State` methods use `sync.RWMutex`
-- **Channels**: Watcher → entryChan → main goroutine → State.UpdateFromLogEntry()
+- **TypeScript**: Strict mode, `verbatimModuleSyntax: true`
+- **Path aliases**: `@server/`, `@client/`, `@shared/` configured in tsconfig
+- **Testing**: 
+  - Server: `bun test` (Bun's built-in runner)
+  - Client: `bun run test` (Vitest with jsdom)
+  - Integration: `bun test src/__tests__/integration.test.ts`
+- **Styling**: Tailwind CSS with dark theme (GitHub/Linear inspired)
+- **State management**: React Context API (no Redux/Zustand)
+- **API**: RESTful with ETag caching, 2s polling interval
+- **File watching**: `fs.watch()` with 100ms debounce, dirty-flag cache
 - **XDG**: Respects `XDG_DATA_HOME`, defaults to `~/.local/share/opencode`
-- **Tests**: Table-driven with `t.Run()`, colocated `*_test.go` files
-- **No external linter**: Uses standard `gofmt`
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
-**CRITICAL GUARDRAILS** (from .sisyphus/plans/ocwatch.md):
+**CRITICAL GUARDRAILS**:
 
 | Forbidden | Reason |
 |-----------|--------|
@@ -66,35 +87,77 @@ ocwatch/
 | Historical analytics | Not a metrics tool |
 | Export (CSV/JSON) | Read-only monitor |
 | Remote monitoring | Local only |
-| Theming/customization | Single style |
-| Config persistence | Stateless |
+| Theming/customization | Single dark theme |
+| Config persistence | Stateless (URL params only) |
 | Modify OpenCode files | READ-ONLY |
 | Control agents | Monitor only |
-| Poll < 100ms | CPU safety |
-| > 1000 log entries | Memory cap (RingBuffer enforces) |
+| Poll < 2s | Server load |
+| > 1000 entries | Memory cap (RingBuffer enforces) |
 | Windows/Linux support | macOS only for v1 |
-| Terminal < 80x24 | Min size |
+| WebSocket | Use HTTP polling |
+| SSR | SPA only |
+| Bulk-read part/ files | Lazy load on demand (25k+ files) |
 
 ## COMMANDS
 
 ```bash
-# Build
-go build -o ocwatch ./cmd/ocwatch
+# Development (starts server + opens browser)
+bun run dev
 
-# Run
-./ocwatch [--project /path] [--data-dir /path]
+# Production build
+cd src/client && bun run build
+bun run start
 
-# Test
-go test ./...
+# Tests
+bun test                              # Server tests
+cd src/client && bun run test        # Client tests (Vitest)
+bun test src/__tests__/integration.test.ts  # Integration tests
 
-# Test verbose
-go test -v ./...
+# Type checking
+bun run tsc -b
+
+# Linting
+cd src/client && bun run lint
 ```
 
 ## NOTES
 
-- **Log format**: `LEVEL TIMESTAMP +Xms key=value key=value ...`
-- **Session storage**: `~/.local/share/opencode/storage/session/{projectID}/{sessionID}.json`
+- **Storage format**: OpenCode stores sessions in `~/.local/share/opencode/storage/session/{projectID}/{sessionID}.json`
+- **Message storage**: `storage/message/{sessionID}/{messageID}.json`
+- **Part files**: `storage/part/{sessionID}/{partID}.json` (lazy loaded)
 - **Plan tracking**: Reads `.sisyphus/boulder.json` from `--project` or cwd
-- **Ticker refresh**: UI ticks every 1 second, watcher polls every 100ms fallback
-- **Sidebar**: Press 1-9 to filter by session, 0 for all
+- **Polling**: Client polls `/api/poll` every 2 seconds, server uses ETag for 304 responses
+- **Active session**: Last message < 5 minutes ago
+- **Session hierarchy**: Built from `session.parentID` field
+- **Dark theme colors**:
+  - Background: `#0d1117`
+  - Surface: `#161b22`
+  - Accent: `#58a6ff`
+  - Text: `#c9d1d9`
+
+## API ENDPOINTS
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check (returns `{status: "ok"}`) |
+| `/api/sessions` | GET | List sessions (last 24h or 20 max) |
+| `/api/sessions/:id` | GET | Session details |
+| `/api/sessions/:id/messages` | GET | Session messages (last 100) |
+| `/api/sessions/:id/tree` | GET | Agent hierarchy tree (React Flow format) |
+| `/api/parts/:id` | GET | Single part file (lazy load) |
+| `/api/plan` | GET | Plan progress from boulder.json |
+| `/api/projects` | GET | List available projects |
+| `/api/poll` | GET | Polling endpoint (sessions + plan + active session) |
+| `/` | GET | Serve static frontend |
+
+## CLI FLAGS
+
+```bash
+bun run start [options]
+
+Options:
+  --port <number>      Override port (default: 50234)
+  --no-browser         Skip auto-open browser
+  --project <path>     Set default project filter
+  --help               Show help
+```

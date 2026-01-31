@@ -57,7 +57,11 @@ describe('SessionList', () => {
 
   it('shows relative time', () => {
     render(<SessionList sessions={mockSessions} selectedId={null} onSelect={() => {}} />);
-    expect(screen.getByText('just now')).toBeDefined();
+    // First session is recent (updatedAt: new Date())
+    expect(screen.getAllByText('just now').length).toBeGreaterThan(0);
+    // Second session is 3600000ms ago (exactly 1 hour)
+    // formatRelativeTime: if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    // 3600000ms = 3600s, Math.floor(3600 / 3600) = 1
     expect(screen.getByText('1h ago')).toBeDefined();
   });
 
