@@ -57,3 +57,14 @@
 ### Gotchas
 - **Parallel Work**: `App.tsx` was modified by another task during my work. I had to ensure my integration respected the existing content (`AgentTree`).
 - **TypeScript**: `tsc -b` is strict about `verbatimModuleSyntax` and references. Had to fix type imports in multiple files to get a clean build.
+
+## Task 13: Tool Calls Panel Implementation (2026-01-31)
+- **UI Component**: Created `ToolCalls.tsx` as a fixed bottom panel with expand/collapse functionality.
+- **Styling**: Used Tailwind utility classes for status colors (warning/success/error) and Lucide icons.
+- **Testing**:
+  - **Unit Tests**: Mocked Lucide icons to avoid rendering issues in JSDOM. Verified rendering in collapsed/expanded states and empty state.
+  - **Visual Verification**: Used Playwright to verify the panel appears and toggles correctly in the browser.
+- **Issues Resolved**:
+  - `ResizeObserver` error in tests: Solved by stubbing `ResizeObserver` in `AgentTree.test.tsx` (found during regression testing).
+  - TypeScript error `TS1484`: Fixed by using `type` import for `Node` and `Edge` from `reactflow` in `AgentTree.tsx`.
+  - Vite config type error: Updated `vite.config.ts` to use `vitest/config` instead of `vite` for `defineConfig` to support the `test` property.
