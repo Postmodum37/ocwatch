@@ -68,13 +68,13 @@ Replace Go TUI with TypeScript web dashboard for real-time OpenCode agent monito
 - Project switcher dropdown
 
 ### Definition of Done
-- [ ] `bun run dev` starts server and opens browser
-- [ ] Dashboard shows sessions from OpenCode storage
-- [ ] Agent tree displays session.parentID hierarchy
-- [ ] Tool calls show from lazy-loaded part files
-- [ ] Plan progress reads `.sisyphus/boulder.json`
-- [ ] All tests pass: `bun test`
-- [ ] Go code removed from repository
+- [x] `bun run dev` starts server and opens browser
+- [x] Dashboard shows sessions from OpenCode storage
+- [x] Agent tree displays session.parentID hierarchy
+- [x] Tool calls show from lazy-loaded part files
+- [x] Plan progress reads `.sisyphus/boulder.json`
+- [x] All tests pass: `bun test`
+- [x] Go code removed from repository
 
 ### Must Have
 - Real-time updates via 2-second polling
@@ -744,7 +744,7 @@ Wave 6 (After Wave 5):
 
 ---
 
-- [ ] 9. Implement Polling Mechanism
+- [x] 9. Implement Polling Mechanism
 
   **What to do**:
   - Create `GET /api/poll` endpoint:
@@ -810,7 +810,7 @@ Wave 6 (After Wave 5):
 
 ### Wave 4: Frontend UI Components
 
-- [ ] 10. Setup Tailwind + Dark Theme
+- [x] 10. Setup Tailwind + Dark Theme
 
   **What to do**:
   - Install Tailwind CSS for Vite
@@ -879,7 +879,7 @@ Wave 6 (After Wave 5):
 
 ---
 
-- [ ] 11. Build Session List Sidebar
+- [x] 11. Build Session List Sidebar
 
   **What to do**:
   - Create `src/client/src/components/SessionList.tsx`:
@@ -934,7 +934,7 @@ Wave 6 (After Wave 5):
 
 ---
 
-- [ ] 12. Build Agent Tree View (React Flow)
+- [x] 12. Build Agent Tree View (React Flow)
 
   **What to do**:
   - Install React Flow: `bun add reactflow`
@@ -999,7 +999,7 @@ Wave 6 (After Wave 5):
 
 ---
 
-- [ ] 13. Build Tool Calls Panel
+- [x] 13. Build Tool Calls Panel
 
   **What to do**:
   - Create `src/client/src/components/ToolCalls.tsx`:
@@ -1053,7 +1053,7 @@ Wave 6 (After Wave 5):
 
 ---
 
-- [ ] 14. Build Plan Progress Display
+- [x] 14. Build Plan Progress Display
 
   **What to do**:
   - Create `src/client/src/components/PlanProgress.tsx`:
@@ -1112,7 +1112,7 @@ Wave 6 (After Wave 5):
 
 ### Wave 5: Integration
 
-- [ ] 15. Connect Frontend to API
+- [x] 15. Connect Frontend to API
 
   **What to do**:
   - Create `src/client/src/hooks/`:
@@ -1173,7 +1173,7 @@ Wave 6 (After Wave 5):
 
 ---
 
-- [ ] 16. Implement Project Switcher Dropdown
+- [x] 16. Implement Project Switcher Dropdown
 
   **What to do**:
   - Add dropdown to sidebar header
@@ -1223,7 +1223,7 @@ Wave 6 (After Wave 5):
 
 ---
 
-- [ ] 17. Add Auto-Browser Open + CLI Flags
+- [x] 17. Add Auto-Browser Open + CLI Flags
 
   **What to do**:
   - Update server startup to open browser automatically
@@ -1290,7 +1290,7 @@ Wave 6 (After Wave 5):
 
 ### Wave 6: Polish & Cleanup
 
-- [ ] 18. Error Handling + Graceful Degradation
+- [x] 18. Error Handling + Graceful Degradation
 
   **What to do**:
   - Add error boundary to React app
@@ -1361,7 +1361,7 @@ Wave 6 (After Wave 5):
 
 ---
 
-- [ ] 19. Remove Go Code
+- [x] 19. Remove Go Code
 
   **What to do**:
   - Delete all Go files and directories:
@@ -1428,7 +1428,7 @@ Wave 6 (After Wave 5):
 
 ---
 
-- [ ] 20. Final Integration Tests + AGENTS.md Update
+- [x] 20. Final Integration Tests + AGENTS.md Update
 
   **What to do**:
   - Create integration test suite:
@@ -1557,15 +1557,15 @@ curl http://localhost:50234/api/health
 ```
 
 ### Final Checklist
-- [ ] All "Must Have" present (sessions, tree, tools, plan, dark mode)
-- [ ] All "Must NOT Have" absent (no WebSocket, no token estimation, no analytics)
-- [ ] All tests pass (`bun test` exits 0)
-- [ ] Go code completely removed
-- [ ] README reflects new TypeScript stack
-- [ ] AGENTS.md reflects new code structure
-- [ ] Dashboard loads in browser
-- [ ] Polling updates every ~2 seconds
-- [ ] Agent tree displays session hierarchy
-- [ ] Tool calls lazy-load on demand
-- [ ] Plan progress shows from boulder.json
-- [ ] Project switcher works
+- [x] All "Must Have" present (sessions, tree, tools, plan, dark mode)
+- [x] All "Must NOT Have" absent (no WebSocket, no token estimation, no analytics)
+- [x] All tests pass (`bun test` exits 0)
+- [x] Go code completely removed
+- [x] README reflects new TypeScript stack
+- [x] AGENTS.md reflects new code structure
+- [x] Dashboard loads in browser
+- [x] Polling updates every ~2 seconds
+- [x] Agent tree displays session hierarchy
+- [x] Tool calls lazy-load on demand
+- [x] Plan progress shows from boulder.json
+- [x] Project switcher works

@@ -1,6 +1,6 @@
 /**
  * Message Parser - Parse OpenCode message JSON files
- * Reads from ~/.local/share/opencode/storage/message/{messageID}.json
+ * Reads from ~/.local/share/opencode/storage/message/{sessionID}/{messageID}.json
  */
 
 import { readdir, readFile } from "node:fs/promises";
@@ -21,6 +21,10 @@ interface MessageJSON {
   };
   parentID?: string;
   modelID?: string;
+  model?: {
+    modelID?: string;
+    providerID?: string;
+  };
   providerID?: string;
   mode?: string;
   agent?: string;
@@ -63,7 +67,7 @@ export async function parseMessage(
       role: json.role,
       agent: json.agent,
       mode: json.mode,
-      modelID: json.modelID,
+      modelID: json.modelID || json.model?.modelID,
       providerID: json.providerID,
       parentID: json.parentID,
       tokens: totalTokens,
@@ -78,13 +82,15 @@ export async function parseMessage(
 }
 
 /**
- * Get a specific message by messageID
+ * Get a specific message by messageID and sessionID
  * @param messageID - Message ID
+ * @param sessionID - Session ID
  * @param storagePath - Optional custom storage path (defaults to XDG path)
  * @returns MessageMeta or null if not found
  */
 export async function getMessage(
   messageID: string,
+  sessionID: string,
   storagePath?: string
 ): Promise<MessageMeta | null> {
   const basePath = storagePath || getStoragePath();
@@ -93,6 +99,7 @@ export async function getMessage(
     "opencode",
     "storage",
     "message",
+    sessionID,
     `${messageID}.json`
   );
 
@@ -110,7 +117,7 @@ export async function listMessages(
   storagePath?: string
 ): Promise<MessageMeta[]> {
   const basePath = storagePath || getStoragePath();
-  const messageDir = join(basePath, "opencode", "storage", "message");
+  const messageDir = join(basePath, "opencode", "storage", "message", sessionID);
 
   try {
     const entries = await readdir(messageDir);
@@ -122,9 +129,9 @@ export async function listMessages(
       }
 
       const messageID = entry.slice(0, -5);
-      const message = await getMessage(messageID, storagePath);
+      const message = await getMessage(messageID, sessionID, storagePath);
 
-      if (message && message.sessionID === sessionID) {
+      if (message) {
         messages.push(message);
       }
     }
@@ -133,4 +140,28 @@ export async function listMessages(
   } catch (error) {
     return [];
   }
+}
+
+/**
+ * Get the first assistant message in a session
+ * @param sessionID - Session ID to search
+ * @param storagePath - Optional custom storage path (defaults to XDG path)
+ * @returns First assistant message or null if none found
+ */
+export async function getFirstAssistantMessage(
+  sessionID: string,
+  storagePath?: string
+): Promise<MessageMeta | null> {
+  const messages = await listMessages(sessionID, storagePath);
+  const sorted = messages.sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
+
+  for (const message of sorted) {
+    if (message.role === "assistant") {
+      return message;
+    }
+  }
+
+  return null;
 }

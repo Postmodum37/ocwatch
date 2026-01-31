@@ -21,7 +21,7 @@ const PART_ID = "prt_test789";
 beforeAll(async () => {
   await rm(TEST_DIR, { recursive: true, force: true });
   await mkdir(join(STORAGE_DIR, "session", PROJECT_ID), { recursive: true });
-  await mkdir(join(STORAGE_DIR, "message"), { recursive: true });
+  await mkdir(join(STORAGE_DIR, "message", SESSION_ID), { recursive: true });
   await mkdir(join(STORAGE_DIR, "part"), { recursive: true });
   await mkdir(join(TEST_DIR, ".sisyphus"), { recursive: true });
 });
@@ -128,7 +128,7 @@ describe("sessionParser", () => {
 
 describe("messageParser", () => {
   test("parseMessage - valid message JSON", async () => {
-    const messagePath = join(STORAGE_DIR, "message", `${MESSAGE_ID}.json`);
+    const messagePath = join(STORAGE_DIR, "message", SESSION_ID, `${MESSAGE_ID}.json`);
     const messageData = {
       id: MESSAGE_ID,
       sessionID: SESSION_ID,
@@ -166,7 +166,7 @@ describe("messageParser", () => {
   });
 
   test("parseMessage - missing tokens field", async () => {
-    const messagePath = join(STORAGE_DIR, "message", "msg_notoken.json");
+    const messagePath = join(STORAGE_DIR, "message", SESSION_ID, "msg_notoken.json");
     const messageData = {
       id: "msg_notoken",
       sessionID: SESSION_ID,
@@ -183,14 +183,14 @@ describe("messageParser", () => {
   });
 
   test("getMessage - retrieves message by ID", async () => {
-    const result = await getMessage(MESSAGE_ID, TEST_DIR);
+    const result = await getMessage(MESSAGE_ID, SESSION_ID, TEST_DIR);
 
     expect(result).not.toBeNull();
     expect(result?.id).toBe(MESSAGE_ID);
   });
 
   test("listMessages - filters by sessionID", async () => {
-    const message2Path = join(STORAGE_DIR, "message", "msg_test999.json");
+    const message2Path = join(STORAGE_DIR, "message", SESSION_ID, "msg_test999.json");
     await writeFile(
       message2Path,
       JSON.stringify({
