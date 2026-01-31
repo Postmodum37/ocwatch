@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SessionMetadata, PlanProgress } from '@shared/types';
 
-/**
- * Response from /api/poll endpoint
- */
 export interface PollResponse {
   sessions: SessionMetadata[];
   activeSession: SessionMetadata | null;
@@ -11,42 +8,28 @@ export interface PollResponse {
   lastUpdate: number;
 }
 
-/**
- * Hook state
- */
 interface UsePollingState {
   data: PollResponse | null;
   loading: boolean;
   error: Error | null;
   lastUpdate: number;
+  isReconnecting: boolean;
+  failedAttempts: number;
 }
 
-/**
- * Polling configuration
- */
 interface UsePollingOptions {
-  interval?: number; // milliseconds, default 2000
-  enabled?: boolean; // default true
-  apiUrl?: string; // default '/api/poll'
+  interval?: number;
+  enabled?: boolean;
+  apiUrl?: string;
+  maxRetries?: number;
 }
 
-/**
- * Custom hook for polling /api/poll endpoint with ETag support
- * 
- * Features:
- * - Polls every 2 seconds (configurable)
- * - ETag caching (sends If-None-Match header)
- * - Handles 304 Not Modified responses
- * - Automatic cleanup on unmount
- * 
- * @param options - Polling configuration
- * @returns { data, loading, error, lastUpdate }
- */
 export function usePolling(options: UsePollingOptions = {}): UsePollingState {
   const {
     interval = 2000,
     enabled = true,
     apiUrl = '/api/poll',
+    maxRetries = 5,
   } = options;
 
   const [state, setState] = useState<UsePollingState>({
@@ -54,17 +37,15 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
     loading: true,
     error: null,
     lastUpdate: 0,
+    isReconnecting: false,
+    failedAttempts: 0,
   });
 
-  // Store ETag in ref to persist across renders
   const etagRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const retryTimeoutRef = useRef<number | null>(null);
 
-  /**
-   * Fetch data from API with ETag support
-   */
   const fetchData = useCallback(async () => {
-    // Cancel previous request if still pending
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -75,7 +56,6 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
     try {
       const headers: HeadersInit = {};
       
-      // Send If-None-Match header if we have an ETag
       if (etagRef.current) {
         headers['If-None-Match'] = etagRef.current;
       }
@@ -85,12 +65,13 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         signal: abortController.signal,
       });
 
-      // Handle 304 Not Modified - data hasn't changed
       if (response.status === 304) {
         setState(prev => ({
           ...prev,
           loading: false,
           lastUpdate: Date.now(),
+          isReconnecting: false,
+          failedAttempts: 0,
         }));
         return;
       }
@@ -99,7 +80,6 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // Store new ETag for next request
       const newETag = response.headers.get('ETag');
       if (newETag) {
         etagRef.current = newETag;
@@ -112,24 +92,36 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         loading: false,
         error: null,
         lastUpdate: Date.now(),
+        isReconnecting: false,
+        failedAttempts: 0,
       });
     } catch (err) {
-      // Ignore abort errors (expected when component unmounts)
       if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
 
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: err instanceof Error ? err : new Error('Unknown error'),
-      }));
-    }
-  }, [apiUrl]);
+      setState(prev => {
+        const newFailedAttempts = prev.failedAttempts + 1;
+        const shouldRetry = newFailedAttempts < maxRetries;
 
-  /**
-   * Set up polling interval
-   */
+        return {
+          ...prev,
+          loading: false,
+          error: err instanceof Error ? err : new Error('Unknown error'),
+          isReconnecting: shouldRetry,
+          failedAttempts: newFailedAttempts,
+        };
+      });
+
+      if (state.failedAttempts + 1 < maxRetries) {
+        const backoffDelay = Math.min(1000 * Math.pow(2, state.failedAttempts), 10000);
+        retryTimeoutRef.current = setTimeout(() => {
+          fetchData();
+        }, backoffDelay);
+      }
+    }
+  }, [apiUrl, maxRetries, state.failedAttempts]);
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -143,6 +135,9 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
       clearInterval(intervalId);
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+      }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
       }
     };
   }, [enabled, interval, fetchData]);

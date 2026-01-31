@@ -24,9 +24,6 @@ interface SessionJSON {
   };
 }
 
-/**
- * Get the OpenCode storage path, respecting XDG_DATA_HOME
- */
 export function getStoragePath(): string {
   const xdgDataHome = process.env.XDG_DATA_HOME;
   if (xdgDataHome) {
@@ -35,6 +32,17 @@ export function getStoragePath(): string {
 
   const home = homedir();
   return join(home, ".local", "share");
+}
+
+export async function checkStorageExists(): Promise<boolean> {
+  try {
+    const basePath = getStoragePath();
+    const storagePath = join(basePath, "opencode", "storage");
+    await readdir(storagePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -54,12 +62,14 @@ export async function parseSession(
       projectID: json.projectID,
       directory: json.directory,
       title: json.title,
-      parentID: undefined, // OpenCode sessions don't have parentID in storage
+      parentID: undefined,
       createdAt: new Date(json.time.created),
       updatedAt: new Date(json.time.updated),
     };
   } catch (error) {
-    // Graceful handling: return null for missing/invalid files
+    if (error instanceof SyntaxError) {
+      console.warn(`Corrupted JSON file: ${filePath}`);
+    }
     return null;
   }
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Activity, Clock, Folder, ChevronDown } from 'lucide-react';
+import { Activity, Clock, Folder, ChevronDown, Inbox } from 'lucide-react';
 import type { SessionMetadata, ProjectInfo } from '@shared/types';
+import { EmptyState } from './EmptyState';
 
 interface SessionListProps {
   sessions: SessionMetadata[];
@@ -98,9 +99,11 @@ export const SessionList: React.FC<SessionListProps> = ({
       </div>
       <div className="flex-1 overflow-y-auto">
         {filteredSessions.length === 0 ? (
-          <div className="p-4 text-center text-text-secondary text-sm">
-            No sessions in this project
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No Sessions"
+            description={selectedProjectId ? "No sessions found in this project" : "No active sessions in the last 24 hours"}
+          />
         ) : (
           filteredSessions.map((session) => {
             const isSelected = session.id === selectedId;

@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { LayoutDashboard, AlertCircle } from 'lucide-react'
+import { LayoutDashboard, AlertCircle, WifiOff } from 'lucide-react'
 import { ToolCalls } from './components/ToolCalls'
 import { SessionList } from './components/SessionList'
 import AgentTree from './components/AgentTree'
 import { PlanProgress } from './components/PlanProgress'
 import { AppProvider, useAppContext } from './store/AppContext'
+import { LoadingSkeleton, SessionListSkeleton } from './components/LoadingSkeleton'
 
 function AppContent() {
   const { 
@@ -16,23 +17,30 @@ function AppContent() {
     selectedProjectId,
     setSelectedProjectId,
     loading,
-    error 
+    error,
+    isReconnecting
   } = useAppContext();
 
   const [isToolCallsExpanded, setIsToolCallsExpanded] = useState(true)
 
-  if (error) {
+  if (error && !isReconnecting) {
     return (
       <div className="flex h-screen bg-background text-text-primary items-center justify-center">
         <div className="flex flex-col items-center gap-4 max-w-md text-center">
           <AlertCircle className="w-12 h-12 text-error" />
-          <h2 className="text-xl font-semibold">Connection Error</h2>
+          <h2 className="text-xl font-semibold">Connection Lost</h2>
           <p className="text-text-secondary">
             Failed to connect to OCWatch backend. Make sure the server is running on port 50234.
           </p>
           <p className="text-sm text-text-secondary font-mono bg-surface px-3 py-2 rounded border border-border">
             {error.message}
           </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+          >
+            Retry Connection
+          </button>
         </div>
       </div>
     );
@@ -40,14 +48,18 @@ function AppContent() {
 
   return (
     <div className="flex h-screen bg-background text-text-primary overflow-hidden">
-      <SessionList 
-        sessions={sessions}
-        selectedId={selectedSessionId}
-        onSelect={setSelectedSessionId}
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        onProjectSelect={setSelectedProjectId}
-      />
+      {loading && sessions.length === 0 ? (
+        <SessionListSkeleton />
+      ) : (
+        <SessionList 
+          sessions={sessions}
+          selectedId={selectedSessionId}
+          onSelect={setSelectedSessionId}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onProjectSelect={setSelectedProjectId}
+        />
+      )}
       
       <div className="flex-1 flex flex-col min-w-0 relative h-full">
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -60,6 +72,12 @@ function AppContent() {
                 <h1 className="text-2xl font-semibold tracking-tight">OCWatch</h1>
                 <p className="text-text-secondary text-sm">OpenCode Activity Monitor</p>
               </div>
+              {isReconnecting && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-warning/10 border border-warning/20 rounded-lg">
+                  <WifiOff className="w-4 h-4 text-warning animate-pulse" />
+                  <span className="text-sm text-warning">Reconnecting...</span>
+                </div>
+              )}
             </div>
             {planProgress && (
               <div className="w-80">
@@ -69,19 +87,17 @@ function AppContent() {
           </header>
 
           <main className="flex-1 p-6 min-h-0 overflow-hidden flex flex-col gap-6">
-            {loading && sessions.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-text-secondary">
-                Loading sessions...
-              </div>
-            ) : (
-              <div className="flex-1 rounded-xl border border-border bg-surface shadow-sm overflow-hidden relative">
+            <div className="flex-1 rounded-xl border border-border bg-surface shadow-sm overflow-hidden relative">
+              {loading && sessions.length === 0 ? (
+                <LoadingSkeleton />
+              ) : (
                 <AgentTree
                   sessions={sessions}
                   selectedId={selectedSessionId}
                   onSelect={setSelectedSessionId}
                 />
-              </div>
-            )}
+              )}
+            </div>
           </main>
         </div>
 

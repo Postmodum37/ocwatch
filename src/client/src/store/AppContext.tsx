@@ -13,6 +13,7 @@ interface AppContextValue {
   loading: boolean;
   error: Error | null;
   lastUpdate: number;
+  isReconnecting: boolean;
   setSelectedSessionId: (id: string | null) => void;
   setSelectedProjectId: (id: string | null) => void;
 }
@@ -26,7 +27,7 @@ interface AppProviderProps {
 }
 
 export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderProps) {
-  const { data, loading, error, lastUpdate } = usePolling({
+  const { data, loading, error, lastUpdate, isReconnecting } = usePolling({
     apiUrl,
     interval: pollingInterval,
   });
@@ -79,6 +80,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     loading,
     error,
     lastUpdate,
+    isReconnecting,
     setSelectedSessionId,
     setSelectedProjectId,
   };

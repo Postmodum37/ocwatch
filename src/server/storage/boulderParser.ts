@@ -42,6 +42,9 @@ export async function parseBoulder(projectDir: string): Promise<Boulder | null> 
       planName: json.planName,
     };
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      console.warn(`Corrupted boulder.json: ${projectDir}/.sisyphus/boulder.json`);
+    }
     return null;
   }
 }

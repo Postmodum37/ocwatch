@@ -70,6 +70,9 @@ export async function parseMessage(
       createdAt: new Date(json.time.created),
     };
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      console.warn(`Corrupted JSON file: ${filePath}`);
+    }
     return null;
   }
 }

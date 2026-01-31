@@ -11,6 +11,8 @@ import type { Node, Edge } from 'reactflow';
 import dagre from 'dagre';
 import 'reactflow/dist/style.css';
 import type { SessionMetadata } from '../../../shared/types';
+import { Network } from 'lucide-react';
+import { EmptyState } from './EmptyState';
 
 interface AgentTreeProps {
   sessions: SessionMetadata[];
@@ -112,8 +114,12 @@ const AgentTree: React.FC<AgentTreeProps> = ({ sessions, selectedId, onSelect })
 
   if (sessions.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-500" data-testid="agent-tree-empty">
-        No active sessions
+      <div data-testid="agent-tree-empty">
+        <EmptyState
+          icon={Network}
+          title="No Active Sessions"
+          description="Start a new OpenCode session to see the agent hierarchy here"
+        />
       </div>
     );
   }

@@ -5,10 +5,12 @@ import { createHash } from "node:crypto";
 import {
   listAllSessions,
   listProjects,
+  checkStorageExists,
 } from "./storage/sessionParser";
 import { listMessages } from "./storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "./storage/boulderParser";
 import type { SessionMetadata, MessageMeta, PlanProgress } from "../shared/types";
+import { errorHandler, notFoundHandler } from "./middleware/error";
 
 interface TreeNode {
   id: string;
@@ -114,7 +116,8 @@ async function buildSessionTree(
 
 const app = new Hono();
 
-// CORS middleware - localhost only (restrictive)
+app.use("*", errorHandler);
+
 app.use(
   "/api/*",
   cors({
@@ -128,8 +131,16 @@ app.get("/api/health", (c) => {
   return c.json({ status: "ok" });
 });
 
-// Session endpoints
 app.get("/api/sessions", async (c) => {
+  const storageExists = await checkStorageExists();
+  if (!storageExists) {
+    return c.json({ 
+      error: "OpenCode storage not found",
+      message: "OpenCode storage directory does not exist. Please ensure OpenCode is installed.",
+      sessions: []
+    }, 200);
+  }
+
   const allSessions = await listAllSessions();
 
   const now = Date.now();
@@ -283,6 +294,17 @@ function generateETag(data: PollResponse): string {
 }
 
 app.get("/api/poll", async (c) => {
+  const storageExists = await checkStorageExists();
+  if (!storageExists) {
+    const pollData: PollResponse = {
+      sessions: [],
+      activeSession: null,
+      planProgress: null,
+      lastUpdate: Date.now(),
+    };
+    return c.json(pollData);
+  }
+
   const allSessions = await listAllSessions();
 
   const now = Date.now();
@@ -347,10 +369,10 @@ app.get("/api/poll", async (c) => {
   return c.json(pollData);
 });
 
-// Static file serving for client build
 app.use("/*", serveStatic({ root: "./src/client/dist" }));
 
-// Export app for testing
+app.notFound(notFoundHandler);
+
 export { app };
 
 // CLI flag parsing
