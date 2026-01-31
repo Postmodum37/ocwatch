@@ -132,9 +132,14 @@ export const SessionList: React.FC<SessionListProps> = ({
                   </h3>
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-success' : 'bg-text-secondary'}`} />
-                    <span className="text-xs text-text-secondary truncate">
+                    <span className="text-xs text-text-secondary truncate shrink-0">
                       {formatRelativeTime(session.updatedAt)}
                     </span>
+                    {session.agent && (
+                      <span className="px-1.5 py-0.5 rounded bg-surface border border-border text-xs text-text-secondary truncate max-w-[120px]" title={session.agent}>
+                        {session.agent}
+                      </span>
+                    )}
                   </div>
                 </div>
               </button>

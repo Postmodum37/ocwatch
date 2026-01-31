@@ -12,6 +12,8 @@ export interface SessionMetadata {
   directory: string;
   title: string;
   parentID?: string;
+  agent?: string | null;
+  modelID?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
