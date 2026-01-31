@@ -75,7 +75,7 @@ export interface PlanProgress {
   completed: number;
   total: number;
   progress: number; // 0-100
-  tasks: string[];
+  tasks: Array<{ description: string; completed: boolean }>;
 }
 
 /**

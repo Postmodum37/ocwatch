@@ -3,7 +3,21 @@ import { LayoutDashboard } from 'lucide-react'
 import { ToolCalls } from './components/ToolCalls'
 import { SessionList } from './components/SessionList'
 import AgentTree from './components/AgentTree'
-import type { ToolCall, SessionMetadata } from '@shared/types'
+import { PlanProgress } from './components/PlanProgress'
+import type { ToolCall, SessionMetadata, PlanProgress as PlanProgressType } from '@shared/types'
+
+const mockPlan: PlanProgressType = {
+  completed: 3,
+  total: 5,
+  progress: 60,
+  tasks: [
+    { description: 'Setup project', completed: true },
+    { description: 'Build components', completed: true },
+    { description: 'Write tests', completed: true },
+    { description: 'Connect API', completed: false },
+    { description: 'Polish UI', completed: false },
+  ]
+};
 
 const mockSessions: SessionMetadata[] = [
   {
@@ -83,13 +97,18 @@ function App() {
       
       <div className="flex-1 flex flex-col min-w-0 relative h-full">
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="flex items-center gap-3 border-b border-border p-6 flex-shrink-0">
-            <div className="p-2 bg-surface rounded-lg border border-border">
-              <LayoutDashboard className="w-6 h-6 text-accent" />
+          <header className="flex items-center justify-between gap-6 border-b border-border p-6 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-surface rounded-lg border border-border">
+                <LayoutDashboard className="w-6 h-6 text-accent" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">OCWatch</h1>
+                <p className="text-text-secondary text-sm">OpenCode Activity Monitor</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">OCWatch</h1>
-              <p className="text-text-secondary text-sm">OpenCode Activity Monitor</p>
+            <div className="w-80">
+              <PlanProgress plan={mockPlan} />
             </div>
           </header>
 

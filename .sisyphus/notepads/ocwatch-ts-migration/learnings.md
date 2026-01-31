@@ -68,3 +68,10 @@
   - `ResizeObserver` error in tests: Solved by stubbing `ResizeObserver` in `AgentTree.test.tsx` (found during regression testing).
   - TypeScript error `TS1484`: Fixed by using `type` import for `Node` and `Edge` from `reactflow` in `AgentTree.tsx`.
   - Vite config type error: Updated `vite.config.ts` to use `vitest/config` instead of `vite` for `defineConfig` to support the `test` property.
+
+## PlanProgress Component Implementation
+- **Requirement**: Display plan progress with checkboxes.
+- **Issue**: `PlanProgress` type in `src/shared/types` defined `tasks` as `string[]`, but requirements needed status tracking.
+- **Resolution**: Updated shared `PlanProgress` type to `tasks: Array<{ description: string; completed: boolean }>`.
+- **Testing**: `bun test` runs native Bun runner, which lacked DOM environment setup. Used `bun run test` to invoke `vitest` which is configured correctly.
+- **UI**: Implemented with `bg-surface` card and `bg-background` track for contrast, overriding ambiguous "Progress bar container: bg-surface" instruction slightly to ensure visibility while keeping the card aesthetic.
