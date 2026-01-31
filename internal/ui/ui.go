@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tomas/ocwatch/internal/plan"
+	"github.com/tomas/ocwatch/internal/session"
 	"github.com/tomas/ocwatch/internal/state"
 )
 
@@ -24,7 +25,9 @@ type Model struct {
 	boulder      *plan.Boulder
 	planProgress *plan.PlanProgress
 
-	muted    bool
+	allSessions        []session.Session
+	selectedSessionIdx int // 0: All, 1-9: Specific session
+
 	quitting bool
 }
 
@@ -34,6 +37,32 @@ func NewModel(s *state.State) Model {
 		styles:      DefaultStyles(),
 		activePanel: 0,
 	}
+}
+
+func (m *Model) SetAllSessions(sessions []session.Session) {
+	m.allSessions = sessions
+}
+
+func calculateMaxScroll(s *state.State, viewportHeight int) int {
+	entries := s.GetRecentLogs()
+	contentLength := len(entries)
+	const statusBarHeight = 1
+	const headerHeight = 2
+	const statsHeight = 3
+	const planHeight = 4
+	const panelHeight = 5
+
+	fixedHeight := statusBarHeight + headerHeight + statsHeight + planHeight
+	availableHeight := viewportHeight - fixedHeight
+	if availableHeight < 10 {
+		availableHeight = 10
+	}
+
+	maxScroll := contentLength - (availableHeight / 3)
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	return maxScroll
 }
 
 func (m Model) Init() tea.Cmd {
@@ -49,17 +78,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
-		case "m":
-			m.muted = !m.muted
 		case "up":
 			if m.scrollOffset > 0 {
 				m.scrollOffset--
 			}
 		case "down":
-			m.scrollOffset++
+			maxScroll := calculateMaxScroll(m.state, m.height)
+			if m.scrollOffset < maxScroll {
+				m.scrollOffset++
+			}
 		case "tab":
 			m.activePanel = (m.activePanel + 1) % 3
-			m.scrollOffset = 0 // Reset scroll when switching
+			m.scrollOffset = 0
+		case "0":
+			m.selectedSessionIdx = 0
+			m.state.SetSelectedSession("")
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			keyNum := int(msg.String()[0] - '0')
+			if keyNum > 0 && keyNum <= len(m.allSessions) {
+				m.selectedSessionIdx = keyNum
+				m.state.SetSelectedSession(m.allSessions[keyNum-1].ID)
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -91,33 +130,48 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
-	// Calculate fixed heights
-	// Header: 3 (border + content)
-	// Stats: 3 (border + content)
-	// Plan: 3 (border + content)
-	// Status: 3 (border + content)
-	// Total fixed: 12 lines
+	// Layout constants
+	const sidebarWidth = 28
+	showSidebar := m.width >= 60
 
-	// We can combine Stats and Plan into one row if width allows, or stack them.
-	// Let's assume we stack them for now to ensure we meet the "Create ... panels" requirement clearly.
-	// But to save space, maybe we reduce borders?
-
-	// Calculate fixed heights for non-scrollable areas
-	header := renderHeader(m.styles, m.width, true)
-	stats := renderStats(m.styles, m.state, m.width)
-	planView := renderPlanProgress(m.styles, m.planProgress, m.boulder, m.width)
+	// Status bar is always full width at the bottom
 	statusBar := renderStatusBar(m.styles, m.width)
+	statusBarHeight := lipgloss.Height(statusBar)
 
-	// Available height for the three main scrollable panels
-	fixedHeight := lipgloss.Height(header) + lipgloss.Height(stats) + lipgloss.Height(planView) + lipgloss.Height(statusBar)
-	availableHeight := m.height - fixedHeight
+	// Calculate content area (above status bar)
+	contentHeight := m.height - statusBarHeight
+	if contentHeight < 0 {
+		contentHeight = 0
+	}
 
-	if availableHeight < 10 {
-		availableHeight = 10 // Ensure a minimum usable area
+	// Determine widths
+	mainPanelWidth := m.width
+	if showSidebar {
+		mainPanelWidth = m.width - sidebarWidth
+	}
+
+	// Render sidebar if shown
+	var sidebar string
+	if showSidebar {
+		// Pass selectedSessionIdx - 1 because 0 means "none" (so -1 won't match any index)
+		sidebar = renderSidebar(m.styles, m.allSessions, m.selectedSessionIdx-1, contentHeight)
+	}
+
+	// Render main panel components
+	header := renderHeader(m.styles, mainPanelWidth, true)
+	stats := renderStats(m.styles, m.state, mainPanelWidth)
+	planView := renderPlanProgress(m.styles, m.planProgress, m.boulder, mainPanelWidth)
+
+	// Calculate available height for scrollable panels
+	fixedHeight := lipgloss.Height(header) + lipgloss.Height(stats) + lipgloss.Height(planView)
+	availableScrollHeight := contentHeight - fixedHeight
+
+	if availableScrollHeight < 10 {
+		availableScrollHeight = 10 // Ensure a minimum usable area
 	}
 
 	// Dynamic split of available height among panels
-	panelHeight := availableHeight / 3
+	panelHeight := availableScrollHeight / 3
 	if panelHeight < 3 {
 		panelHeight = 3
 	}
@@ -128,22 +182,23 @@ func (m Model) View() string {
 	if sessionsActive {
 		sessionsScroll = m.scrollOffset
 	}
-	sessionsView := renderSessions(m.styles, m.state, m.width, panelHeight, sessionsScroll, sessionsActive)
+	sessionsView := renderSessions(m.styles, m.state, mainPanelWidth, panelHeight, sessionsScroll, sessionsActive)
+
+	// Determine selected session ID
+	var selectedSessionID string
+	if m.selectedSessionIdx > 0 && m.selectedSessionIdx <= len(m.allSessions) {
+		selectedSessionID = m.allSessions[m.selectedSessionIdx-1].ID
+	}
 
 	// Render Agent Tree panel
-	sessMap := m.state.GetAllSessions()
-	var sessionID string
-	for id := range sessMap {
-		sessionID = id
-		break
-	}
 	agentsActive := m.activePanel == 1
-	agentView := renderAgentTree(m.styles, m.state, sessionID, m.width, panelHeight, agentsActive)
+	agentView := renderAgentTree(m.styles, m.state, selectedSessionID, mainPanelWidth, panelHeight, agentsActive)
 
 	// Render Tool Activity panel
-	toolView := renderToolActivity(m.styles, m.state, m.width, panelHeight)
+	toolView := renderToolActivity(m.styles, m.state, selectedSessionID, mainPanelWidth, panelHeight)
 
-	return lipgloss.JoinVertical(
+	// Assemble Right Stack
+	rightStack := lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
 		sessionsView,
@@ -151,6 +206,20 @@ func (m Model) View() string {
 		toolView,
 		stats,
 		planView,
+	)
+
+	// Assemble Content Body
+	var contentBody string
+	if showSidebar {
+		contentBody = lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightStack)
+	} else {
+		contentBody = rightStack
+	}
+
+	// Final Assembly
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		contentBody,
 		statusBar,
 	)
 }
