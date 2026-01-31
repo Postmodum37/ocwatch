@@ -131,3 +131,49 @@ export async function listSessions(
     return [];
   }
 }
+
+/**
+ * List all project IDs from the session storage
+ * @param storagePath - Optional custom storage path (defaults to XDG path)
+ * @returns Array of project IDs (empty array if directory doesn't exist)
+ */
+export async function listProjects(
+  storagePath?: string
+): Promise<string[]> {
+  const basePath = storagePath || getStoragePath();
+  const sessionBaseDir = join(basePath, "opencode", "storage", "session");
+
+  try {
+    const entries = await readdir(sessionBaseDir, { withFileTypes: true });
+    const projectIDs: string[] = [];
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        projectIDs.push(entry.name);
+      }
+    }
+
+    return projectIDs;
+  } catch (error) {
+    return [];
+  }
+}
+
+/**
+ * List all sessions across all projects
+ * @param storagePath - Optional custom storage path (defaults to XDG path)
+ * @returns Array of SessionMetadata (empty array if directory doesn't exist)
+ */
+export async function listAllSessions(
+  storagePath?: string
+): Promise<SessionMetadata[]> {
+  const projectIDs = await listProjects(storagePath);
+  const allSessions: SessionMetadata[] = [];
+
+  for (const projectID of projectIDs) {
+    const sessions = await listSessions(projectID, storagePath);
+    allSessions.push(...sessions);
+  }
+
+  return allSessions;
+}
