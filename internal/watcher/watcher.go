@@ -134,11 +134,11 @@ func (w *Watcher) findMostRecentLogFile() string {
 
 func (w *Watcher) switchToFile(filePath string) {
 	w.mu.Lock()
-	oldTailer := w.tailer
-	w.mu.Unlock()
+	defer w.mu.Unlock()
 
-	if oldTailer != nil {
-		oldTailer.Stop()
+	if w.tailer != nil {
+		w.tailer.Stop()
+		w.tailer = nil
 	}
 
 	config := tail.Config{
@@ -151,9 +151,7 @@ func (w *Watcher) switchToFile(filePath string) {
 		return
 	}
 
-	w.mu.Lock()
 	w.tailer = tailer
-	w.mu.Unlock()
 
 	w.wg.Add(1)
 	go w.tailLines(tailer)

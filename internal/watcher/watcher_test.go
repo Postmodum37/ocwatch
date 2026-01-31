@@ -351,3 +351,41 @@ func TestDoubleStopNoPanic(t *testing.T) {
 	// Third Stop() should also not panic
 	w.Stop()
 }
+
+func TestRapidFileSwitch(t *testing.T) {
+	tmpDir := getTempDir(t)
+	w := NewWatcher(tmpDir)
+
+	ch := w.Start()
+	defer w.Stop()
+
+	time.Sleep(300 * time.Millisecond)
+
+	// Rapidly create new log files to trigger file switching
+	// This should expose race conditions in switchToFile()
+	for i := 0; i < 20; i++ {
+		logFile := filepath.Join(tmpDir, fmt.Sprintf("2026-01-31T12%02d00.log", i))
+		content := fmt.Sprintf("INFO 2026-01-31T12:%02d:00 +0ms service=test%d\n", i, i)
+		if err := os.WriteFile(logFile, []byte(content), 0644); err != nil {
+			t.Fatalf("failed to create log file %d: %v", i, err)
+		}
+		// Minimal delay to maximize race window
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Drain channel to verify we can read entries without deadlock
+	timeout := time.After(5 * time.Second)
+	entriesRead := 0
+	for entriesRead < 20 {
+		select {
+		case entry := <-ch:
+			if entry != nil {
+				entriesRead++
+			}
+		case <-timeout:
+			// Not a failure - we're testing for race conditions, not completeness
+			// The race detector will catch issues even if we don't read all entries
+			return
+		}
+	}
+}
