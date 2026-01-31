@@ -7,16 +7,13 @@ import (
 )
 
 func TestReadBoulder_ValidFile(t *testing.T) {
-	// Create temp directory
 	tmpDir := t.TempDir()
 
-	// Create .sisyphus directory
 	sisyphusDir := filepath.Join(tmpDir, ".sisyphus")
 	if err := os.MkdirAll(sisyphusDir, 0755); err != nil {
 		t.Fatalf("Failed to create .sisyphus dir: %v", err)
 	}
 
-	// Create boulder.json
 	boulderPath := filepath.Join(sisyphusDir, "boulder.json")
 	boulderContent := `{
   "active_plan": ".sisyphus/plans/test.md",
@@ -28,14 +25,14 @@ func TestReadBoulder_ValidFile(t *testing.T) {
 		t.Fatalf("Failed to write boulder.json: %v", err)
 	}
 
-	// Test ReadBoulder
 	boulder, err := ReadBoulder(tmpDir)
 	if err != nil {
 		t.Fatalf("ReadBoulder failed: %v", err)
 	}
 
-	if boulder.ActivePlan != ".sisyphus/plans/test.md" {
-		t.Errorf("Expected ActivePlan '.sisyphus/plans/test.md', got '%s'", boulder.ActivePlan)
+	expectedActivePlan := filepath.Join(tmpDir, ".sisyphus/plans/test.md")
+	if boulder.ActivePlan != expectedActivePlan {
+		t.Errorf("Expected ActivePlan '%s', got '%s'", expectedActivePlan, boulder.ActivePlan)
 	}
 
 	if boulder.Status != "in_progress" {
@@ -258,6 +255,64 @@ func TestReadBoulder_WithAbsolutePath(t *testing.T) {
 	plan, err := ReadPlan(boulder.ActivePlan)
 	if err != nil {
 		t.Fatalf("ReadPlan with absolute path failed: %v", err)
+	}
+
+	if plan.Completed != 1 {
+		t.Errorf("Expected 1 completed, got %d", plan.Completed)
+	}
+
+	if plan.Total != 2 {
+		t.Errorf("Expected 2 total, got %d", plan.Total)
+	}
+}
+
+func TestBoulderRelativePathResolution(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .sisyphus directory
+	sisyphusDir := filepath.Join(tmpDir, ".sisyphus")
+	if err := os.MkdirAll(sisyphusDir, 0755); err != nil {
+		t.Fatalf("Failed to create .sisyphus dir: %v", err)
+	}
+
+	// Create plans directory
+	plansDir := filepath.Join(sisyphusDir, "plans")
+	if err := os.MkdirAll(plansDir, 0755); err != nil {
+		t.Fatalf("Failed to create plans dir: %v", err)
+	}
+
+	// Create plan file
+	planPath := filepath.Join(plansDir, "test.md")
+	planContent := `# Test
+- [x] Done
+- [ ] Todo
+`
+	if err := os.WriteFile(planPath, []byte(planContent), 0644); err != nil {
+		t.Fatalf("Failed to write plan file: %v", err)
+	}
+
+	// Create boulder.json with relative path
+	boulderPath := filepath.Join(sisyphusDir, "boulder.json")
+	boulderContent := `{
+  "active_plan": ".sisyphus/plans/test.md",
+  "session_ids": ["ses_123"],
+  "status": "in_progress"
+}`
+	if err := os.WriteFile(boulderPath, []byte(boulderContent), 0644); err != nil {
+		t.Fatalf("Failed to write boulder.json: %v", err)
+	}
+
+	// Test ReadBoulder - should resolve relative path
+	boulder, err := ReadBoulder(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadBoulder failed: %v", err)
+	}
+
+	// After ReadBoulder, ActivePlan should be resolved to absolute path
+	// (or at least resolvable from current working directory)
+	plan, err := ReadPlan(boulder.ActivePlan)
+	if err != nil {
+		t.Fatalf("ReadPlan with resolved path failed: %v", err)
 	}
 
 	if plan.Completed != 1 {

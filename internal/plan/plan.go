@@ -42,6 +42,10 @@ func ReadBoulder(projectDir string) (*Boulder, error) {
 		return nil, fmt.Errorf("failed to parse boulder.json: %w", err)
 	}
 
+	if !filepath.IsAbs(boulder.ActivePlan) {
+		boulder.ActivePlan = filepath.Join(projectDir, boulder.ActivePlan)
+	}
+
 	return &boulder, nil
 }
 
