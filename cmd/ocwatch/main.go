@@ -12,7 +12,6 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tomas/ocwatch/internal/plan"
 	"github.com/tomas/ocwatch/internal/session"
 	"github.com/tomas/ocwatch/internal/state"
 	"github.com/tomas/ocwatch/internal/ui"
@@ -21,7 +20,6 @@ import (
 
 func main() {
 	dataDir := flag.String("data-dir", "", "Path to OpenCode data directory (default: ~/.local/share/opencode)")
-	projectDir := flag.String("project", "", "Project directory for plan tracking (optional)")
 	flag.Parse()
 
 	if *dataDir == "" {
@@ -53,13 +51,6 @@ func main() {
 		for _, sess := range todaySessions {
 			s := sess
 			appState.AddSession(&s)
-		}
-	}
-
-	if *projectDir != "" {
-		boulder, err := plan.ReadBoulder(*projectDir)
-		if err == nil && boulder != nil {
-			_ = boulder
 		}
 	}
 
