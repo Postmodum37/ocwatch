@@ -9,11 +9,14 @@ import (
 	"time"
 )
 
+// Session represents an OpenCode session with metadata.
+// ProjectWorktree is only populated when loading sessions via ListAllSessions.
+// It will be empty when loading a single session via GetSessionWithPath.
 type Session struct {
 	ID              string
 	Slug            string
 	ProjectID       string
-	ProjectWorktree string
+	ProjectWorktree string // Populated only by ListAllSessions, empty in GetSessionWithPath
 	Directory       string
 	Title           string
 	Created         time.Time
