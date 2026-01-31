@@ -1,96 +1,44 @@
 import { useState } from 'react'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, AlertCircle } from 'lucide-react'
 import { ToolCalls } from './components/ToolCalls'
 import { SessionList } from './components/SessionList'
 import AgentTree from './components/AgentTree'
 import { PlanProgress } from './components/PlanProgress'
-import type { ToolCall, SessionMetadata, PlanProgress as PlanProgressType } from '@shared/types'
+import { AppProvider, useAppContext } from './store/AppContext'
 
-const mockPlan: PlanProgressType = {
-  completed: 3,
-  total: 5,
-  progress: 60,
-  tasks: [
-    { description: 'Setup project', completed: true },
-    { description: 'Build components', completed: true },
-    { description: 'Write tests', completed: true },
-    { description: 'Connect API', completed: false },
-    { description: 'Polish UI', completed: false },
-  ]
-};
+function AppContent() {
+  const { 
+    sessions, 
+    planProgress, 
+    selectedSessionId, 
+    setSelectedSessionId,
+    loading,
+    error 
+  } = useAppContext();
 
-const mockSessions: SessionMetadata[] = [
-  {
-    id: '1',
-    projectID: 'ocwatch',
-    directory: '/Users/tomas/Workspace/ocwatch',
-    title: 'Root: Implement Features',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: '2',
-    projectID: 'ocwatch',
-    directory: '/Users/tomas/Workspace/ocwatch',
-    title: 'Feat: Session Sidebar',
-    parentID: '1',
-    createdAt: new Date(Date.now() - 3600000),
-    updatedAt: new Date(Date.now() - 1800000),
-  },
-  {
-    id: '3',
-    projectID: 'other-project',
-    directory: '/Users/tomas/Workspace/other',
-    title: 'Feat: Agent Tree',
-    parentID: '1',
-    createdAt: new Date(Date.now() - 86400000),
-    updatedAt: new Date(Date.now() - 86400000),
-  },
-  {
-    id: '4',
-    projectID: 'other-project',
-    directory: '/Users/tomas/Workspace/other',
-    title: 'Fix: Styles',
-    parentID: '3',
-    createdAt: new Date(Date.now() - 90000000),
-    updatedAt: new Date(Date.now() - 90000000),
-  }
-];
-
-function App() {
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>('1');
   const [isToolCallsExpanded, setIsToolCallsExpanded] = useState(true)
-  const [toolCalls] = useState<ToolCall[]>([
-    {
-      id: '1',
-      name: 'readFile',
-      state: 'complete',
-      timestamp: new Date(Date.now() - 1000 * 60 * 2),
-      sessionID: 'sess-1',
-      messageID: 'msg-1'
-    },
-    {
-      id: '2',
-      name: 'grep',
-      state: 'pending',
-      timestamp: new Date(Date.now() - 1000 * 30),
-      sessionID: 'sess-1',
-      messageID: 'msg-2'
-    },
-    {
-      id: '3',
-      name: 'exec',
-      state: 'error',
-      timestamp: new Date(Date.now() - 1000 * 5),
-      sessionID: 'sess-1',
-      messageID: 'msg-3'
-    }
-  ])
+
+  if (error) {
+    return (
+      <div className="flex h-screen bg-background text-text-primary items-center justify-center">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center">
+          <AlertCircle className="w-12 h-12 text-error" />
+          <h2 className="text-xl font-semibold">Connection Error</h2>
+          <p className="text-text-secondary">
+            Failed to connect to OCWatch backend. Make sure the server is running on port 50234.
+          </p>
+          <p className="text-sm text-text-secondary font-mono bg-surface px-3 py-2 rounded border border-border">
+            {error.message}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background text-text-primary overflow-hidden">
       <SessionList 
-        sessions={mockSessions}
+        sessions={sessions}
         selectedId={selectedSessionId}
         onSelect={setSelectedSessionId}
       />
@@ -107,30 +55,46 @@ function App() {
                 <p className="text-text-secondary text-sm">OpenCode Activity Monitor</p>
               </div>
             </div>
-            <div className="w-80">
-              <PlanProgress plan={mockPlan} />
-            </div>
+            {planProgress && (
+              <div className="w-80">
+                <PlanProgress plan={planProgress} />
+              </div>
+            )}
           </header>
 
           <main className="flex-1 p-6 min-h-0 overflow-hidden flex flex-col gap-6">
-            <div className="flex-1 rounded-xl border border-border bg-surface shadow-sm overflow-hidden relative">
-              <AgentTree
-                sessions={mockSessions}
-                selectedId={selectedSessionId}
-                onSelect={setSelectedSessionId}
-              />
-            </div>
+            {loading && sessions.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-text-secondary">
+                Loading sessions...
+              </div>
+            ) : (
+              <div className="flex-1 rounded-xl border border-border bg-surface shadow-sm overflow-hidden relative">
+                <AgentTree
+                  sessions={sessions}
+                  selectedId={selectedSessionId}
+                  onSelect={setSelectedSessionId}
+                />
+              </div>
+            )}
           </main>
         </div>
 
         <ToolCalls 
-            toolCalls={toolCalls}
+            toolCalls={[]}
             isExpanded={isToolCallsExpanded}
             onToggle={() => setIsToolCallsExpanded(!isToolCallsExpanded)}
         />
       </div>
     </div>
   )
+}
+
+function App() {
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
+  );
 }
 
 export default App

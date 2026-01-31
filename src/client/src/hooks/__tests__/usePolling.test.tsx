@@ -1,0 +1,255 @@
+import { renderHook, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { usePolling } from '../usePolling';
+import type { PollResponse } from '../usePolling';
+
+const mockPollResponse: PollResponse = {
+  sessions: [
+    {
+      id: 'test-session-1',
+      projectID: 'test-project',
+      directory: '/test/path',
+      title: 'Test Session',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  ],
+  activeSession: null,
+  planProgress: null,
+  lastUpdate: Date.now(),
+};
+
+describe('usePolling', () => {
+  beforeEach(() => {
+    global.fetch = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('fetches data immediately on mount', async () => {
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'ETag': '"test-etag"' }),
+      json: async () => mockPollResponse,
+    });
+
+    const { result } = renderHook(() => usePolling({ interval: 2000 }));
+
+    expect(result.current.loading).toBe(true);
+
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 1000 }
+    );
+
+    expect(result.current.data).toEqual(mockPollResponse);
+    expect(result.current.error).toBeNull();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('polls at specified interval', async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'ETag': '"test-etag"' }),
+      json: async () => mockPollResponse,
+    });
+
+    renderHook(() => usePolling({ interval: 100 }));
+
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 1000 }
+    );
+
+    await new Promise(resolve => setTimeout(resolve, 250));
+
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('sends If-None-Match header with ETag on subsequent requests', async () => {
+    const testETag = '"test-etag-123"';
+
+    (global.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'ETag': testETag }),
+        json: async () => mockPollResponse,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'ETag': testETag }),
+        json: async () => mockPollResponse,
+      });
+
+    renderHook(() => usePolling({ interval: 100 }));
+
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 1000 }
+    );
+
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 1000 }
+    );
+
+    const secondCall = (global.fetch as any).mock.calls[1];
+    expect(secondCall[1].headers['If-None-Match']).toBe(testETag);
+  });
+
+  it('handles 304 Not Modified response', async () => {
+    const testETag = '"test-etag-304"';
+
+    (global.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'ETag': testETag }),
+        json: async () => mockPollResponse,
+      })
+      .mockResolvedValue({
+        status: 304,
+        headers: new Headers({ 'ETag': testETag }),
+      });
+
+    const { result, unmount } = renderHook(() => usePolling({ interval: 100 }));
+
+    await waitFor(
+      () => {
+        expect(result.current.data).toEqual(mockPollResponse);
+      },
+      { timeout: 1000 }
+    );
+
+    const firstData = result.current.data;
+
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    expect(result.current.data).toBe(firstData);
+    expect(result.current.error).toBeNull();
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/poll',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'If-None-Match': testETag,
+        }),
+      })
+    );
+
+    unmount();
+  });
+
+  it('handles fetch errors', async () => {
+    (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+
+    const { result } = renderHook(() => usePolling({ interval: 2000 }));
+
+    await waitFor(
+      () => {
+        expect(result.current.error).not.toBeNull();
+      },
+      { timeout: 1000 }
+    );
+
+    expect(result.current.error?.message).toBe('Network error');
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('handles HTTP error responses', async () => {
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+    });
+
+    const { result } = renderHook(() => usePolling({ interval: 2000 }));
+
+    await waitFor(
+      () => {
+        expect(result.current.error).not.toBeNull();
+      },
+      { timeout: 1000 }
+    );
+
+    expect(result.current.error?.message).toContain('500');
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('cleans up interval on unmount', async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'ETag': '"test-etag"' }),
+      json: async () => mockPollResponse,
+    });
+
+    const { unmount } = renderHook(() => usePolling({ interval: 100 }));
+
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 1000 }
+    );
+
+    unmount();
+
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('respects enabled option', async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'ETag': '"test-etag"' }),
+      json: async () => mockPollResponse,
+    });
+
+    renderHook(() => usePolling({ interval: 100, enabled: false }));
+
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('uses custom API URL', async () => {
+    const customUrl = '/custom/api/endpoint';
+
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'ETag': '"test-etag"' }),
+      json: async () => mockPollResponse,
+    });
+
+    renderHook(() => usePolling({ apiUrl: customUrl }));
+
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          customUrl,
+          expect.any(Object)
+        );
+      },
+      { timeout: 1000 }
+    );
+  });
+});
