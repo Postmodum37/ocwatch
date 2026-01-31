@@ -6,12 +6,12 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tomas/ocwatch/internal/plan"
 	"github.com/tomas/ocwatch/internal/session"
-	"github.com/tomas/ocwatch/internal/sound"
 	"github.com/tomas/ocwatch/internal/state"
 	"github.com/tomas/ocwatch/internal/ui"
 	"github.com/tomas/ocwatch/internal/watcher"
@@ -38,16 +38,19 @@ func main() {
 	}
 	w := watcher.NewWatcher(logDir)
 
-	soundMgr := sound.NewSoundManager()
 	uiModel := ui.NewModel(appState)
 
-	if *projectDir != "" {
-		sessions, err := session.ListSessions(*projectDir)
-		if err == nil {
-			for _, sess := range sessions {
-				s := sess
-				appState.AddSession(&s)
-			}
+	// Load all sessions from all projects (filtered to today)
+	allSessions, err := session.ListAllSessions(*dataDir)
+	if err == nil {
+		todaySessions := session.FilterSessionsByToday(allSessions)
+		appState.SetAllSessions(todaySessions)
+		uiModel.SetAllSessions(todaySessions)
+
+		// Also add to legacy session tracking for backward compatibility
+		for _, sess := range todaySessions {
+			s := sess
+			appState.AddSession(&s)
 		}
 	}
 
@@ -66,6 +69,14 @@ func main() {
 	entryChan := w.Start()
 	quitChan := make(chan struct{})
 
+	var shutdownOnce sync.Once
+	shutdown := func() {
+		shutdownOnce.Do(func() {
+			close(quitChan)
+			w.Stop()
+		})
+	}
+
 	// Main processing loop: consumes log entries and updates app state
 	go func() {
 		for {
@@ -73,8 +84,6 @@ func main() {
 			case entry := <-entryChan:
 				if entry != nil {
 					appState.UpdateFromLogEntry(entry)
-					// Play notification sound when a new agent starts
-					soundMgr.Play(sound.AgentStarted)
 				}
 			case <-quitChan:
 				return
@@ -85,8 +94,7 @@ func main() {
 	// Shutdown coordinator: waits for signal and stops the watcher
 	go func() {
 		<-sigChan
-		close(quitChan)
-		w.Stop()
+		shutdown()
 		os.Exit(0)
 	}()
 
@@ -96,8 +104,7 @@ func main() {
 		log.Fatalf("Error running program: %v", err)
 	}
 
-	close(quitChan)
-	w.Stop()
+	shutdown()
 }
 
 func getDataDir() string {
