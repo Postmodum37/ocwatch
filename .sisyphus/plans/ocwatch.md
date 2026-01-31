@@ -68,13 +68,13 @@ Create a terminal-based dashboard that provides real-time visibility into OpenCo
 - `internal/sound/sound.go` - Sound notification system
 
 ### Definition of Done
-- [ ] `go build ./cmd/ocwatch` succeeds
-- [ ] `go test ./...` passes all tests
-- [ ] Running `./ocwatch` shows real-time agent activity within 2 seconds of log entry
-- [ ] Agent mode is visible (e.g., "prometheus mode=all")
-- [ ] Nested tree view shows session → agents hierarchy
-- [ ] Plan progress shows current boulder status
-- [ ] Sounds play on key events (can be muted with 'm')
+- [x] `go build ./cmd/ocwatch` succeeds
+- [x] `go test ./...` passes all tests
+- [x] Running `./ocwatch` shows real-time agent activity within 2 seconds of log entry
+- [x] Agent mode is visible (e.g., "prometheus mode=all")
+- [x] Nested tree view shows session → agents hierarchy
+- [x] Plan progress shows current boulder status
+- [x] Sounds play on key events (can be muted with 'm')
 
 ### Must Have
 - Real-time log tailing with agent + mode extraction
@@ -175,7 +175,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 0: Project Setup
 
-- [ ] 0. Initialize Go module and dependencies
+- [x] 0. Initialize Go module and dependencies
 
   **What to do**:
   - Create go.mod with module name `github.com/tomas/ocwatch`
@@ -222,7 +222,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 1: Log Parser Module
 
-- [ ] 1. Create log line parser with TDD
+- [x] 1. Create log line parser with TDD
 
   **What to do**:
   - Write tests first for parsing log lines
@@ -278,7 +278,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 2: Session Storage Reader
 
-- [ ] 2. Create session storage reader with TDD
+- [x] 2. Create session storage reader with TDD
 
   **What to do**:
   - Write tests first for reading session JSON files
@@ -340,7 +340,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 3: Application State Management
 
-- [ ] 3. Create centralized state management
+- [x] 3. Create centralized state management
 
   **What to do**:
   - Create State struct holding all application data
@@ -394,7 +394,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 4: Plan Progress Reader
 
-- [ ] 4. Create .sisyphus/boulder.json reader
+- [x] 4. Create .sisyphus/boulder.json reader
 
   **What to do**:
   - Write tests first
@@ -447,7 +447,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 5: TUI Components with Bubbletea
 
-- [ ] 5. Create dashboard TUI with bubbletea
+- [x] 5. Create dashboard TUI with bubbletea
 
   **What to do**:
   - Create main Model implementing tea.Model interface
@@ -513,7 +513,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 6: Log File Watcher
 
-- [ ] 6. Create log file watcher with tail and rotation detection
+- [x] 6. Create log file watcher with tail and rotation detection
 
   **What to do**:
   - Watch `~/.local/share/opencode/log/` directory for new files
@@ -571,7 +571,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 7: Sound Notifications
 
-- [ ] 7. Create sound notification system
+- [x] 7. Create sound notification system
 
   **What to do**:
   - Implement sound playback for macOS (using afplay or CoreAudio)
@@ -630,7 +630,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 8: Main Entry Point and Integration
 
-- [ ] 8. Create main entry point integrating all components
+- [x] 8. Create main entry point integrating all components
 
   **What to do**:
   - Parse command-line flags: `--data-dir`, `--project`
@@ -696,7 +696,7 @@ Parallel Speedup: ~50% faster than sequential
 
 ### Task 9: Documentation and README
 
-- [ ] 9. Create README and documentation
+- [x] 9. Create README and documentation
 
   **What to do**:
   - Write README.md with:
