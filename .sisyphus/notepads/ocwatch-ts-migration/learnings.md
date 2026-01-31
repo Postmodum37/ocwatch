@@ -30,3 +30,12 @@
 ### Next Steps (Task 11)
 - Create specialized UI components (Card, Badge, Button) using these base styles.
 - Implement sidebar and main content area structure.
+
+## React Flow + Dagre Integration (Task 12)
+- **Coordinate Systems**: Dagre nodes are center-anchored (x/y is center), while React Flow nodes are top-left anchored. When mapping Dagre layout to React Flow nodes, subtract half width/height from x/y:
+  ```typescript
+  x: nodeWithPosition.x - nodeWidth / 2,
+  y: nodeWithPosition.y - nodeHeight / 2,
+  ```
+- **Type Safety**: `reactflow` exports types like `Node` and `Edge`. With `verbatimModuleSyntax: true`, these MUST be imported as `import type { Node, Edge } ...`.
+- **Vitest**: To use globals (`describe`, `it`) in a Vite project, add `/// <reference types="vitest" />` to `vite.config.ts`.
