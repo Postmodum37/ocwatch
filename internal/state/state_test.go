@@ -317,3 +317,188 @@ func TestThreadSafetyWithRaceDetector(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestToolCallHasSessionID(t *testing.T) {
+	tc := &ToolCall{
+		Name:      "test_tool",
+		Timestamp: time.Now(),
+		SessionID: "session-123",
+	}
+
+	if tc.SessionID != "session-123" {
+		t.Errorf("expected SessionID 'session-123', got '%s'", tc.SessionID)
+	}
+}
+
+func TestGetAgentTreeFiltered(t *testing.T) {
+	s := NewState()
+
+	// Add agents for different sessions
+	entry1 := &parser.LogEntry{
+		Timestamp: time.Now(),
+		SessionID: "session-1",
+		Agent:     "agent-1",
+		Mode:      "mode-1",
+	}
+	entry2 := &parser.LogEntry{
+		Timestamp: time.Now(),
+		SessionID: "session-2",
+		Agent:     "agent-2",
+		Mode:      "mode-2",
+	}
+	entry3 := &parser.LogEntry{
+		Timestamp: time.Now(),
+		SessionID: "session-1",
+		Agent:     "agent-3",
+		Mode:      "mode-3",
+	}
+
+	s.UpdateFromLogEntry(entry1)
+	s.UpdateFromLogEntry(entry2)
+	s.UpdateFromLogEntry(entry3)
+
+	// Test filtering by session-1
+	agents := s.GetFilteredAgentTree("session-1")
+	if len(agents) != 2 {
+		t.Errorf("expected 2 agents for session-1, got %d", len(agents))
+	}
+
+	// Verify correct agents are returned
+	foundAgent1 := false
+	foundAgent3 := false
+	for _, agent := range agents {
+		if agent.Name == "agent-1" {
+			foundAgent1 = true
+		}
+		if agent.Name == "agent-3" {
+			foundAgent3 = true
+		}
+	}
+	if !foundAgent1 || !foundAgent3 {
+		t.Error("expected to find agent-1 and agent-3 for session-1")
+	}
+
+	// Test filtering by session-2
+	agents = s.GetFilteredAgentTree("session-2")
+	if len(agents) != 1 {
+		t.Errorf("expected 1 agent for session-2, got %d", len(agents))
+	}
+	if agents[0].Name != "agent-2" {
+		t.Errorf("expected agent-2 for session-2, got %s", agents[0].Name)
+	}
+
+	// Test empty sessionID returns all agents
+	agents = s.GetFilteredAgentTree("")
+	if len(agents) != 3 {
+		t.Errorf("expected 3 agents for empty sessionID, got %d", len(agents))
+	}
+}
+
+func TestGetRecentToolCallsFiltered(t *testing.T) {
+	s := NewState()
+
+	// Add tool calls for different sessions
+	tc1 := &ToolCall{
+		Name:      "tool-1",
+		Timestamp: time.Now(),
+		SessionID: "session-1",
+	}
+	tc2 := &ToolCall{
+		Name:      "tool-2",
+		Timestamp: time.Now(),
+		SessionID: "session-2",
+	}
+	tc3 := &ToolCall{
+		Name:      "tool-3",
+		Timestamp: time.Now(),
+		SessionID: "session-1",
+	}
+
+	s.AddToolCall(tc1)
+	s.AddToolCall(tc2)
+	s.AddToolCall(tc3)
+
+	// Test filtering by session-1
+	calls := s.GetFilteredToolCalls("session-1")
+	if len(calls) != 2 {
+		t.Errorf("expected 2 tool calls for session-1, got %d", len(calls))
+	}
+
+	// Verify correct tool calls are returned
+	foundTool1 := false
+	foundTool3 := false
+	for _, call := range calls {
+		if call.Name == "tool-1" {
+			foundTool1 = true
+		}
+		if call.Name == "tool-3" {
+			foundTool3 = true
+		}
+	}
+	if !foundTool1 || !foundTool3 {
+		t.Error("expected to find tool-1 and tool-3 for session-1")
+	}
+
+	// Test filtering by session-2
+	calls = s.GetFilteredToolCalls("session-2")
+	if len(calls) != 1 {
+		t.Errorf("expected 1 tool call for session-2, got %d", len(calls))
+	}
+	if calls[0].Name != "tool-2" {
+		t.Errorf("expected tool-2 for session-2, got %s", calls[0].Name)
+	}
+
+	// Test empty sessionID returns all tool calls
+	calls = s.GetFilteredToolCalls("")
+	if len(calls) != 3 {
+		t.Errorf("expected 3 tool calls for empty sessionID, got %d", len(calls))
+	}
+}
+
+func TestTypeAssertionSafe(t *testing.T) {
+	s := NewState()
+
+	// Manually inject wrong type into ring buffer to test safe assertion
+	// This simulates a defensive scenario where wrong type ends up in buffer
+	s.recentLogs.Add("wrong-type-string")
+	s.recentLogs.Add(&parser.LogEntry{
+		Timestamp: time.Now(),
+		Service:   "test",
+		ModelID:   "gpt-4",
+	})
+
+	// GetRecentLogs should skip the wrong type and not panic
+	logs := s.GetRecentLogs()
+	if len(logs) != 1 {
+		t.Errorf("expected 1 valid log entry (wrong type skipped), got %d", len(logs))
+	}
+	if logs[0].ModelID != "gpt-4" {
+		t.Errorf("expected gpt-4, got %s", logs[0].ModelID)
+	}
+
+	// Test GetRecentToolCalls with wrong type
+	s.recentToolCalls.Add(123) // wrong type: int
+	s.recentToolCalls.Add(&ToolCall{
+		Name:      "test-tool",
+		Timestamp: time.Now(),
+		SessionID: "session-1",
+	})
+
+	// GetRecentToolCalls should skip the wrong type and not panic
+	calls := s.GetRecentToolCalls()
+	if len(calls) != 1 {
+		t.Errorf("expected 1 valid tool call (wrong type skipped), got %d", len(calls))
+	}
+	if calls[0].Name != "test-tool" {
+		t.Errorf("expected test-tool, got %s", calls[0].Name)
+	}
+
+	// Test GetFilteredToolCalls with wrong type
+	filtered := s.GetFilteredToolCalls("session-1")
+	if len(filtered) != 1 {
+		t.Errorf("expected 1 valid filtered tool call, got %d", len(filtered))
+	}
+	if filtered[0].Name != "test-tool" {
+		t.Errorf("expected test-tool, got %s", filtered[0].Name)
+	}
+}

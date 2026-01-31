@@ -19,6 +19,7 @@ type AgentInfo struct {
 type ToolCall struct {
 	Name      string
 	Timestamp time.Time
+	SessionID string
 }
 
 // RingBuffer is a fixed-size circular buffer
@@ -74,12 +75,14 @@ func (rb *RingBuffer) GetAll() []interface{} {
 
 // State manages all application state with thread-safe access
 type State struct {
-	mu              sync.RWMutex
-	sessions        map[string]*session.Session
-	agentTrees      map[string][]AgentInfo
-	callCounts      map[string]int
-	recentLogs      *RingBuffer
-	recentToolCalls *RingBuffer
+	mu                sync.RWMutex
+	sessions          map[string]*session.Session
+	agentTrees        map[string][]AgentInfo
+	callCounts        map[string]int
+	recentLogs        *RingBuffer
+	recentToolCalls   *RingBuffer
+	allSessions       []session.Session
+	selectedSessionID string
 }
 
 // NewState creates a new State instance with initialized fields
@@ -169,7 +172,9 @@ func (s *State) GetRecentLogs() []*parser.LogEntry {
 	result := make([]*parser.LogEntry, 0, len(items))
 	for _, item := range items {
 		if item != nil {
-			result = append(result, item.(*parser.LogEntry))
+			if entry, ok := item.(*parser.LogEntry); ok {
+				result = append(result, entry)
+			}
 		}
 	}
 	return result
@@ -184,7 +189,9 @@ func (s *State) GetRecentToolCalls() []*ToolCall {
 	result := make([]*ToolCall, 0, len(items))
 	for _, item := range items {
 		if item != nil {
-			result = append(result, item.(*ToolCall))
+			if tc, ok := item.(*ToolCall); ok {
+				result = append(result, tc)
+			}
 		}
 	}
 	return result
@@ -220,5 +227,66 @@ func (s *State) GetAllSessions() map[string]*session.Session {
 	for k, v := range s.sessions {
 		result[k] = v
 	}
+	return result
+}
+
+// SetAllSessions sets the list of all sessions
+func (s *State) SetAllSessions(sessions []session.Session) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.allSessions = sessions
+}
+
+// SetSelectedSession sets the currently selected session ID
+func (s *State) SetSelectedSession(sessionID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.selectedSessionID = sessionID
+}
+
+// GetSelectedSession returns the currently selected session ID
+func (s *State) GetSelectedSession() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.selectedSessionID
+}
+
+// GetFilteredAgentTree returns agents filtered by sessionID, or all agents if sessionID is empty
+func (s *State) GetFilteredAgentTree(sessionID string) []AgentInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if sessionID == "" {
+		var allAgents []AgentInfo
+		for _, agents := range s.agentTrees {
+			allAgents = append(allAgents, agents...)
+		}
+		return allAgents
+	}
+
+	agents := s.agentTrees[sessionID]
+	result := make([]AgentInfo, len(agents))
+	copy(result, agents)
+	return result
+}
+
+// GetFilteredToolCalls returns tool calls filtered by sessionID, or all tool calls if sessionID is empty
+func (s *State) GetFilteredToolCalls(sessionID string) []*ToolCall {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	items := s.recentToolCalls.GetAll()
+	result := make([]*ToolCall, 0, len(items))
+
+	for _, item := range items {
+		if item != nil {
+			if tc, ok := item.(*ToolCall); ok {
+				if sessionID == "" || tc.SessionID == sessionID {
+					result = append(result, tc)
+				}
+			}
+		}
+	}
+
 	return result
 }
