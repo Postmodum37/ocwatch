@@ -25,7 +25,7 @@ type Watcher struct {
 func NewWatcher(logDir string) *Watcher {
 	return &Watcher{
 		logDir:    logDir,
-		entryChan: make(chan *parser.LogEntry, 100),
+		entryChan: make(chan *parser.LogEntry, 1000),
 		stopChan:  make(chan struct{}),
 	}
 }
@@ -124,15 +124,16 @@ func (w *Watcher) findMostRecentLogFile() string {
 
 func (w *Watcher) switchToFile(filePath string) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
+	oldTailer := w.tailer
+	w.mu.Unlock()
 
-	if w.tailer != nil {
-		w.tailer.Stop()
+	if oldTailer != nil {
+		oldTailer.Stop()
 	}
 
 	config := tail.Config{
 		Follow: true,
-		ReOpen: true,
+		ReOpen: false,
 	}
 
 	tailer, err := tail.TailFile(filePath, config)
@@ -140,40 +141,40 @@ func (w *Watcher) switchToFile(filePath string) {
 		return
 	}
 
-	w.tailer = tailer
-
-	go w.tailLines()
-}
-
-func (w *Watcher) tailLines() {
 	w.mu.Lock()
-	tailer := w.tailer
+	w.tailer = tailer
 	w.mu.Unlock()
 
-	if tailer == nil {
-		return
-	}
+	w.wg.Add(1)
+	go w.tailLines(tailer)
+}
 
-	for line := range tailer.Lines {
+func (w *Watcher) tailLines(tailer *tail.Tail) {
+	defer w.wg.Done()
+
+	for {
 		select {
 		case <-w.stopChan:
 			return
-		default:
-		}
+		case line, ok := <-tailer.Lines:
+			if !ok {
+				return
+			}
 
-		if line == nil {
-			continue
-		}
+			if line == nil {
+				continue
+			}
 
-		entry, err := parser.ParseLine(line.Text)
-		if err != nil {
-			continue
-		}
+			entry, err := parser.ParseLine(line.Text)
+			if err != nil {
+				continue
+			}
 
-		select {
-		case w.entryChan <- entry:
-		case <-w.stopChan:
-			return
+			select {
+			case w.entryChan <- entry:
+			case <-w.stopChan:
+				return
+			}
 		}
 	}
 }
