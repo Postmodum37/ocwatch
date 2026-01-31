@@ -1,12 +1,14 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
+import { createHash } from "node:crypto";
 import {
   listAllSessions,
   listProjects,
 } from "./storage/sessionParser";
 import { listMessages } from "./storage/messageParser";
-import type { SessionMetadata, MessageMeta } from "../shared/types";
+import { parseBoulder, calculatePlanProgress } from "./storage/boulderParser";
+import type { SessionMetadata, MessageMeta, PlanProgress } from "../shared/types";
 
 interface TreeNode {
   id: string;
@@ -254,6 +256,95 @@ app.get("/api/projects", async (c) => {
   );
 
   return c.json(projectsWithDetails);
+});
+
+// Polling endpoint with ETag support
+interface PollResponse {
+  sessions: SessionMetadata[];
+  activeSession: SessionMetadata | null;
+  planProgress: PlanProgress | null;
+  lastUpdate: number;
+}
+
+/**
+ * Generate ETag from data hash
+ * Uses SHA256 hash of JSON stringified data (excluding lastUpdate timestamp)
+ */
+function generateETag(data: PollResponse): string {
+  const dataForHash = {
+    sessions: data.sessions,
+    activeSession: data.activeSession,
+    planProgress: data.planProgress,
+  };
+  const hash = createHash("sha256")
+    .update(JSON.stringify(dataForHash))
+    .digest("hex");
+  return `"${hash.substring(0, 16)}"`;
+}
+
+app.get("/api/poll", async (c) => {
+  const allSessions = await listAllSessions();
+
+  const now = Date.now();
+  const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+
+  const recentSessions = allSessions.filter(
+    (s) => s.updatedAt.getTime() >= twentyFourHoursAgo
+  );
+
+  const sortedSessions = recentSessions.sort(
+    (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+  );
+
+  const limitedSessions = sortedSessions.slice(0, 20);
+
+  // Find active session (most recent with activity < 5 minutes)
+  let activeSession: SessionMetadata | null = null;
+  for (const session of limitedSessions) {
+    const messages = await listMessages(session.id);
+    const lastMessage = messages.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    )[0];
+
+    if (lastMessage && now - lastMessage.createdAt.getTime() < 5 * 60 * 1000) {
+      activeSession = session;
+      break;
+    }
+  }
+
+  // Get plan progress from current directory
+  let planProgress: PlanProgress | null = null;
+  try {
+    const cwd = process.cwd();
+    const boulder = await parseBoulder(cwd);
+    if (boulder?.activePlan) {
+      planProgress = await calculatePlanProgress(boulder.activePlan);
+    }
+  } catch (error) {
+    // Silently fail if no plan found
+  }
+
+  const pollData: PollResponse = {
+    sessions: limitedSessions,
+    activeSession,
+    planProgress,
+    lastUpdate: now,
+  };
+
+  // Generate ETag
+  const etag = generateETag(pollData);
+
+  // Check If-None-Match header
+  const clientETag = c.req.header("If-None-Match");
+  if (clientETag === etag) {
+    // Data hasn't changed, return 304 Not Modified
+    c.header("ETag", etag);
+    return new Response(null, { status: 304, headers: { ETag: etag } });
+  }
+
+  // Data changed or first request, return 200 with ETag
+  c.header("ETag", etag);
+  return c.json(pollData);
 });
 
 // Static file serving for client build

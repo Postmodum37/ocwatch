@@ -41,7 +41,7 @@ func TestListSessions(t *testing.T) {
 	// Create temporary storage directory
 	tmpDir := t.TempDir()
 	projectID := "test_project_123"
-	sessionDir := filepath.Join(tmpDir, "opencode", "storage", "session", projectID)
+	sessionDir := filepath.Join(tmpDir, "storage", "session", projectID)
 	os.MkdirAll(sessionDir, 0755)
 
 	// Create test session files
@@ -94,7 +94,7 @@ func TestListSessions(t *testing.T) {
 func TestGetSession(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectID := "test_project_456"
-	sessionDir := filepath.Join(tmpDir, "opencode", "storage", "session", projectID)
+	sessionDir := filepath.Join(tmpDir, "storage", "session", projectID)
 	os.MkdirAll(sessionDir, 0755)
 
 	sessionJSON := `{
@@ -131,7 +131,7 @@ func TestGetSession(t *testing.T) {
 func TestGetSession_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectID := "test_project_789"
-	sessionDir := filepath.Join(tmpDir, "opencode", "storage", "session", projectID)
+	sessionDir := filepath.Join(tmpDir, "storage", "session", projectID)
 	os.MkdirAll(sessionDir, 0755)
 
 	_, err := GetSessionWithPath(tmpDir, projectID, "nonexistent")
@@ -144,7 +144,7 @@ func TestGetSession_NotFound(t *testing.T) {
 func TestTimestampConversion(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectID := "test_project_time"
-	sessionDir := filepath.Join(tmpDir, "opencode", "storage", "session", projectID)
+	sessionDir := filepath.Join(tmpDir, "storage", "session", projectID)
 	os.MkdirAll(sessionDir, 0755)
 
 	// Use known timestamp: 1769853939301 ms = 2026-01-31 10:05:39.301 UTC
@@ -244,7 +244,7 @@ func TestFilterActiveSessions_ZeroMinutes(t *testing.T) {
 func TestXDGDataHome(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectID := "test_xdg"
-	sessionDir := filepath.Join(tmpDir, "opencode", "storage", "session", projectID)
+	sessionDir := filepath.Join(tmpDir, "storage", "session", projectID)
 	os.MkdirAll(sessionDir, 0755)
 
 	sessionJSON := `{

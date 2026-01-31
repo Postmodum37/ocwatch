@@ -54,7 +54,7 @@ func ListSessions(projectID string) ([]Session, error) {
 }
 
 func ListSessionsWithPath(storagePath, projectID string) ([]Session, error) {
-	sessionDir := filepath.Join(storagePath, "opencode", "storage", "session", projectID)
+	sessionDir := filepath.Join(storagePath, "storage", "session", projectID)
 
 	entries, err := os.ReadDir(sessionDir)
 	if err != nil {
@@ -84,7 +84,7 @@ func GetSession(projectID, sessionID string) (Session, error) {
 }
 
 func GetSessionWithPath(storagePath, projectID, sessionID string) (Session, error) {
-	filePath := filepath.Join(storagePath, "opencode", "storage", "session", projectID, sessionID+".json")
+	filePath := filepath.Join(storagePath, "storage", "session", projectID, sessionID+".json")
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {

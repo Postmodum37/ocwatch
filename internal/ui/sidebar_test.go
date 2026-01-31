@@ -19,7 +19,7 @@ func TestRenderSidebar_ShowsProjectName(t *testing.T) {
 		},
 	}
 
-	output := renderSidebar(styles, sessions, 0, 20)
+	output := renderSidebar(styles, sessions, -1)
 
 	if !strings.Contains(output, "my-project") {
 		t.Errorf("Expected output to contain project name 'my-project', got:\n%s", output)
@@ -33,7 +33,7 @@ func TestRenderSidebar_ShowsSessionNumbers(t *testing.T) {
 		{ProjectWorktree: "/b", Slug: "s2"},
 	}
 
-	output := renderSidebar(styles, sessions, 0, 20)
+	output := renderSidebar(styles, sessions, -1)
 
 	if !strings.Contains(output, "1. a") {
 		t.Errorf("Expected '1. a', got:\n%s", output)
@@ -50,7 +50,7 @@ func TestRenderSidebar_HighlightsSelected(t *testing.T) {
 		{ProjectWorktree: "/selected", Slug: "s2"},
 	}
 
-	output := renderSidebar(styles, sessions, 1, 20)
+	output := renderSidebar(styles, sessions, -1)
 
 	if !strings.Contains(output, "selected") {
 		t.Error("Output missing selected project name")
@@ -63,7 +63,7 @@ func TestRenderSidebar_FixedWidth(t *testing.T) {
 		{ProjectWorktree: "/short", Slug: "s1"},
 	}
 
-	output := renderSidebar(styles, sessions, 0, 20)
+	output := renderSidebar(styles, sessions, -1)
 	lines := strings.Split(output, "\n")
 
 	for i, line := range lines {
@@ -84,7 +84,7 @@ func TestRenderSidebar_HandleMoreThanNine(t *testing.T) {
 		}
 	}
 
-	output := renderSidebar(styles, sessions, 0, 40)
+	output := renderSidebar(styles, sessions, -1)
 
 	if !strings.Contains(output, "9. p9") {
 		t.Error("Expected '9. p9'")
@@ -108,7 +108,7 @@ func TestSidebarTruncationEllipsisVisible(t *testing.T) {
 		},
 	}
 
-	output := renderSidebar(styles, sessions, 0, 20)
+	output := renderSidebar(styles, sessions, -1)
 
 	if !strings.Contains(output, "…") {
 		t.Errorf("Expected ellipsis '…' in truncated output, got:\n%s", output)

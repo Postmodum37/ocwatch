@@ -20,28 +20,22 @@ describe("Hono Server Routes", () => {
     expect(Array.isArray(data)).toBe(true);
   });
 
-  test("session detail endpoint exists", async () => {
-    const req = new Request("http://localhost/api/sessions/test-id");
+  test("session detail endpoint returns 404 for non-existent session", async () => {
+    const req = new Request("http://localhost/api/sessions/non-existent-id");
     const res = await app.fetch(req);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(404);
   });
 
-  test("session messages endpoint exists", async () => {
-    const req = new Request("http://localhost/api/sessions/test-id/messages");
+  test("session messages endpoint returns 404 for non-existent session", async () => {
+    const req = new Request("http://localhost/api/sessions/non-existent-id/messages");
     const res = await app.fetch(req);
-    expect(res.status).toBe(200);
-
-    const data = await res.json();
-    expect(Array.isArray(data)).toBe(true);
+    expect(res.status).toBe(404);
   });
 
-  test("session tree endpoint exists", async () => {
-    const req = new Request("http://localhost/api/sessions/test-id/tree");
+  test("session tree endpoint returns 404 for non-existent session", async () => {
+    const req = new Request("http://localhost/api/sessions/non-existent-id/tree");
     const res = await app.fetch(req);
-    expect(res.status).toBe(200);
-
-    const data = await res.json();
-    expect(typeof data).toBe("object");
+    expect(res.status).toBe(404);
   });
 
   test("parts endpoint exists", async () => {

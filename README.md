@@ -8,7 +8,6 @@ OCWatch is a real-time TUI dashboard for monitoring OpenCode agent activity. It 
 - **Nested tree view**: Visual representation of the session → agents hierarchy.
 - **Plan progress**: Integrated tracking of plan progress from `.sisyphus/boulder.json`.
 - **Tool calls**: Live monitoring of tool call activity with metadata.
-- **Sound notifications**: Audio cues for key events (agent start/stop, errors).
 - **Agent modes**: Clear display of agent execution modes (e.g., "prometheus mode=all").
 
 ## Installation
@@ -36,13 +35,12 @@ ocwatch [--project /path] [--data-dir /path]
 | Key | Action |
 |-----|--------|
 | `q`, `Ctrl+C` | Quit OCWatch |
-| `m` | Toggle sound notifications (Mute) |
 | `↑`/`↓` | Scroll through active panel |
 | `Tab` | Switch focus between panels (Sessions, Agents, Tools) |
 
 ## Requirements
 
-- **OS**: macOS (recommended for sound support)
+- **OS**: macOS
 - **OpenCode**: Must be installed and running to generate logs.
 
 ## How it works

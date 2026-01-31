@@ -9,7 +9,7 @@ import (
 	"github.com/tomas/ocwatch/internal/session"
 )
 
-func renderSidebar(styles Styles, sessions []session.Session, selectedIdx int, height int) string {
+func renderSidebar(styles Styles, sessions []session.Session, selectedIdx int) string {
 	var rows []string
 
 	for i, sess := range sessions {
@@ -56,8 +56,8 @@ func renderSidebar(styles Styles, sessions []session.Session, selectedIdx int, h
 
 	content := strings.Join(rows, "\n")
 
+	// Don't set Height - let content determine height
 	return styles.Panel.
 		Width(sidebarWidth - 2).
-		Height(height).
 		Render(content)
 }

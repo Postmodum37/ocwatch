@@ -111,14 +111,15 @@ func renderSessions(styles Styles, s *state.State, width, height, scrollOffset i
 }
 
 func renderAgentTree(styles Styles, s *state.State, sessionID string, width, height int, active bool) string {
-	if sessionID == "" {
-		return styles.Panel.Width(width - 2).Height(height).Render("No session selected")
-	}
-
-	agents := s.GetAgentTree(sessionID)
+	// Use GetFilteredAgentTree - empty sessionID shows all agents
+	agents := s.GetFilteredAgentTree(sessionID)
 
 	var rows []string
-	rows = append(rows, sessionID)
+	if sessionID != "" {
+		rows = append(rows, sessionID)
+	} else {
+		rows = append(rows, "All Sessions")
+	}
 
 	// Basic tree rendering
 	for i, agent := range agents {
@@ -144,8 +145,8 @@ func renderAgentTree(styles Styles, s *state.State, sessionID string, width, hei
 	)
 }
 
-func renderToolActivity(styles Styles, s *state.State, width, height int) string {
-	calls := s.GetRecentToolCalls()
+func renderToolActivity(styles Styles, s *state.State, sessionID string, width, height int) string {
+	calls := s.GetFilteredToolCalls(sessionID)
 
 	// Show last N calls that fit height
 	maxCalls := height
@@ -219,6 +220,6 @@ func renderPlanProgress(styles Styles, p *plan.PlanProgress, b *plan.Boulder, wi
 }
 
 func renderStatusBar(styles Styles, width int) string {
-	help := "q:quit │ m:mute │ ↑↓:scroll │ Tab:switch"
+	help := "q:quit │ ↑↓:scroll │ Tab:switch │ 0-9:session"
 	return styles.StatusBar.Width(width - 2).Render(help)
 }

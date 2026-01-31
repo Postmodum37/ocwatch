@@ -163,7 +163,7 @@ func (m Model) View() string {
 	var sidebar string
 	if showSidebar {
 		// Pass selectedSessionIdx - 1 because 0 means "none" (so -1 won't match any index)
-		sidebar = renderSidebar(m.styles, m.allSessions, m.selectedSessionIdx-1, contentHeight)
+		sidebar = renderSidebar(m.styles, m.allSessions, m.selectedSessionIdx-1)
 	}
 
 	// Render main panel components
