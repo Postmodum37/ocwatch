@@ -81,7 +81,6 @@ type State struct {
 	callCounts        map[string]int
 	recentLogs        *RingBuffer
 	recentToolCalls   *RingBuffer
-	allSessions       []session.Session
 	selectedSessionID string
 }
 
@@ -228,13 +227,6 @@ func (s *State) GetAllSessions() map[string]*session.Session {
 		result[k] = v
 	}
 	return result
-}
-
-// SetAllSessions sets the list of all sessions
-func (s *State) SetAllSessions(sessions []session.Session) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.allSessions = sessions
 }
 
 // SetSelectedSession sets the currently selected session ID

@@ -44,7 +44,6 @@ func main() {
 	allSessions, err := session.ListAllSessions(*dataDir)
 	if err == nil {
 		todaySessions := session.FilterSessionsByToday(allSessions)
-		appState.SetAllSessions(todaySessions)
 		uiModel.SetAllSessions(todaySessions)
 
 		// Also add to legacy session tracking for backward compatibility
