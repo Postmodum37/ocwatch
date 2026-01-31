@@ -323,3 +323,31 @@ func TestParseLineIntegration(t *testing.T) {
 		t.Fatal("timeout waiting for log entry")
 	}
 }
+
+func TestDoubleStopNoPanic(t *testing.T) {
+	tmpDir := getTempDir(t)
+	w := NewWatcher(tmpDir)
+
+	ch := w.Start()
+
+	// First Stop() should succeed
+	w.Stop()
+
+	// Verify channel is closed
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Fatal("channel should be closed after first Stop()")
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout waiting for channel to close")
+	}
+
+	// Second Stop() should not panic
+	// This would panic before the fix with: "panic: close of closed channel"
+	w.Stop()
+
+	// Third Stop() should also not panic
+	w.Stop()
+}

@@ -20,6 +20,7 @@ type Watcher struct {
 	wg        sync.WaitGroup
 	mu        sync.Mutex
 	tailer    *tail.Tail
+	stopOnce  sync.Once
 }
 
 func NewWatcher(logDir string) *Watcher {
@@ -37,14 +38,17 @@ func (w *Watcher) Start() chan *parser.LogEntry {
 }
 
 func (w *Watcher) Stop() {
-	close(w.stopChan)
-	w.wg.Wait()
-	w.mu.Lock()
-	if w.tailer != nil {
-		w.tailer.Stop()
-	}
-	w.mu.Unlock()
-	close(w.entryChan)
+	w.stopOnce.Do(func() {
+		close(w.stopChan)
+		w.wg.Wait()
+		w.mu.Lock()
+		if w.tailer != nil {
+			w.tailer.Stop()
+			w.tailer = nil
+		}
+		w.mu.Unlock()
+		close(w.entryChan)
+	})
 }
 
 // watch handles the main watcher loop, using both fsnotify and a ticker
