@@ -75,10 +75,10 @@ Filter sidebar to show only root sessions by fixing the parser to read `parentID
 - `src/server/storage/__tests__/parsers.test.ts` - Test for parentID parsing
 
 ### Definition of Done
-- [ ] `bun run tsc -b` passes with no errors
-- [ ] `bun test` passes with all tests green
-- [ ] API `/api/sessions` returns only sessions where `parentID` is undefined
-- [ ] API `/api/poll` returns only root sessions in `sessions` array
+- [x] `bun run tsc -b` passes with no errors
+- [x] `bun test` passes with all tests green
+- [x] API `/api/sessions` returns only sessions where `parentID` is undefined
+- [x] API `/api/poll` returns only root sessions in `sessions` array
 
 ### Must Have
 - Parser reads `parentID` from JSON (not hardcoded undefined)
@@ -155,7 +155,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ## TODOs
 
-- [ ] 1. Fix SessionJSON interface and parseSession function
+- [x] 1. Fix SessionJSON interface and parseSession function
 
   **What to do**:
   - Add `parentID?: string` to `SessionJSON` interface (after line 20)
@@ -203,7 +203,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 2. Filter /api/sessions endpoint to return only root sessions
+- [x] 2. Filter /api/sessions endpoint to return only root sessions
 
   **What to do**:
   - After line 157 (`const limitedSessions = sortedSessions.slice(0, 20);`), add filter:
@@ -246,7 +246,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 3. Add unit test for parentID parsing
+- [x] 3. Add unit test for parentID parsing
 
   **What to do**:
   - In `src/server/storage/__tests__/parsers.test.ts`, add new test case after line 66:
@@ -315,7 +315,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 4. Filter /api/poll endpoint to return only root sessions
+- [x] 4. Filter /api/poll endpoint to return only root sessions
 
   **What to do**:
   - After line 321 (`const limitedSessions = sortedSessions.slice(0, 20);`), add filter:
@@ -359,7 +359,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 5. Run verification and create commit
+- [x] 5. Run verification and create commit
 
   **What to do**:
   - Run `bun run tsc -b` to verify type checking
@@ -441,10 +441,10 @@ curl -s http://localhost:50234/api/poll | jq '.sessions | map(select(.parentID !
 ```
 
 ### Final Checklist
-- [ ] SessionJSON interface includes `parentID?: string`
-- [ ] parseSession() reads `json.parentID` instead of hardcoded undefined
-- [ ] /api/sessions returns only sessions where parentID is undefined
-- [ ] /api/poll sessions array contains only root sessions
-- [ ] New test verifies parentID is read from JSON
-- [ ] All existing tests still pass
-- [ ] Type checking passes
+- [x] SessionJSON interface includes `parentID?: string`
+- [x] parseSession() reads `json.parentID` instead of hardcoded undefined
+- [x] /api/sessions returns only sessions where parentID is undefined
+- [x] /api/poll sessions array contains only root sessions
+- [x] New test verifies parentID is read from JSON
+- [x] All existing tests still pass
+- [x] Type checking passes

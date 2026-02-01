@@ -134,15 +134,15 @@ And update `parsePart()` to extract these fields from the JSON.
 5. Fallback: Use session.title if no text part found
 
 ### Definition of Done
-- [ ] Agent nodes visible with type, model, task, status, call count
-- [ ] Force-directed layout positions nodes dynamically
-- [ ] Active agents pulse with blue glow animation
-- [ ] Completed agents dimmed at 0.5 opacity
-- [ ] Clicking agent opens detail panel with messages/tools
-- [ ] Session stats bar shows agent/model counts
-- [ ] Tools bar displays recent 50 tool calls
-- [ ] All unit tests pass
-- [ ] Visual verification via Playwright passes
+- [x] Agent nodes visible with type, model, task, status, call count
+- [x] Force-directed layout positions nodes dynamically
+- [x] Active agents pulse with blue glow animation
+- [x] Completed agents dimmed at 0.5 opacity
+- [x] Clicking agent opens detail panel with messages/tools
+- [x] Session stats bar shows agent/model counts
+- [x] Tools bar displays recent 50 tool calls
+- [x] All unit tests pass
+- [x] Visual verification via Playwright passes
 
 ### Must Have
 - Agent type displayed on each node
@@ -239,7 +239,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ## TODOs
 
-- [ ] 1. Add `/api/sessions/:id/agents` endpoint
+- [x] 1. Add `/api/sessions/:id/agents` endpoint
 
   **What to do**:
   - First, add `AgentNodeData` interface to `src/shared/types/index.ts` (see Type Definitions above)
@@ -308,7 +308,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 2. Add `/api/sessions/:id/tools` endpoint
+- [x] 2. Add `/api/sessions/:id/tools` endpoint
 
   **What to do**:
   
@@ -406,7 +406,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 3. Create AgentNode component with animations
+- [x] 3. Create AgentNode component with animations
 
   **What to do**:
   - Create `src/client/src/components/AgentNode.tsx`
@@ -454,7 +454,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 4. Create AgentGraph with d3-force layout
+- [x] 4. Create AgentGraph with d3-force layout
 
   **What to do**:
   - Create `src/client/src/components/AgentGraph.tsx`
@@ -507,7 +507,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 5. Create SessionStats component
+- [x] 5. Create SessionStats component
 
   **What to do**:
   - Create `src/client/src/components/SessionStats.tsx`
@@ -554,7 +554,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 6. Add toolCalls to AppContext
+- [x] 6. Add toolCalls to AppContext
 
   **What to do**:
   - Update `src/client/src/store/AppContext.tsx`
@@ -596,7 +596,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 7. Wire tools bar to context
+- [x] 7. Wire tools bar to context
 
   **What to do**:
   - Update `src/client/src/hooks/usePolling.ts` to fetch tools
@@ -642,7 +642,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 8. Create AgentDetailPanel component
+- [x] 8. Create AgentDetailPanel component
 
   **What to do**:
   - Create `src/client/src/components/AgentDetailPanel.tsx`
@@ -693,7 +693,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 9. Integration and visual testing
+- [x] 9. Integration and visual testing
 
   **What to do**:
   - Update `src/client/src/App.tsx` to wire all components together
@@ -801,15 +801,15 @@ curl -s http://localhost:50234/api/sessions | jq '.[0].id' | xargs -I{} curl -s 
 ```
 
 ### Final Checklist
-- [ ] Agent nodes visible with type + model + task + status
-- [ ] Force-directed layout (nodes not in horizontal line)
-- [ ] Active agents have pulsing blue glow
-- [ ] Completed agents dimmed at 0.5 opacity
-- [ ] Session stats bar shows agent/model counts
-- [ ] Clicking agent opens detail panel
-- [ ] Detail panel shows agent info and tools
-- [ ] Tools bar shows recent tool calls (not empty)
-- [ ] All tests pass
-- [ ] No token/cost tracking added
-- [ ] No filtering/search added
-- [ ] No export functionality added
+- [x] Agent nodes visible with type + model + task + status
+- [x] Force-directed layout (nodes not in horizontal line)
+- [x] Active agents have pulsing blue glow
+- [x] Completed agents dimmed at 0.5 opacity
+- [x] Session stats bar shows agent/model counts
+- [x] Clicking agent opens detail panel
+- [x] Detail panel shows agent info and tools
+- [x] Tools bar shows recent tool calls (not empty)
+- [x] All tests pass
+- [x] No token/cost tracking added
+- [x] No filtering/search added
+- [x] No export functionality added

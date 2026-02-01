@@ -60,15 +60,15 @@ Replace the session hierarchy visualization (AgentTree) with a live activity tim
 - `src/client/src/components/__tests__/LiveActivity.test.tsx` - Component tests
 
 ### Definition of Done
-- [ ] LiveActivity shows agent calls with model badges (color-coded)
-- [ ] Tool calls appear nested under their parent agent message
-- [ ] Timeline auto-scrolls to latest entry on new data
-- [ ] Token usage displayed when available
-- [ ] Tool calls are collapsible per agent
-- [ ] Empty state shown when no messages
-- [ ] Loading skeleton during initial fetch
-- [ ] All existing tests pass
-- [ ] New LiveActivity tests pass
+- [x] LiveActivity shows agent calls with model badges (color-coded)
+- [x] Tool calls appear nested under their parent agent message
+- [x] Timeline auto-scrolls to latest entry on new data
+- [x] Token usage displayed when available
+- [x] Tool calls are collapsible per agent
+- [x] Empty state shown when no messages
+- [x] Loading skeleton during initial fetch
+- [x] All existing tests pass
+- [x] New LiveActivity tests pass
 
 ### Must Have
 - Agent color coding (sisyphus=blue, prometheus=purple, explore/librarian=green, oracle=amber, build=cyan)
@@ -164,7 +164,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ## TODOs
 
-- [ ] 1. Extract Agent Color Utility
+- [x] 1. Extract Agent Color Utility
 
   **What to do**:
   - Create `src/client/src/utils/agentColors.ts`
@@ -212,7 +212,7 @@ Parallel Speedup: ~40% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] Terminal output from tsc command showing no errors
+  - [x] Terminal output from tsc command showing no errors
 
   **Commit**: YES
   - Message: `refactor(client): extract agent color utility from AgentTree`
@@ -221,7 +221,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 2. Add Messages to /api/poll Endpoint
+- [x] 2. Add Messages to /api/poll Endpoint
 
   **What to do**:
   - Modify `/api/poll` in `src/server/index.ts` to include messages for selected session
@@ -284,8 +284,8 @@ Parallel Speedup: ~40% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] curl output showing messages field exists
-  - [ ] Test output showing all server tests pass
+  - [x] curl output showing messages field exists
+  - [x] Test output showing all server tests pass
 
   **Commit**: YES
   - Message: `feat(server): add messages to /api/poll response`
@@ -294,7 +294,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 3. Update AppContext with Messages State
+- [x] 3. Update AppContext with Messages State
 
   **What to do**:
   - Add `messages: MessageMeta[]` to `AppContextValue` interface
@@ -345,8 +345,8 @@ Parallel Speedup: ~40% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] tsc output showing no type errors
-  - [ ] Test output showing all client tests pass
+  - [x] tsc output showing no type errors
+  - [x] Test output showing all client tests pass
 
   **Commit**: YES
   - Message: `feat(client): add messages state to AppContext`
@@ -355,7 +355,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 4. Create LiveActivity Component
+- [x] 4. Create LiveActivity Component
 
   **What to do**:
   - Create `src/client/src/components/LiveActivity.tsx`
@@ -450,8 +450,8 @@ Parallel Speedup: ~40% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] TypeScript compilation success
-  - [ ] Screenshot of component in dev server (manual verification)
+  - [x] TypeScript compilation success
+  - [x] Screenshot of component in dev server (manual verification)
 
   **Commit**: YES
   - Message: `feat(client): create LiveActivity timeline component`
@@ -460,7 +460,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 5. Wire LiveActivity to App.tsx
+- [x] 5. Wire LiveActivity to App.tsx
 
   **What to do**:
   - Import `LiveActivity` component in App.tsx
@@ -525,9 +525,9 @@ Parallel Speedup: ~40% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] grep output showing no AgentTree references
-  - [ ] grep output showing LiveActivity usage
-  - [ ] TypeScript compilation success
+  - [x] grep output showing no AgentTree references
+  - [x] grep output showing LiveActivity usage
+  - [x] TypeScript compilation success
 
   **Commit**: YES
   - Message: `feat(client): replace AgentTree with LiveActivity in App`
@@ -536,7 +536,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 6. Add LiveActivity Tests
+- [x] 6. Add LiveActivity Tests
 
   **What to do**:
   - Create `src/client/src/components/__tests__/LiveActivity.test.tsx`
@@ -610,8 +610,8 @@ Parallel Speedup: ~40% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] Test output showing all LiveActivity tests pass
-  - [ ] Test output showing all client tests pass
+  - [x] Test output showing all LiveActivity tests pass
+  - [x] Test output showing all client tests pass
 
   **Commit**: YES
   - Message: `test(client): add LiveActivity component tests`
@@ -654,13 +654,13 @@ bun run dev
 ```
 
 ### Final Checklist
-- [ ] LiveActivity component shows agent calls with color-coded badges
-- [ ] Model info displayed as providerID/modelID
-- [ ] Token usage shown when available
-- [ ] Relative timestamps work correctly
-- [ ] Empty state appears when no messages
-- [ ] Loading skeleton appears during fetch
-- [ ] AgentTree removed from App.tsx
-- [ ] All existing tests still pass
-- [ ] New LiveActivity tests pass
-- [ ] No TypeScript errors
+- [x] LiveActivity component shows agent calls with color-coded badges
+- [x] Model info displayed as providerID/modelID
+- [x] Token usage shown when available
+- [x] Relative timestamps work correctly
+- [x] Empty state appears when no messages
+- [x] Loading skeleton appears during fetch
+- [x] AgentTree removed from App.tsx
+- [x] All existing tests still pass
+- [x] New LiveActivity tests pass
+- [x] No TypeScript errors

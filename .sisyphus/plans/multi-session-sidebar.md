@@ -217,11 +217,11 @@ Wave 4 (Final):
   - `internal/ui/panels.go:222` - Help text to update
 
   **Acceptance Criteria**:
-  - [ ] `rm -rf internal/sound` succeeds
-  - [ ] `go build ./cmd/ocwatch` succeeds (no import errors)
-  - [ ] `grep -r "sound" --include="*.go" . | grep -v "_test" | wc -l` outputs `0`
-  - [ ] `grep -r "muted" --include="*.go" internal/ui/ | wc -l` outputs `0`
-  - [ ] `./ocwatch --help` shows no sound-related options
+  - [x] `rm -rf internal/sound` succeeds
+  - [x] `go build ./cmd/ocwatch` succeeds (no import errors)
+  - [x] `grep -r "sound" --include="*.go" . | grep -v "_test" | wc -l` outputs `0`
+  - [x] `grep -r "muted" --include="*.go" internal/ui/ | wc -l` outputs `0`
+  - [x] `./ocwatch --help` shows no sound-related options
 
   **Commit**: YES
   - Message: `chore: remove sound notification module`
@@ -269,13 +269,13 @@ Wave 4 (Final):
   - `~/.local/share/opencode/storage/project/386043c27ba886538edc95090a732275ede2d4db.json` - Example project JSON structure: `{"id":"...","worktree":"/path","vcs":"git","time":{"created":ms,"updated":ms}}`
 
   **Acceptance Criteria**:
-  - [ ] Test file exists: `ls internal/session/project_test.go`
-  - [ ] Tests pass: `go test ./internal/session -run TestListAllProjects -v` exits 0
-  - [ ] Returns multiple projects:
+  - [x] Test file exists: `ls internal/session/project_test.go`
+  - [x] Tests pass: `go test ./internal/session -run TestListAllProjects -v` exits 0
+  - [x] Returns multiple projects:
     ```bash
     go test ./internal/session -run TestListAllProjects_ReturnsMultiple -v 2>&1 | grep -q "PASS"
     ```
-  - [ ] Excludes global.json:
+  - [x] Excludes global.json:
     ```bash
     go test ./internal/session -run TestListAllProjects_ExcludesGlobal -v 2>&1 | grep -q "PASS"
     ```
@@ -324,12 +324,12 @@ Wave 4 (Final):
   - `internal/session/project.go` - `ListAllProjects()` created in Task 2
 
   **Acceptance Criteria**:
-  - [ ] Session struct has ProjectWorktree field:
+  - [x] Session struct has ProjectWorktree field:
     ```bash
     grep -q "ProjectWorktree" internal/session/session.go && echo "PASS"
     ```
-  - [ ] Tests pass: `go test ./internal/session -run TestListAllSessions -v` exits 0
-  - [ ] Function exists and is callable:
+  - [x] Tests pass: `go test ./internal/session -run TestListAllSessions -v` exits 0
+  - [x] Function exists and is callable:
     ```bash
     grep -q "func ListAllSessions" internal/session/project.go && echo "PASS"
     ```
@@ -373,8 +373,8 @@ Wave 4 (Final):
   - Go time package: `time.Now().Truncate(24 * time.Hour)` for midnight
 
   **Acceptance Criteria**:
-  - [ ] Tests pass: `go test ./internal/session -run TestFilterSessionsByToday -v` exits 0
-  - [ ] Function filters correctly:
+  - [x] Tests pass: `go test ./internal/session -run TestFilterSessionsByToday -v` exits 0
+  - [x] Function filters correctly:
     ```bash
     grep -q "func FilterSessionsByToday" internal/session/session.go && echo "PASS"
     ```
@@ -427,13 +427,13 @@ Wave 4 (Final):
   - `internal/state/state.go:179-191` - `GetRecentToolCalls()` as pattern for filtered version
 
   **Acceptance Criteria**:
-  - [ ] ToolCall has SessionID:
+  - [x] ToolCall has SessionID:
     ```bash
     grep -q "SessionID.*string" internal/state/state.go && echo "PASS"
     ```
-  - [ ] Tests pass: `go test ./internal/state -run TestToolCall -v` exits 0
-  - [ ] Tests pass: `go test ./internal/state -run TestGetFiltered -v` exits 0
-  - [ ] Filtered methods exist:
+  - [x] Tests pass: `go test ./internal/state -run TestToolCall -v` exits 0
+  - [x] Tests pass: `go test ./internal/state -run TestGetFiltered -v` exits 0
+  - [x] Filtered methods exist:
     ```bash
     grep -q "GetFilteredAgentTree" internal/state/state.go && \
     grep -q "GetFilteredToolCalls" internal/state/state.go && echo "PASS"
@@ -488,10 +488,10 @@ Wave 4 (Final):
   - `internal/session/session.go:11-19` - Session struct with `ProjectWorktree` field
 
   **Acceptance Criteria**:
-  - [ ] File exists: `ls internal/ui/sidebar.go`
-  - [ ] Test file exists: `ls internal/ui/sidebar_test.go`
-  - [ ] Tests pass: `go test ./internal/ui -run TestRenderSidebar -v` exits 0
-  - [ ] Width is fixed at 28:
+  - [x] File exists: `ls internal/ui/sidebar.go`
+  - [x] Test file exists: `ls internal/ui/sidebar_test.go`
+  - [x] Tests pass: `go test ./internal/ui -run TestRenderSidebar -v` exits 0
+  - [x] Width is fixed at 28:
     ```bash
     grep -q "28" internal/ui/sidebar.go && echo "PASS"
     ```
@@ -539,16 +539,16 @@ Wave 4 (Final):
   - `internal/ui/ui.go:146-155` - Current `JoinVertical()` composition to wrap in `JoinHorizontal()`
 
   **Acceptance Criteria**:
-  - [ ] Model has new fields:
+  - [x] Model has new fields:
     ```bash
     grep -q "allSessions" internal/ui/ui.go && \
     grep -q "selectedSessionIdx" internal/ui/ui.go && echo "PASS"
     ```
-  - [ ] View uses horizontal join:
+  - [x] View uses horizontal join:
     ```bash
     grep -q "JoinHorizontal" internal/ui/ui.go && echo "PASS"
     ```
-  - [ ] Build succeeds: `go build ./cmd/ocwatch` exits 0
+  - [x] Build succeeds: `go build ./cmd/ocwatch` exits 0
 
   **Commit**: YES
   - Message: `feat(ui): integrate sidebar with horizontal layout`
@@ -590,8 +590,8 @@ Wave 4 (Final):
   - `internal/ui/ui.go:45-83` - `Update()` method, add cases near line 48-63
 
   **Acceptance Criteria**:
-  - [ ] Tests pass: `go test ./internal/ui -run TestKeyHandler -v` exits 0
-  - [ ] Key handlers exist:
+  - [x] Tests pass: `go test ./internal/ui -run TestKeyHandler -v` exits 0
+  - [x] Key handlers exist:
     ```bash
     grep -q 'case "0"' internal/ui/ui.go && \
     grep -q 'case "1"' internal/ui/ui.go && echo "PASS"
@@ -637,8 +637,8 @@ Wave 4 (Final):
   - `internal/state/state.go` - `GetFilteredAgentTree()`, `GetFilteredToolCalls()` from Task 5
 
   **Acceptance Criteria**:
-  - [ ] Build succeeds: `go build ./cmd/ocwatch` exits 0
-  - [ ] Functions accept filter parameter:
+  - [x] Build succeeds: `go build ./cmd/ocwatch` exits 0
+  - [x] Functions accept filter parameter:
     ```bash
     grep -q "sessionID string" internal/ui/panels.go && echo "PASS"
     ```
@@ -687,9 +687,9 @@ Wave 4 (Final):
   - `internal/session/session.go` - `FilterSessionsByToday()` from Task 4
 
   **Acceptance Criteria**:
-  - [ ] All tests pass: `go test ./... -v` exits 0
-  - [ ] Build succeeds: `go build ./cmd/ocwatch` exits 0
-  - [ ] Manual verification via TUI:
+  - [x] All tests pass: `go test ./... -v` exits 0
+  - [x] Build succeeds: `go build ./cmd/ocwatch` exits 0
+  - [x] Manual verification via TUI:
     ```bash
     # Start ocwatch and verify visually
     ./ocwatch &

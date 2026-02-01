@@ -62,12 +62,12 @@ Improve the AgentTree visualization to clearly display agent tasks, models, and 
 - `src/client/src/components/AgentTree.tsx` - Redesigned node rendering
 
 ### Definition of Done
-- [ ] AgentTree nodes show "TASK: {title}" for child sessions
-- [ ] Model displays as "provider/model" (e.g., "anthropic/claude-sonnet-4")
-- [ ] Agent badges have distinct colors per agent type
-- [ ] Root sessions have visually distinct styling (thicker border)
-- [ ] Node height is 72px with proper layout
-- [ ] All existing tests pass: `bun test` and `cd src/client && bun run test`
+- [x] AgentTree nodes show "TASK: {title}" for child sessions
+- [x] Model displays as "provider/model" (e.g., "anthropic/claude-sonnet-4")
+- [x] Agent badges have distinct colors per agent type
+- [x] Root sessions have visually distinct styling (thicker border)
+- [x] Node height is 72px with proper layout
+- [x] All existing tests pass: `bun test` and `cd src/client && bun run test`
 
 ### Must Have
 - providerID in API response for sessions
@@ -137,7 +137,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ## TODOs
 
-- [ ] 1. Fix providerID parsing in message parser
+- [x] 1. Fix providerID parsing in message parser
 
   **What to do**:
   - Open `src/server/storage/messageParser.ts`
@@ -184,7 +184,7 @@ Parallel Speedup: ~30% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] Terminal output from test command
+  - [x] Terminal output from test command
 
   **Commit**: YES
   - Message: `fix(parser): extract providerID from nested model object`
@@ -193,7 +193,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 2. Add providerID to SessionMetadata type
+- [x] 2. Add providerID to SessionMetadata type
 
   **What to do**:
   - Open `src/shared/types/index.ts`
@@ -232,7 +232,7 @@ Parallel Speedup: ~30% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] Terminal output showing no type errors
+  - [x] Terminal output showing no type errors
 
   **Commit**: YES (group with Task 1)
   - Message: `feat(types): add providerID to SessionMetadata`
@@ -241,7 +241,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 3. Include providerID in /api/poll enrichment
+- [x] 3. Include providerID in /api/poll enrichment
 
   **What to do**:
   - Open `src/server/index.ts`
@@ -290,7 +290,7 @@ Parallel Speedup: ~30% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] Terminal output showing providerID in API response
+  - [x] Terminal output showing providerID in API response
 
   **Commit**: YES
   - Message: `feat(api): include providerID in poll response`
@@ -299,7 +299,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 4. Redesign AgentTree node rendering
+- [x] 4. Redesign AgentTree node rendering
 
   **What to do**:
   - Open `src/client/src/components/AgentTree.tsx`
@@ -387,8 +387,8 @@ Parallel Speedup: ~30% faster than sequential
   ```
 
   **Evidence to Capture:**
-  - [ ] Screenshot of AgentTree with redesigned nodes
-  - [ ] Element inspection showing 72px node height
+  - [x] Screenshot of AgentTree with redesigned nodes
+  - [x] Element inspection showing 72px node height
 
   **Commit**: YES
   - Message: `feat(ui): redesign AgentTree nodes with task/model/agent display`
@@ -429,14 +429,14 @@ curl -s http://localhost:50234/api/poll | jq '.sessions[0].providerID'
 ```
 
 ### Final Checklist
-- [ ] All "Must Have" present:
-  - [ ] providerID in API response
-  - [ ] Color-coded agent badges
-  - [ ] "TASK:" prefix for child sessions
-  - [ ] Full model path display
-  - [ ] Root vs child visual distinction
-- [ ] All "Must NOT Have" absent:
-  - [ ] No new dependencies added
-  - [ ] No filtering UI added
-  - [ ] No storage modifications
-- [ ] All tests pass (bun test + cd src/client && bun run test)
+- [x] All "Must Have" present:
+  - [x] providerID in API response
+  - [x] Color-coded agent badges
+  - [x] "TASK:" prefix for child sessions
+  - [x] Full model path display
+  - [x] Root vs child visual distinction
+- [x] All "Must NOT Have" absent:
+  - [x] No new dependencies added
+  - [x] No filtering UI added
+  - [x] No storage modifications
+- [x] All tests pass (bun test + cd src/client && bun run test)

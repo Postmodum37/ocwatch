@@ -238,9 +238,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file created: `src/shared/__tests__/setup.test.ts`
-  - [ ] Test covers: Basic assertion to verify test runner works
-  - [ ] `bun test` → PASS (1 test, 0 failures)
+  - [x] Test file created: `src/shared/__tests__/setup.test.ts`
+  - [x] Test covers: Basic assertion to verify test runner works
+  - [x] `bun test` → PASS (1 test, 0 failures)
 
   **Automated Verification:**
   ```bash
@@ -258,8 +258,8 @@ Wave 6 (After Wave 5):
   ```
 
   **Evidence to Capture:**
-  - [ ] Output of `bun test` showing passing test
-  - [ ] Output of `ls -la src/` showing structure
+  - [x] Output of `bun test` showing passing test
+  - [x] Output of `ls -la src/` showing structure
 
   **Commit**: YES
   - Message: `feat(setup): initialize bun + typescript project structure`
@@ -320,8 +320,8 @@ Wave 6 (After Wave 5):
   ```
 
   **Evidence to Capture:**
-  - [ ] Output of `curl http://localhost:5173` returning HTML
-  - [ ] Output of `ls src/client/dist/` showing built files
+  - [x] Output of `curl http://localhost:5173` returning HTML
+  - [x] Output of `ls src/client/dist/` showing built files
 
   **Commit**: YES
   - Message: `feat(client): setup vite + react frontend scaffold`
@@ -373,9 +373,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `src/shared/__tests__/types.test.ts`
-  - [ ] Test covers: Type instantiation, RingBuffer add/get operations
-  - [ ] `bun test src/shared/__tests__/types.test.ts` → PASS
+  - [x] Test file: `src/shared/__tests__/types.test.ts`
+  - [x] Test covers: Type instantiation, RingBuffer add/get operations
+  - [x] `bun test src/shared/__tests__/types.test.ts` → PASS
 
   **Automated Verification:**
   ```bash
@@ -440,9 +440,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `src/server/storage/__tests__/parsers.test.ts`
-  - [ ] Test covers: Parse valid session JSON, handle missing files gracefully, parse parentID
-  - [ ] `bun test src/server/storage/__tests__/` → PASS
+  - [x] Test file: `src/server/storage/__tests__/parsers.test.ts`
+  - [x] Test covers: Parse valid session JSON, handle missing files gracefully, parse parentID
+  - [x] `bun test src/server/storage/__tests__/` → PASS
 
   **Automated Verification:**
   ```bash
@@ -503,9 +503,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `src/shared/utils/__tests__/RingBuffer.test.ts`
-  - [ ] Test covers: push, getAll, getLatest, capacity overflow, clear
-  - [ ] `bun test src/shared/utils/__tests__/` → PASS (5+ tests)
+  - [x] Test file: `src/shared/utils/__tests__/RingBuffer.test.ts`
+  - [x] Test covers: push, getAll, getLatest, capacity overflow, clear
+  - [x] `bun test src/shared/utils/__tests__/` → PASS (5+ tests)
 
   **Automated Verification:**
   ```bash
@@ -570,9 +570,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `src/server/__tests__/routes.test.ts`
-  - [ ] Test covers: Health endpoint returns 200, routes are defined
-  - [ ] `bun test src/server/__tests__/routes.test.ts` → PASS
+  - [x] Test file: `src/server/__tests__/routes.test.ts`
+  - [x] Test covers: Health endpoint returns 200, routes are defined
+  - [x] `bun test src/server/__tests__/routes.test.ts` → PASS
 
   **Automated Verification:**
   ```bash
@@ -646,9 +646,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `src/server/__tests__/sessions.test.ts`
-  - [ ] Test covers: List sessions, filter by time, build tree, handle empty state
-  - [ ] `bun test src/server/__tests__/sessions.test.ts` → PASS
+  - [x] Test file: `src/server/__tests__/sessions.test.ts`
+  - [x] Test covers: List sessions, filter by time, build tree, handle empty state
+  - [x] `bun test src/server/__tests__/sessions.test.ts` → PASS
 
   **Automated Verification:**
   ```bash
@@ -715,9 +715,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `src/server/watcher/__tests__/watcher.test.ts`
-  - [ ] Test covers: File change triggers dirty flag, cache invalidation
-  - [ ] `bun test src/server/watcher/__tests__/` → PASS
+  - [x] Test file: `src/server/watcher/__tests__/watcher.test.ts`
+  - [x] Test covers: File change triggers dirty flag, cache invalidation
+  - [x] `bun test src/server/watcher/__tests__/` → PASS
 
   **Automated Verification:**
   ```bash
@@ -780,9 +780,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `src/server/__tests__/poll.test.ts`
-  - [ ] Test covers: Returns data, ETag header present, 304 on no change
-  - [ ] `bun test src/server/__tests__/poll.test.ts` → PASS
+  - [x] Test file: `src/server/__tests__/poll.test.ts`
+  - [x] Test covers: Returns data, ETag header present, 304 on no change
+  - [x] `bun test src/server/__tests__/poll.test.ts` → PASS
 
   **Automated Verification:**
   ```bash
@@ -977,9 +977,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `src/client/src/components/__tests__/AgentTree.test.tsx`
-  - [ ] Test covers: Renders without crashing, handles empty data, builds nodes from sessions
-  - [ ] `cd src/client && bun test` → PASS
+  - [x] Test file: `src/client/src/components/__tests__/AgentTree.test.tsx`
+  - [x] Test covers: Renders without crashing, handles empty data, builds nodes from sessions
+  - [x] `cd src/client && bun test` → PASS
 
   **Automated Verification (Playwright):**
   ```
@@ -1090,9 +1090,9 @@ Wave 6 (After Wave 5):
   **Acceptance Criteria**:
 
   **TDD:**
-  - [ ] Test file: `src/client/src/components/__tests__/PlanProgress.test.tsx`
-  - [ ] Test covers: Renders progress bar, handles no plan state
-  - [ ] `cd src/client && bun test` → PASS
+  - [x] Test file: `src/client/src/components/__tests__/PlanProgress.test.tsx`
+  - [x] Test covers: Renders progress bar, handles no plan state
+  - [x] `cd src/client && bun test` → PASS
 
   **Automated Verification (Playwright):**
   ```

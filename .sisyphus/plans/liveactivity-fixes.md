@@ -56,11 +56,11 @@ Fix the LiveActivity dashboard to (1) show most recently active subagents first 
 - New/updated server tests for agent phase detection
 
 ### Definition of Done
-- [ ] Children sorted by `updatedAt` descending (most recent first)
-- [ ] Agent transitions create separate root nodes
-- [ ] All existing tests pass
-- [ ] New tests cover agent phase detection
-- [ ] Manual verification with multi-agent session
+- [x] Children sorted by `updatedAt` descending (most recent first)
+- [x] Agent transitions create separate root nodes
+- [x] All existing tests pass
+- [x] New tests cover agent phase detection
+- [x] Manual verification with multi-agent session
 
 ### Must Have
 - Sorting uses `updatedAt` for all nodes (roots and children)
@@ -148,7 +148,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ## TODOs
 
-- [ ] 1. Fix sorting to use `updatedAt` descending for all nodes
+- [x] 1. Fix sorting to use `updatedAt` descending for all nodes
 
   **What to do**:
   - Open `src/client/src/components/LiveActivity.tsx`
@@ -215,7 +215,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 2. Add `detectAgentPhases()` helper function
+- [x] 2. Add `detectAgentPhases()` helper function
 
   **What to do**:
   - Open `src/server/index.ts`
@@ -316,7 +316,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 3. Modify `getSessionHierarchy()` to create virtual roots for agent phases
+- [x] 3. Modify `getSessionHierarchy()` to create virtual roots for agent phases
 
   **What to do**:
   - Open `src/server/index.ts`
@@ -425,7 +425,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 4. Update LiveActivity tests for new sorting behavior
+- [x] 4. Update LiveActivity tests for new sorting behavior
 
   **What to do**:
   - Open `src/client/src/components/__tests__/LiveActivity.test.tsx`
@@ -511,7 +511,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 5. Add server tests for agent phase detection
+- [x] 5. Add server tests for agent phase detection
 
   **What to do**:
   - Create or update test file for agent phase detection
@@ -613,7 +613,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 6. Manual verification and final checks
+- [x] 6. Manual verification and final checks
 
   **What to do**:
   - Start development server
@@ -709,10 +709,10 @@ bun run dev
 ```
 
 ### Final Checklist
-- [ ] Children sorted by `updatedAt` descending (most recent first)
-- [ ] Agent transitions create separate root nodes  
-- [ ] Single-agent sessions work exactly as before (backward compatible)
-- [ ] All existing tests pass
-- [ ] New tests cover sorting and phase detection
-- [ ] Type checks pass with no errors
-- [ ] Manual verification confirms expected behavior
+- [x] Children sorted by `updatedAt` descending (most recent first)
+- [x] Agent transitions create separate root nodes  
+- [x] Single-agent sessions work exactly as before (backward compatible)
+- [x] All existing tests pass
+- [x] New tests cover sorting and phase detection
+- [x] Type checks pass with no errors
+- [x] Manual verification confirms expected behavior
