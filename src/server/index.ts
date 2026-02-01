@@ -9,7 +9,7 @@ import {
 } from "./storage/sessionParser";
 import { listMessages, getFirstAssistantMessage } from "./storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "./storage/boulderParser";
-import { formatCurrentAction, getPartsForSession, getSessionToolState } from "./storage/partParser";
+import { formatCurrentAction, getPartsForSession, getSessionToolState, isPendingToolCall } from "./storage/partParser";
 import { getSessionStatus, getStatusFromTimestamp } from "./utils/sessionStatus";
 import type { SessionMetadata, MessageMeta, PlanProgress, ActivitySession, SessionStatus } from "../shared/types";
 import { errorHandler, notFoundHandler } from "./middleware/error";
@@ -353,7 +353,7 @@ async function getSessionHierarchy(
 
     let currentAction: string | null = null;
     if (status === "working") {
-      const pendingParts = parts.filter(p => p.type === "tool" && p.state === "pending");
+      const pendingParts = parts.filter(p => isPendingToolCall(p));
       if (pendingParts.length > 0) {
         currentAction = formatCurrentAction(pendingParts[0]);
       }
@@ -484,7 +484,7 @@ async function processChildSession(
 
   let currentAction: string | null = null;
   if (status === "working") {
-    const pendingParts = parts.filter(p => p.type === "tool" && p.state === "pending");
+    const pendingParts = parts.filter(p => isPendingToolCall(p));
     if (pendingParts.length > 0) {
       currentAction = formatCurrentAction(pendingParts[0]);
     }
@@ -581,7 +581,7 @@ app.get("/api/poll", async (c) => {
         
         let currentAction: string | null = null;
         if (status === "working") {
-          const pendingParts = parts.filter(p => p.type === "tool" && p.state === "pending");
+          const pendingParts = parts.filter(p => isPendingToolCall(p));
           if (pendingParts.length > 0) {
             currentAction = formatCurrentAction(pendingParts[0]);
           }

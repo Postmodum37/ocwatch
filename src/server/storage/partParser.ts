@@ -165,6 +165,9 @@ export function formatCurrentAction(part: PartMeta): string | null {
   return toolName;
 }
 
+// All states that indicate a tool is currently executing or waiting to execute
+const ACTIVE_TOOL_STATES = ["pending", "running", "in_progress"];
+
 export function isPendingToolCall(part: PartMeta): boolean {
   if (!part.tool || part.type !== "tool") {
     return false;
@@ -174,7 +177,7 @@ export function isPendingToolCall(part: PartMeta): boolean {
     return false;
   }
 
-  return part.state === "pending";
+  return ACTIVE_TOOL_STATES.includes(part.state);
 }
 
 export interface SessionToolState {
