@@ -112,12 +112,14 @@ export const SessionList: React.FC<SessionListProps> = ({
             const isSelected = session.id === selectedId;
             const status: SessionStatus = session.status || 'completed';
 
-            const StatusIcon = () => {
+              const StatusIcon = () => {
               switch (status) {
                 case 'working':
                   return <Loader2 className="w-4 h-4 text-accent animate-spin" data-testid="session-status-working" />;
                 case 'idle':
                   return <Circle className="w-4 h-4 text-success animate-pulse" data-testid="session-status-idle" />;
+                case 'waiting':
+                  return <Circle className="w-4 h-4 text-text-secondary" data-testid="session-status-waiting" />;
                 case 'completed':
                 default:
                   return <Check className="w-4 h-4 text-text-secondary" data-testid="session-status-completed" />;
@@ -151,6 +153,11 @@ export const SessionList: React.FC<SessionListProps> = ({
                     {session.agent && (
                       <span className="px-1.5 py-0.5 rounded bg-surface border border-border text-xs text-text-secondary truncate max-w-[120px]" title={session.agent}>
                         {session.agent}
+                      </span>
+                    )}
+                    {session.currentAction && (
+                      <span className="text-xs text-text-secondary truncate flex-1 min-w-0" title={session.currentAction}>
+                        {session.currentAction}
                       </span>
                     )}
                   </div>

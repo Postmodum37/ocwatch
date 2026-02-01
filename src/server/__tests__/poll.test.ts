@@ -199,4 +199,55 @@ describe("GET /api/poll", () => {
     // If data is identical, ETags should match
     expect(etag1).toBe(etag2);
   });
+
+  it("should include status field in sessions", async () => {
+    const req = new Request("http://localhost:50234/api/poll");
+    const res = await app.fetch(req);
+    const data = await res.json();
+
+    if (data.sessions.length > 0) {
+      const session = data.sessions[0];
+      expect(session).toHaveProperty("status");
+      expect(["working", "idle", "completed", "waiting"]).toContain(session.status);
+    }
+  });
+
+  it("should include currentAction field in sessions", async () => {
+    const req = new Request("http://localhost:50234/api/poll");
+    const res = await app.fetch(req);
+    const data = await res.json();
+
+    if (data.sessions.length > 0) {
+      const session = data.sessions[0];
+      expect(session).toHaveProperty("currentAction");
+      if (session.currentAction !== null) {
+        expect(typeof session.currentAction).toBe("string");
+      }
+    }
+  });
+
+  it("should set status to working when session has pending tool calls", async () => {
+    const req = new Request("http://localhost:50234/api/poll");
+    const res = await app.fetch(req);
+    const data = await res.json();
+
+    for (const session of data.sessions) {
+      if (session.status === "working" && session.currentAction) {
+        expect(session.currentAction).toBeTruthy();
+      }
+    }
+  });
+
+  it("should populate currentAction with tool details when available", async () => {
+    const req = new Request("http://localhost:50234/api/poll");
+    const res = await app.fetch(req);
+    const data = await res.json();
+
+    for (const session of data.sessions) {
+      if (session.currentAction) {
+        expect(typeof session.currentAction).toBe("string");
+        expect(session.currentAction.length).toBeGreaterThan(0);
+      }
+    }
+  });
 });

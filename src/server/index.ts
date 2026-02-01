@@ -9,7 +9,7 @@ import {
 } from "./storage/sessionParser";
 import { listMessages, getFirstAssistantMessage } from "./storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "./storage/boulderParser";
-import { formatCurrentAction } from "./storage/partParser";
+import { formatCurrentAction, getPartsForSession, getSessionToolState } from "./storage/partParser";
 import { getSessionStatus, getStatusFromTimestamp } from "./utils/sessionStatus";
 import type { SessionMetadata, MessageMeta, PlanProgress, ActivitySession, SessionStatus } from "../shared/types";
 import { errorHandler, notFoundHandler } from "./middleware/error";
@@ -326,7 +326,38 @@ async function getSessionHierarchy(
       .filter((m) => m.tokens !== undefined)
       .reduce((sum, m) => sum + (m.tokens || 0), 0);
 
-    const status = getSessionStatus(rootMessages);
+    const parts = await getPartsForSession(rootSessionId);
+    const toolState = getSessionToolState(parts);
+    
+    let workingChildCount = 0;
+    for (const child of childSessions) {
+      const childMessages = await listMessages(child.id);
+      const childParts = await getPartsForSession(child.id);
+      const childToolState = getSessionToolState(childParts);
+      const childStatus = getSessionStatus(
+        childMessages,
+        childToolState.hasPendingToolCall,
+        childToolState.lastToolCompletedAt || undefined
+      );
+      if (childStatus === "working") {
+        workingChildCount++;
+      }
+    }
+
+    const status = getSessionStatus(
+      rootMessages,
+      toolState.hasPendingToolCall,
+      toolState.lastToolCompletedAt || undefined,
+      workingChildCount
+    );
+
+    let currentAction: string | null = null;
+    if (status === "working") {
+      const pendingParts = parts.filter(p => p.type === "tool" && p.state === "pending");
+      if (pendingParts.length > 0) {
+        currentAction = formatCurrentAction(pendingParts[0]);
+      }
+    }
 
     result.push({
       id: rootSession.id,
@@ -337,7 +368,7 @@ async function getSessionHierarchy(
       parentID: rootSession.parentID,
       tokens: totalTokens > 0 ? totalTokens : undefined,
       status,
-      currentAction: status === "working" ? "Thinking..." : null,
+      currentAction,
       createdAt: rootSession.createdAt,
       updatedAt: rootSession.updatedAt,
     });
@@ -358,6 +389,27 @@ async function getSessionHierarchy(
       );
       const firstPhaseMsg = phaseMessages[0];
 
+      const phaseChildren = childSessions.filter(child =>
+        child.createdAt >= phase.startTime && child.createdAt < nextPhaseStart
+      );
+
+      let workingChildCount = 0;
+      for (const child of phaseChildren) {
+        const childMessages = await listMessages(child.id);
+        const childParts = await getPartsForSession(child.id);
+        const childToolState = getSessionToolState(childParts);
+        const childStatus = getSessionStatus(
+          childMessages,
+          childToolState.hasPendingToolCall,
+          childToolState.lastToolCompletedAt || undefined
+        );
+        if (childStatus === "working") {
+          workingChildCount++;
+        }
+      }
+
+      const status = workingChildCount > 0 ? "waiting" : getStatusFromTimestamp(phase.endTime);
+
       result.push({
         id: virtualId,
         title: rootSession.title,
@@ -366,15 +418,11 @@ async function getSessionHierarchy(
         providerID: firstPhaseMsg?.providerID,
         parentID: undefined,
         tokens: phase.tokens > 0 ? phase.tokens : undefined,
-        status: getStatusFromTimestamp(phase.endTime),
+        status,
         currentAction: null,
         createdAt: phase.startTime,
         updatedAt: phase.endTime,
       });
-
-      const phaseChildren = childSessions.filter(child =>
-        child.createdAt >= phase.startTime && child.createdAt < nextPhaseStart
-      );
 
       for (const child of phaseChildren) {
         await processChildSession(child.id, virtualId, allSessions, result, processed);
@@ -407,7 +455,40 @@ async function processChildSession(
     .filter((m) => m.tokens !== undefined)
     .reduce((sum, m) => sum + (m.tokens || 0), 0);
 
-  const status = getSessionStatus(messages);
+  const parts = await getPartsForSession(sessionId);
+  const toolState = getSessionToolState(parts);
+  
+  const childSessions = allSessions.filter((s) => s.parentID === sessionId);
+  let workingChildCount = 0;
+  
+  for (const child of childSessions) {
+    const childMessages = await listMessages(child.id);
+    const childParts = await getPartsForSession(child.id);
+    const childToolState = getSessionToolState(childParts);
+    const childStatus = getSessionStatus(
+      childMessages,
+      childToolState.hasPendingToolCall,
+      childToolState.lastToolCompletedAt || undefined
+    );
+    if (childStatus === "working") {
+      workingChildCount++;
+    }
+  }
+
+  const status = getSessionStatus(
+    messages,
+    toolState.hasPendingToolCall,
+    toolState.lastToolCompletedAt || undefined,
+    workingChildCount
+  );
+
+  let currentAction: string | null = null;
+  if (status === "working") {
+    const pendingParts = parts.filter(p => p.type === "tool" && p.state === "pending");
+    if (pendingParts.length > 0) {
+      currentAction = formatCurrentAction(pendingParts[0]);
+    }
+  }
 
   result.push({
     id: session.id,
@@ -418,12 +499,11 @@ async function processChildSession(
     parentID: parentId,
     tokens: totalTokens > 0 ? totalTokens : undefined,
     status,
-    currentAction: status === "working" ? "Thinking..." : null,
+    currentAction,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   });
 
-  const childSessions = allSessions.filter((s) => s.parentID === sessionId);
   for (const child of childSessions) {
     await processChildSession(child.id, session.id, allSessions, result, processed);
   }
@@ -490,7 +570,22 @@ app.get("/api/poll", async (c) => {
       rootSessions.map(async (session) => {
         const firstAssistantMsg = await getFirstAssistantMessage(session.id);
         const messages = await listMessages(session.id);
-        const status = getSessionStatus(messages);
+        const parts = await getPartsForSession(session.id);
+        const toolState = getSessionToolState(parts);
+        
+        const status = getSessionStatus(
+          messages,
+          toolState.hasPendingToolCall,
+          toolState.lastToolCompletedAt || undefined
+        );
+        
+        let currentAction: string | null = null;
+        if (status === "working") {
+          const pendingParts = parts.filter(p => p.type === "tool" && p.state === "pending");
+          if (pendingParts.length > 0) {
+            currentAction = formatCurrentAction(pendingParts[0]);
+          }
+        }
         
         return {
           ...session,
@@ -498,7 +593,7 @@ app.get("/api/poll", async (c) => {
           modelID: firstAssistantMsg?.modelID || null,
           providerID: firstAssistantMsg?.providerID || null,
           status,
-          currentAction: null as string | null,
+          currentAction,
         };
       })
     );
@@ -506,7 +601,14 @@ app.get("/api/poll", async (c) => {
     let activeSession: SessionMetadata | null = null;
     for (const session of rootSessions) {
       const messages = await listMessages(session.id);
-      const status = getSessionStatus(messages);
+      const parts = await getPartsForSession(session.id);
+      const toolState = getSessionToolState(parts);
+      
+      const status = getSessionStatus(
+        messages,
+        toolState.hasPendingToolCall,
+        toolState.lastToolCompletedAt || undefined
+      );
 
       if (status === "working" || status === "idle") {
         activeSession = session;

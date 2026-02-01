@@ -28,6 +28,25 @@ const mockSessions: SessionMetadata[] = [
     createdAt: new Date(),
     updatedAt: new Date(),
   },
+  {
+    id: '4',
+    projectID: 'p1',
+    directory: '/tmp/p1',
+    title: 'Waiting Session',
+    status: 'waiting',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: '5',
+    projectID: 'p1',
+    directory: '/tmp/p1',
+    title: 'Action Session',
+    status: 'working',
+    currentAction: 'Processing data...',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
 ];
 
 const mockProjects: ProjectInfo[] = [
@@ -184,5 +203,15 @@ describe('SessionList', () => {
     
     expect(screen.getByText('(2)')).toBeDefined();
     expect(screen.getByText('(1)')).toBeDefined();
+  });
+
+  it('renders waiting status correctly', () => {
+    render(<SessionList sessions={mockSessions} selectedId={null} onSelect={() => {}} />);
+    expect(screen.getByTestId('session-status-waiting')).toBeDefined();
+  });
+
+  it('renders current action text when available', () => {
+    render(<SessionList sessions={mockSessions} selectedId={null} onSelect={() => {}} />);
+    expect(screen.getByText('Processing data...')).toBeDefined();
   });
 });
