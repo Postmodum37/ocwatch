@@ -61,11 +61,11 @@ Add tool call visibility to Live Activity view, enabling users to see what tools
 7. Unit tests for all new functionality
 
 ### Definition of Done
-- [ ] `bun test` passes (server tests)
-- [ ] `cd src/client && bun run test` passes (client tests)
-- [ ] API returns tool calls: `curl http://localhost:50234/api/poll | jq '.activitySessions[0].toolCalls'` returns array
-- [ ] Visual: Agent row click expands/collapses tool calls
-- [ ] Visual: Tool call row click expands/collapses arguments
+- [x] `bun test` passes (server tests)
+- [x] `cd src/client && bun run test` passes (client tests)
+- [x] API returns tool calls: `curl http://localhost:50234/api/poll | jq '.activitySessions[0].toolCalls'` returns array
+- [x] Visual: Agent row click expands/collapses tool calls
+- [x] Visual: Tool call row click expands/collapses arguments
 
 ### Must Have
 - Tool calls shown per ActivitySession (per tree node)
@@ -152,7 +152,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ## TODOs
 
-- [ ] 1. Define ToolCallSummary type and extend ActivitySession
+- [x] 1. Define ToolCallSummary type and extend ActivitySession
 
   **What to do**:
   - Create `ToolCallSummary` interface in `src/shared/types/index.ts`
@@ -209,7 +209,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 2. Server: Implement getToolCallsForSession and extend poll endpoint
+- [x] 2. Server: Implement getToolCallsForSession and extend poll endpoint
 
   **What to do**:
   - **Test first (RED)**: Write test for `getToolCallsForSession()` in `src/server/storage/__tests__/partParser.test.ts`
@@ -289,7 +289,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 3. Client: Write tests for ToolCallRow and LiveActivity tool integration
+- [x] 3. Client: Write tests for ToolCallRow and LiveActivity tool integration
 
   **What to do**:
   - **RED phase only** - write failing tests before implementation
@@ -351,7 +351,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 4. Client: Implement ToolCallRow and modify LiveActivity
+- [x] 4. Client: Implement ToolCallRow and modify LiveActivity
 
   **What to do**:
   - **GREEN phase**: Make tests from Task 3 pass
@@ -438,7 +438,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 5. Integration testing and polish
+- [x] 5. Integration testing and polish
 
   **What to do**:
   - Run full test suite (server + client)
@@ -556,18 +556,18 @@ bun run tsc -b
 ```
 
 ### Final Checklist
-- [ ] All "Must Have" present:
-  - [ ] Tool calls shown per ActivitySession
-  - [ ] Last 5 by default, expandable to all
-  - [ ] Status badge (pending/complete/error)
-  - [ ] Tool name + brief args summary
-  - [ ] Expandable full arguments on click
-  - [ ] TDD tests for new functions/components
-- [ ] All "Must NOT Have" absent:
-  - [ ] No modifications to ToolCalls.tsx
-  - [ ] No tool output/results displayed
-  - [ ] No filtering/search added
-  - [ ] No new API endpoints created
-  - [ ] No tool duration display
-  - [ ] Max 50 tool calls enforced
-- [ ] All tests pass
+- [x] All "Must Have" present:
+  - [x] Tool calls shown per ActivitySession
+  - [x] Last 5 by default, expandable to all
+  - [x] Status badge (pending/complete/error)
+  - [x] Tool name + brief args summary
+  - [x] Expandable full arguments on click
+  - [x] TDD tests for new functions/components
+- [x] All "Must NOT Have" absent:
+  - [x] No modifications to ToolCalls.tsx
+  - [x] No tool output/results displayed
+  - [x] No filtering/search added
+  - [x] No new API endpoints created
+  - [x] No tool duration display
+  - [x] Max 50 tool calls enforced
+- [x] All tests pass

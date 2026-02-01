@@ -191,15 +191,19 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
              {visibleToolCalls?.map(toolCall => (
                 <ToolCallRow key={toolCall.id} toolCall={toolCall} />
              ))}
-             {remainingTools > 0 && (
+             {(session.toolCalls?.length || 0) > 5 && (
                <div 
-                 className="text-xs text-accent hover:underline cursor-pointer px-2 py-1"
+                 className="text-xs text-accent hover:text-accent/80 cursor-pointer px-2 py-1 flex items-center gap-1"
                  onClick={(e) => {
                    e.stopPropagation();
-                   setShowAllTools(true);
+                   setShowAllTools(!showAllTools);
                  }}
                >
-                 Show {remainingTools} more...
+                 {showAllTools ? (
+                   <>Show less</>
+                 ) : (
+                   <>Show {remainingTools} more</>
+                 )}
                </div>
              )}
           </div>

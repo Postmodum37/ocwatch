@@ -442,7 +442,14 @@ async function getSessionHierarchy(
       }
 
       const phaseLastAssistantFinished = isAssistantFinished(phaseMessages);
-      const status = workingChildCount > 0 ? "waiting" : (phaseLastAssistantFinished ? "waiting" : getStatusFromTimestamp(phase.endTime));
+      const isLastPhase = i === phases.length - 1;
+      const status = workingChildCount > 0 
+        ? "waiting" 
+        : (phaseLastAssistantFinished 
+            ? (isLastPhase ? "waiting" : "completed") 
+            : getStatusFromTimestamp(phase.endTime));
+
+      const toolCalls = await getToolCallsForSession(rootSessionId, messageAgent);
 
       result.push({
         id: virtualId,
@@ -454,6 +461,7 @@ async function getSessionHierarchy(
         tokens: phase.tokens > 0 ? phase.tokens : undefined,
         status,
         currentAction: null,
+        toolCalls,
         createdAt: phase.startTime,
         updatedAt: phase.endTime,
       });

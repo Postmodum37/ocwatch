@@ -17,6 +17,10 @@ interface PartStateJSON {
   input?: Record<string, unknown>;
   output?: string;
   title?: string;
+  time?: {
+    start: number;
+    end?: number;
+  };
 }
 
 interface PartJSON {
@@ -64,8 +68,20 @@ export async function parsePart(filePath: string): Promise<PartMeta | null> {
       }
     }
 
-    const startedAt = json.time?.start ? new Date(json.time.start) : undefined;
-    const completedAt = json.time?.end ? new Date(json.time.end) : undefined;
+    // Time can be at top level (json.time) or inside state object (json.state.time) for tool parts
+    let timeStart: number | undefined;
+    let timeEnd: number | undefined;
+    
+    if (json.time) {
+      timeStart = json.time.start;
+      timeEnd = json.time.end;
+    } else if (typeof json.state === "object" && json.state !== null && json.state.time) {
+      timeStart = json.state.time.start;
+      timeEnd = json.state.time.end;
+    }
+    
+    const startedAt = timeStart ? new Date(timeStart) : undefined;
+    const completedAt = timeEnd ? new Date(timeEnd) : undefined;
 
     return {
       id: json.id,

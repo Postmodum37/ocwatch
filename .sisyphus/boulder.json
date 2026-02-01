@@ -1,10 +1,10 @@
 {
   "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/live-activity-tool-logs.md",
   "started_at": "2026-02-02T22:32:28.000Z",
-  "completed_at": null,
+  "completed_at": "2026-02-02T22:45:00.000Z",
   "session_ids": ["ses_3e4a9faacffet6cwbDLowPHXqH"],
   "plan_name": "live-activity-tool-logs",
-  "status": "in_progress",
-  "tasks_completed": 0,
+  "status": "completed",
+  "tasks_completed": 5,
   "tasks_total": 5
 }
