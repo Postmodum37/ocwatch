@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { LiveActivity } from '../LiveActivity';
 import type { ActivitySession } from '../../../../shared/types';
 import { describe, it, expect, vi, beforeAll } from 'vitest';
@@ -12,6 +12,8 @@ vi.mock('lucide-react', () => ({
   Check: () => <div data-testid="icon-check" />,
   Loader2: () => <div data-testid="icon-loader" />,
   Circle: () => <div data-testid="icon-circle" />,
+  ChevronRight: () => <div data-testid="icon-chevron-right" />,
+  ChevronDown: () => <div data-testid="icon-chevron-down" />,
 }));
 
 describe('LiveActivity', () => {
@@ -173,40 +175,171 @@ describe('LiveActivity', () => {
     expect(screen.getByTestId('icon-circle')).toBeInTheDocument();
   });
 
-  it('displays "waiting on N agents" when workingChildCount > 0', () => {
-    const waitingOnChildrenSession: ActivitySession[] = [
-      {
-        id: 'parent-1',
-        title: 'Parent',
-        agent: 'prometheus',
-        status: 'working',
-        workingChildCount: 3,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-    ];
+   it('displays "waiting on N agents" when workingChildCount > 0', () => {
+     const waitingOnChildrenSession: ActivitySession[] = [
+       {
+         id: 'parent-1',
+         title: 'Parent',
+         agent: 'prometheus',
+         status: 'working',
+         workingChildCount: 3,
+         createdAt: new Date(),
+         updatedAt: new Date(),
+       }
+     ];
 
-    render(<LiveActivity sessions={waitingOnChildrenSession} loading={false} />);
-    
-    expect(screen.getByText('waiting on 3 agents')).toBeInTheDocument();
-  });
+     render(<LiveActivity sessions={waitingOnChildrenSession} loading={false} />);
+     
+     expect(screen.getByText('waiting on 3 agents')).toBeInTheDocument();
+   });
 
-  it('displays currentAction text instead of "Thinking..."', () => {
-    const actionSession: ActivitySession[] = [
-      {
-        id: 'action-1',
-        title: 'Action',
-        agent: 'prometheus',
-        status: 'working',
-        currentAction: 'running tool: ls',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-    ];
+   it('displays currentAction text instead of "Thinking..."', () => {
+     const actionSession: ActivitySession[] = [
+       {
+         id: 'action-1',
+         title: 'Action',
+         agent: 'prometheus',
+         status: 'working',
+         currentAction: 'running tool: ls',
+         createdAt: new Date(),
+         updatedAt: new Date(),
+       }
+     ];
 
-    render(<LiveActivity sessions={actionSession} loading={false} />);
-    
-    expect(screen.getByText('running tool: ls')).toBeInTheDocument();
-    expect(screen.queryByText('Thinking...')).not.toBeInTheDocument();
-  });
+     render(<LiveActivity sessions={actionSession} loading={false} />);
+     
+     expect(screen.getByText('running tool: ls')).toBeInTheDocument();
+     expect(screen.queryByText('Thinking...')).not.toBeInTheDocument();
+   });
+
+   it('agent row with toolCalls shows tool call list', () => {
+     const sessionWithTools: ActivitySession[] = [
+       {
+         id: 'session-with-tools',
+         title: 'Session with tools',
+         agent: 'sisyphus',
+         status: 'working',
+         createdAt: new Date(),
+         updatedAt: new Date(),
+         toolCalls: [
+           {
+             id: 't1',
+             name: 'ls',
+             state: 'complete',
+             summary: 'ls -la',
+             input: {},
+             timestamp: new Date().toISOString(),
+             agentName: 'sisyphus'
+           }
+         ]
+       }
+     ];
+
+     render(<LiveActivity sessions={sessionWithTools} loading={false} />);
+
+     const row = screen.getByTestId('session-row-session-with-tools');
+     fireEvent.click(row);
+
+     expect(screen.getByTestId('session-row-session-with-tools')).toBeInTheDocument();
+     expect(screen.getByTestId('tool-calls-list-session-with-tools')).toBeInTheDocument();
+   });
+
+   it('default shows max 5 tool calls', () => {
+     const sessionWithTools: ActivitySession[] = [
+       {
+         id: 'session-many-tools',
+         title: 'Session with many tools',
+         agent: 'sisyphus',
+         status: 'working',
+         createdAt: new Date(),
+         updatedAt: new Date(),
+         toolCalls: Array(10).fill(null).map((_, i) => ({
+             id: `tool-${i}`,
+             name: 'test',
+             state: 'complete' as const,
+             summary: 'test',
+             input: {},
+             timestamp: new Date().toISOString(),
+             agentName: 'test'
+         }))
+       }
+     ];
+
+     render(<LiveActivity sessions={sessionWithTools} loading={false} />);
+     
+     const row = screen.getByTestId('session-row-session-many-tools');
+     fireEvent.click(row);
+
+     const toolCallRows = screen.getAllByTestId(/^tool-call-row-tool-/);
+     expect(toolCallRows.length).toBeLessThanOrEqual(5);
+   });
+
+   it('click agent row expands to show all tool calls', () => {
+     const sessionWithTools: ActivitySession[] = [
+       {
+         id: 'session-expand-tools',
+         title: 'Session to expand',
+         agent: 'sisyphus',
+         status: 'working',
+         createdAt: new Date(),
+         updatedAt: new Date(),
+         toolCalls: Array(10).fill(null).map((_, i) => ({
+             id: `tool-${i}`,
+             name: 'test',
+             state: 'complete' as const,
+             summary: 'test',
+             input: {},
+             timestamp: new Date().toISOString(),
+             agentName: 'test'
+         }))
+       }
+     ];
+
+     render(<LiveActivity sessions={sessionWithTools} loading={false} />);
+
+     const expandButton = screen.getByTestId('session-row-expand-session-expand-tools');
+     fireEvent.click(expandButton);
+     
+     const showMore = screen.getByText(/Show \d+ more/);
+     fireEvent.click(showMore);
+
+     expect(screen.getByTestId('tool-calls-expanded-session-expand-tools')).toBeInTheDocument();
+     const allToolCallRows = screen.getAllByTestId(/^tool-call-row-tool-/);
+     expect(allToolCallRows.length).toBeGreaterThan(5);
+   });
+
+   it('click agent row again collapses to last 5 tool calls', () => {
+     const sessionWithTools: ActivitySession[] = [
+       {
+         id: 'session-collapse-tools',
+         title: 'Session to collapse',
+         agent: 'sisyphus',
+         status: 'working',
+         createdAt: new Date(),
+         updatedAt: new Date(),
+         toolCalls: Array(10).fill(null).map((_, i) => ({
+             id: `tool-${i}`,
+             name: 'test',
+             state: 'complete' as const,
+             summary: 'test',
+             input: {},
+             timestamp: new Date().toISOString(),
+             agentName: 'test'
+         }))
+       }
+     ];
+
+     render(<LiveActivity sessions={sessionWithTools} loading={false} />);
+
+     const expandButton = screen.getByTestId('session-row-expand-session-collapse-tools');
+     
+     fireEvent.click(expandButton);
+     expect(screen.getByTestId('tool-calls-expanded-session-collapse-tools')).toBeInTheDocument();
+
+     fireEvent.click(expandButton);
+     expect(screen.queryByTestId('tool-calls-expanded-session-collapse-tools')).not.toBeInTheDocument();
+     
+     const collapsedToolCallRows = screen.queryAllByTestId(/^tool-call-row-tool-/);
+     expect(collapsedToolCallRows.length).toBe(0);
+   });
 });

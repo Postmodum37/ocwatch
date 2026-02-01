@@ -8,7 +8,7 @@
 
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { PartMeta } from "../../shared/types";
+import type { PartMeta, ToolCallSummary } from "../../shared/types";
 import { getStoragePath } from "./sessionParser";
 import { listMessages } from "./messageParser";
 
@@ -64,6 +64,7 @@ export async function parsePart(filePath: string): Promise<PartMeta | null> {
       }
     }
 
+    const startedAt = json.time?.start ? new Date(json.time.start) : undefined;
     const completedAt = json.time?.end ? new Date(json.time.end) : undefined;
 
     return {
@@ -76,6 +77,7 @@ export async function parsePart(filePath: string): Promise<PartMeta | null> {
       state,
       input,
       title,
+      startedAt,
       completedAt,
     };
   } catch (error) {
@@ -256,4 +258,65 @@ export async function getPartsForSession(
   }
 
   return parts;
+}
+
+/**
+ * Get tool call summaries for a session
+ * @param sessionID - Session ID
+ * @param messageAgent - Map of message ID to agent name
+ * @param storagePath - Optional custom storage path (defaults to XDG path)
+ * @returns Array of ToolCallSummary (max 50, sorted by timestamp desc)
+ */
+export async function getToolCallsForSession(
+  sessionID: string,
+  messageAgent: Map<string, string>,
+  storagePath?: string
+): Promise<ToolCallSummary[]> {
+  const parts = await getPartsForSession(sessionID, storagePath);
+
+  // Filter for tool type parts only
+  const toolParts = parts.filter((part) => part.type === "tool" && part.tool);
+
+  // Map to ToolCallSummary
+  const toolCalls: ToolCallSummary[] = toolParts.map((part) => {
+    const agentName = messageAgent.get(part.messageID) || "unknown";
+
+    // Map state to ToolCallSummary state
+    let state: "pending" | "complete" | "error" = "complete";
+    if (part.state) {
+      if (ACTIVE_TOOL_STATES.includes(part.state)) {
+        state = "pending";
+      } else if (part.state === "error" || part.state === "failed") {
+        state = "error";
+      } else {
+        state = "complete";
+      }
+    }
+
+    // Generate summary using formatCurrentAction
+    const summary = formatCurrentAction(part) || part.tool || "Unknown tool";
+
+    // Use completedAt if available, otherwise startedAt for stable hashing
+    const timestamp = (part.completedAt || part.startedAt)?.toISOString() || "";
+
+    return {
+      id: part.id,
+      name: part.tool || "unknown",
+      state,
+      summary,
+      input: part.input || {},
+      timestamp,
+      agentName,
+    };
+  });
+
+  // Sort by timestamp descending (newest first)
+  toolCalls.sort((a, b) => {
+    const timeA = new Date(a.timestamp).getTime();
+    const timeB = new Date(b.timestamp).getTime();
+    return timeB - timeA;
+  });
+
+  // Limit to 50 most recent
+  return toolCalls.slice(0, 50);
 }

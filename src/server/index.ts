@@ -9,7 +9,7 @@ import {
 } from "./storage/sessionParser";
 import { listMessages, getFirstAssistantMessage } from "./storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "./storage/boulderParser";
-import { formatCurrentAction, getPartsForSession, getSessionToolState, isPendingToolCall } from "./storage/partParser";
+import { formatCurrentAction, getPartsForSession, getSessionToolState, isPendingToolCall, getToolCallsForSession } from "./storage/partParser";
 import { getSessionStatus, getStatusFromTimestamp } from "./utils/sessionStatus";
 import type { SessionMetadata, MessageMeta, PlanProgress, ActivitySession, SessionStatus } from "../shared/types";
 import { errorHandler, notFoundHandler } from "./middleware/error";
@@ -329,6 +329,14 @@ async function getSessionHierarchy(
   const phases = detectAgentPhases(rootMessages);
   const childSessions = allSessions.filter((s) => s.parentID === rootSessionId);
 
+  // Build messageAgent map for tool calls
+  const messageAgent = new Map<string, string>();
+  for (const msg of rootMessages) {
+    if (msg.agent) {
+      messageAgent.set(msg.id, msg.agent);
+    }
+  }
+
   if (phases.length <= 1) {
     const firstAssistantMsg = rootMessages
       .filter((m) => m.role === "assistant")
@@ -377,6 +385,8 @@ async function getSessionHierarchy(
       }
     }
 
+    const toolCalls = await getToolCallsForSession(rootSessionId, messageAgent);
+
     result.push({
       id: rootSession.id,
       title: rootSession.title,
@@ -387,6 +397,7 @@ async function getSessionHierarchy(
       tokens: totalTokens > 0 ? totalTokens : undefined,
       status,
       currentAction,
+      toolCalls,
       createdAt: rootSession.createdAt,
       updatedAt: rootSession.updatedAt,
     });
@@ -478,6 +489,13 @@ async function processChildSession(
     .filter((m) => m.tokens !== undefined)
     .reduce((sum, m) => sum + (m.tokens || 0), 0);
 
+  const messageAgent = new Map<string, string>();
+  for (const msg of messages) {
+    if (msg.agent) {
+      messageAgent.set(msg.id, msg.agent);
+    }
+  }
+
   const parts = await getPartsForSession(sessionId);
   const toolState = getSessionToolState(parts);
   
@@ -520,6 +538,8 @@ async function processChildSession(
     }
   }
 
+  const toolCalls = await getToolCallsForSession(sessionId, messageAgent);
+
   result.push({
     id: session.id,
     title: session.title,
@@ -530,6 +550,7 @@ async function processChildSession(
     tokens: totalTokens > 0 ? totalTokens : undefined,
     status,
     currentAction,
+    toolCalls,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   });

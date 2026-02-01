@@ -53,6 +53,7 @@ export interface ActivitySession {
   currentAction?: string | null;
   lastToolCompletedAt?: Date;
   workingChildCount?: number;
+  toolCalls?: ToolCallSummary[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -79,6 +80,7 @@ export interface PartMeta {
   state?: string;
   input?: ToolInput;
   title?: string;
+  startedAt?: Date;
   completedAt?: Date;
 }
 
@@ -103,6 +105,19 @@ export interface ToolCall {
   timestamp: Date;
   sessionID: string;
   messageID: string;
+}
+
+/**
+ * ToolCallSummary represents a summary of a tool call with input args
+ */
+export interface ToolCallSummary {
+  id: string;
+  name: string;
+  state: "pending" | "complete" | "error";
+  summary: string;
+  input: object;
+  timestamp: string;
+  agentName: string;
 }
 
 /**

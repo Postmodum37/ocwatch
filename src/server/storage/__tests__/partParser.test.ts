@@ -5,6 +5,7 @@ import {
   getPartsForSession,
   getSessionToolState,
   isPendingToolCall,
+  getToolCallsForSession,
 } from "../partParser";
 
 const TEST_DIR = "/tmp/ocwatch-partparser-test";
@@ -295,5 +296,187 @@ describe("getSessionToolState", () => {
 
     expect(state.hasPendingToolCall).toBe(true);
     expect(state.lastToolCompletedAt).toBeNull();
+  });
+});
+
+describe("getToolCallsForSession", () => {
+  beforeAll(async () => {
+    // Ensure we have the messages and parts created from previous tests
+    // The existing setup already has:
+    // - MESSAGE_ID_1 with PART_ID_1 (mcp_read, completed) and PART_ID_2 (mcp_bash, completed)
+    // - MESSAGE_ID_2 with PART_ID_3 (mcp_edit, pending)
+    // - MESSAGE_ID_3 with no parts
+  });
+
+  test("returns array of ToolCallSummary", async () => {
+    const messageAgent = new Map([
+      [MESSAGE_ID_1, "sisyphus"],
+      [MESSAGE_ID_2, "explore"],
+      [MESSAGE_ID_3, "sisyphus"],
+    ]);
+
+    const result = await getToolCallsForSession(SESSION_ID, messageAgent, TEST_DIR);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeGreaterThan(0);
+
+    // Check structure of first item
+    const firstCall = result[0];
+    expect(firstCall).toHaveProperty("id");
+    expect(firstCall).toHaveProperty("name");
+    expect(firstCall).toHaveProperty("state");
+    expect(firstCall).toHaveProperty("summary");
+    expect(firstCall).toHaveProperty("input");
+    expect(firstCall).toHaveProperty("timestamp");
+    expect(firstCall).toHaveProperty("agentName");
+  });
+
+  test("filters to only tool type parts", async () => {
+    const messageAgent = new Map([
+      [MESSAGE_ID_1, "sisyphus"],
+      [MESSAGE_ID_2, "explore"],
+    ]);
+
+    const result = await getToolCallsForSession(SESSION_ID, messageAgent, TEST_DIR);
+
+    // Should have 3 tool parts (PART_ID_1, PART_ID_2, PART_ID_3)
+    expect(result.length).toBe(3);
+    expect(result.every((call) => call.name.length > 0)).toBe(true);
+  });
+
+  test("includes agent name from messageAgent map", async () => {
+    const messageAgent = new Map([
+      [MESSAGE_ID_1, "sisyphus"],
+      [MESSAGE_ID_2, "explore"],
+    ]);
+
+    const result = await getToolCallsForSession(SESSION_ID, messageAgent, TEST_DIR);
+
+    const sisyphusCall = result.find((call) => call.agentName === "sisyphus");
+    const exploreCall = result.find((call) => call.agentName === "explore");
+
+    expect(sisyphusCall).toBeDefined();
+    expect(exploreCall).toBeDefined();
+  });
+
+  test("sorts by timestamp descending (newest first)", async () => {
+    const messageAgent = new Map([
+      [MESSAGE_ID_1, "sisyphus"],
+      [MESSAGE_ID_2, "explore"],
+    ]);
+
+    const result = await getToolCallsForSession(SESSION_ID, messageAgent, TEST_DIR);
+
+    // Check timestamps are in descending order
+    for (let i = 0; i < result.length - 1; i++) {
+      const current = new Date(result[i].timestamp).getTime();
+      const next = new Date(result[i + 1].timestamp).getTime();
+      expect(current).toBeGreaterThanOrEqual(next);
+    }
+
+    // The pending tool (MESSAGE_ID_2, start: 1700000002500) should be first
+    expect(result[0].state).toBe("pending");
+    expect(result[0].agentName).toBe("explore");
+  });
+
+  test("respects 50 item limit", async () => {
+    // Create a session with many tool calls
+    const MANY_SESSION_ID = "ses_many";
+    const MANY_MESSAGE_ID = "msg_many";
+
+    await mkdir(join(STORAGE_DIR, "message", MANY_SESSION_ID), { recursive: true });
+    await mkdir(join(STORAGE_DIR, "part", MANY_MESSAGE_ID), { recursive: true });
+
+    const messageData = {
+      id: MANY_MESSAGE_ID,
+      sessionID: MANY_SESSION_ID,
+      role: "assistant",
+      agent: "bulk-agent",
+      time: { created: 1700000000000 },
+    };
+    await writeFile(
+      join(STORAGE_DIR, "message", MANY_SESSION_ID, `${MANY_MESSAGE_ID}.json`),
+      JSON.stringify(messageData)
+    );
+
+    // Create 60 tool call parts
+    for (let i = 0; i < 60; i++) {
+      const toolPart = {
+        id: `prt_bulk_${i}`,
+        sessionID: MANY_SESSION_ID,
+        messageID: MANY_MESSAGE_ID,
+        type: "tool",
+        tool: "mcp_read",
+        state: {
+          status: "completed",
+          input: {
+            filePath: `/test/file_${i}.ts`,
+          },
+        },
+        time: { start: 1700000000000 + i * 100, end: 1700000000000 + i * 100 + 50 },
+      };
+      await writeFile(
+        join(STORAGE_DIR, "part", MANY_MESSAGE_ID, `prt_bulk_${i}.json`),
+        JSON.stringify(toolPart)
+      );
+    }
+
+    const messageAgent = new Map([[MANY_MESSAGE_ID, "bulk-agent"]]);
+
+    const result = await getToolCallsForSession(MANY_SESSION_ID, messageAgent, TEST_DIR);
+
+    expect(result.length).toBe(50);
+  });
+
+  test("generates summary from tool input", async () => {
+    const messageAgent = new Map([
+      [MESSAGE_ID_1, "sisyphus"],
+      [MESSAGE_ID_2, "explore"],
+    ]);
+
+    const result = await getToolCallsForSession(SESSION_ID, messageAgent, TEST_DIR);
+
+    const readCall = result.find((call) => call.name === "mcp_read");
+    const bashCall = result.find((call) => call.name === "mcp_bash");
+
+    expect(readCall?.summary).toContain("file.ts");
+    expect(bashCall?.summary).toContain("ls -la");
+  });
+
+  test("maps state correctly", async () => {
+    const messageAgent = new Map([
+      [MESSAGE_ID_1, "sisyphus"],
+      [MESSAGE_ID_2, "explore"],
+    ]);
+
+    const result = await getToolCallsForSession(SESSION_ID, messageAgent, TEST_DIR);
+
+    const completedCall = result.find((call) => call.name === "mcp_read");
+    const pendingCall = result.find((call) => call.name === "mcp_edit");
+
+    expect(completedCall?.state).toBe("complete");
+    expect(pendingCall?.state).toBe("pending");
+  });
+
+  test("returns empty array for session with no parts", async () => {
+    const EMPTY_SESSION_ID = "ses_empty";
+    await mkdir(join(STORAGE_DIR, "message", EMPTY_SESSION_ID), { recursive: true });
+
+    const messageData = {
+      id: "msg_empty",
+      sessionID: EMPTY_SESSION_ID,
+      role: "assistant",
+      agent: "empty-agent",
+      time: { created: 1700000000000 },
+    };
+    await writeFile(
+      join(STORAGE_DIR, "message", EMPTY_SESSION_ID, "msg_empty.json"),
+      JSON.stringify(messageData)
+    );
+
+    const messageAgent = new Map([["msg_empty", "empty-agent"]]);
+    const result = await getToolCallsForSession(EMPTY_SESSION_ID, messageAgent, TEST_DIR);
+
+    expect(result).toEqual([]);
   });
 });

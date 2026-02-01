@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useMemo } from 'react';
-import { Activity, Check, Loader2, Circle } from 'lucide-react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
+import { Activity, Check, Loader2, Circle, ChevronRight, ChevronDown } from 'lucide-react';
 import type { ActivitySession, SessionStatus } from '@shared/types';
 import { getAgentColor } from '../utils/agentColors';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
+import { ToolCallRow } from './ToolCallRow';
 
 interface LiveActivityProps {
   sessions: ActivitySession[];
@@ -95,6 +96,8 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
   const { session, children } = node;
   const agentColor = getAgentColor(session.agent);
   const status: SessionStatus = session.status || 'completed';
+  const [toolsExpanded, setToolsExpanded] = useState(false);
+  const [showAllTools, setShowAllTools] = useState(false);
   
   let currentActionText = session.currentAction;
   if (!currentActionText) {
@@ -106,12 +109,23 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
       currentActionText = 'Waiting for input';
     }
   }
+
+  const hasToolCalls = session.toolCalls && session.toolCalls.length > 0;
+  // DEBUG LOG
+  // if (hasToolCalls) console.log('Session', session.id, 'showAllTools:', showAllTools, 'total:', session.toolCalls?.length);
+  
+  const visibleToolCalls = hasToolCalls 
+    ? (showAllTools ? session.toolCalls : session.toolCalls?.slice(0, 5)) 
+    : [];
+  const remainingTools = (session.toolCalls?.length || 0) - (visibleToolCalls?.length || 0);
   
   return (
     <div className="flex flex-col">
       <div 
-        className="flex items-start gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2"
+        className={`flex items-start gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2 ${hasToolCalls ? 'cursor-pointer' : ''}`}
         style={{ marginLeft: `${depth * 20}px` }}
+        onClick={() => hasToolCalls && setToolsExpanded(!toolsExpanded)}
+        data-testid={`session-row-${session.id}`}
       >
         {depth > 0 && (
           <div className="flex items-center text-border select-none shrink-0 mt-0.5">
@@ -119,6 +133,17 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
             <span className="text-xs">─</span>
           </div>
         )}
+        
+        {hasToolCalls && (
+          <div className="mt-0.5 text-gray-500" data-testid={`session-row-expand-${session.id}`}>
+            {toolsExpanded ? (
+              <ChevronDown className="w-3 h-3" />
+            ) : (
+              <ChevronRight className="w-3 h-3" />
+            )}
+          </div>
+        )}
+        {!hasToolCalls && <div className="w-3" />}
         
         <StatusIndicator status={status} />
         
@@ -155,6 +180,31 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
           </div>
         </div>
       </div>
+
+      {toolsExpanded && hasToolCalls && (
+        <div 
+          className="flex flex-col border-l border-white/[0.1] ml-[calc(20px+6px)] pl-2 my-1 gap-1"
+          style={{ marginLeft: `${(depth * 20) + 20}px` }}
+          data-testid={`tool-calls-expanded-${session.id}`}
+        >
+          <div data-testid={`tool-calls-list-${session.id}`}>
+             {visibleToolCalls?.map(toolCall => (
+                <ToolCallRow key={toolCall.id} toolCall={toolCall} />
+             ))}
+             {remainingTools > 0 && (
+               <div 
+                 className="text-xs text-accent hover:underline cursor-pointer px-2 py-1"
+                 onClick={(e) => {
+                   e.stopPropagation();
+                   setShowAllTools(true);
+                 }}
+               >
+                 Show {remainingTools} more...
+               </div>
+             )}
+          </div>
+        </div>
+      )}
 
       {children.map((child, idx) => (
         <SessionRow 
