@@ -14,6 +14,7 @@ export interface SessionMetadata {
   parentID?: string;
   agent?: string | null;
   modelID?: string | null;
+  providerID?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +33,22 @@ export interface MessageMeta {
   parentID?: string;
   tokens?: number;
   createdAt: Date;
+}
+
+/**
+ * ActivitySession represents a session in the live activity view
+ * Includes agent info and hierarchy
+ */
+export interface ActivitySession {
+  id: string;
+  title: string;
+  agent: string;
+  modelID?: string;
+  providerID?: string;
+  parentID?: string;
+  tokens?: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /**

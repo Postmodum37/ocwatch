@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { SessionMetadata, PlanProgress } from '@shared/types';
+import type { SessionMetadata, PlanProgress, MessageMeta, ActivitySession } from '@shared/types';
 
 export interface PollResponse {
   sessions: SessionMetadata[];
   activeSession: SessionMetadata | null;
   planProgress: PlanProgress | null;
+  messages: MessageMeta[];
+  activitySessions: ActivitySession[];
   lastUpdate: number;
 }
 
@@ -22,6 +24,7 @@ interface UsePollingOptions {
   enabled?: boolean;
   apiUrl?: string;
   maxRetries?: number;
+  sessionId?: string | null;
 }
 
 export function usePolling(options: UsePollingOptions = {}): UsePollingState {
@@ -30,7 +33,10 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
     enabled = true,
     apiUrl = '/api/poll',
     maxRetries = 5,
+    sessionId,
   } = options;
+
+  const pollUrl = sessionId ? `${apiUrl}?sessionId=${sessionId}` : apiUrl;
 
   const [state, setState] = useState<UsePollingState>({
     data: null,
@@ -60,7 +66,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         headers['If-None-Match'] = etagRef.current;
       }
 
-      const response = await fetch(apiUrl, {
+      const response = await fetch(pollUrl, {
         headers,
         signal: abortController.signal,
       });
@@ -120,7 +126,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         }, backoffDelay);
       }
     }
-  }, [apiUrl, maxRetries, state.failedAttempts]);
+  }, [pollUrl, maxRetries, state.failedAttempts]);
 
   useEffect(() => {
     if (!enabled) {

@@ -18,6 +18,7 @@ interface SessionJSON {
   projectID: string;
   directory: string;
   title: string;
+  parentID?: string;
   time: {
     created: number; // Unix timestamp in milliseconds
     updated: number;
@@ -62,7 +63,7 @@ export async function parseSession(
       projectID: json.projectID,
       directory: json.directory,
       title: json.title,
-      parentID: undefined,
+      parentID: json.parentID,
       createdAt: new Date(json.time.created),
       updatedAt: new Date(json.time.updated),
     };

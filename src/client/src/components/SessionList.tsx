@@ -45,6 +45,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       <div className="p-4 border-b border-border">
         <div className="relative mb-3">
           <button
+            type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             data-testid="project-dropdown-button"
             className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-background border border-border rounded hover:bg-surface transition-colors text-text-primary text-sm"
@@ -62,6 +63,7 @@ export const SessionList: React.FC<SessionListProps> = ({
               data-testid="project-dropdown-menu"
             >
               <button
+                type="button"
                 onClick={() => {
                   onProjectSelect(null);
                   setIsDropdownOpen(false);
@@ -76,6 +78,7 @@ export const SessionList: React.FC<SessionListProps> = ({
               </button>
               {projects.map(project => (
                 <button
+                  type="button"
                   key={project.id}
                   onClick={() => {
                     onProjectSelect(project.id);
@@ -112,6 +115,7 @@ export const SessionList: React.FC<SessionListProps> = ({
 
             return (
               <button
+                type="button"
                 key={session.id}
                 data-testid={`session-item-${session.id}`}
                 onClick={() => onSelect(session.id)}

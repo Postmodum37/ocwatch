@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { LayoutDashboard, AlertCircle, WifiOff } from 'lucide-react'
 import { ToolCalls } from './components/ToolCalls'
 import { SessionList } from './components/SessionList'
-import AgentTree from './components/AgentTree'
+import { LiveActivity } from './components/LiveActivity'
 import { PlanProgress } from './components/PlanProgress'
 import { AppProvider, useAppContext } from './store/AppContext'
-import { LoadingSkeleton, SessionListSkeleton } from './components/LoadingSkeleton'
+import { SessionListSkeleton } from './components/LoadingSkeleton'
 
 function AppContent() {
   const { 
     sessions, 
     planProgress, 
+    activitySessions,
     selectedSessionId, 
     setSelectedSessionId,
     projects,
@@ -36,6 +37,7 @@ function AppContent() {
             {error.message}
           </p>
           <button
+            type="button"
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
           >
@@ -86,18 +88,11 @@ function AppContent() {
             )}
           </header>
 
-          <main className="flex-1 p-6 min-h-0 overflow-hidden flex flex-col gap-6">
-            <div className="flex-1 rounded-xl border border-border bg-surface shadow-sm overflow-hidden relative">
-              {loading && sessions.length === 0 ? (
-                <LoadingSkeleton />
-              ) : (
-                <AgentTree
-                  sessions={sessions}
-                  selectedId={selectedSessionId}
-                  onSelect={setSelectedSessionId}
-                />
-              )}
-            </div>
+          <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            <LiveActivity
+              sessions={activitySessions}
+              loading={loading}
+            />
           </main>
         </div>
 

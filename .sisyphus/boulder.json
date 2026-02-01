@@ -1,8 +1,14 @@
 {
   "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/agent-model-display.md",
   "started_at": "2026-01-31T22:53:54.412Z",
+  "completed_at": "2026-02-01T16:05:00.000Z",
   "session_ids": [
-    "ses_3e9d050eaffeSr9y3lw4I6gW13"
+    "ses_3e9d050eaffeSr9y3lw4I6gW13",
+    "ses_3e6130f4bffeN1gjGvW15P4jfO",
+    "ses_3e61195a9ffeEiwYNolkcF9CXZ"
   ],
-  "plan_name": "agent-model-display"
+  "plan_name": "agent-model-display",
+  "status": "completed",
+  "tasks_completed": 4,
+  "tasks_total": 4
 }

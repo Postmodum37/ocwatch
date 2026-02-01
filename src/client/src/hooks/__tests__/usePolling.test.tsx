@@ -156,9 +156,9 @@ describe('usePolling', () => {
   });
 
   it('handles fetch errors', async () => {
-    (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+    (global.fetch as any).mockRejectedValue(new Error('Network error'));
 
-    const { result } = renderHook(() => usePolling({ interval: 2000 }));
+    const { result } = renderHook(() => usePolling({ interval: 2000, maxRetries: 0 }));
 
     await waitFor(
       () => {
@@ -172,13 +172,13 @@ describe('usePolling', () => {
   });
 
   it('handles HTTP error responses', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (global.fetch as any).mockResolvedValue({
       ok: false,
       status: 500,
       statusText: 'Internal Server Error',
     });
 
-    const { result } = renderHook(() => usePolling({ interval: 2000 }));
+    const { result } = renderHook(() => usePolling({ interval: 2000, maxRetries: 0 }));
 
     await waitFor(
       () => {

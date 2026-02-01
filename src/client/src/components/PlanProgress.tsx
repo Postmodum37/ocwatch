@@ -1,8 +1,8 @@
 import { CheckSquare, Square, ListTodo } from 'lucide-react'
-import type { PlanProgress } from '@shared/types'
+import type { PlanProgress as PlanProgressType } from '@shared/types'
 
 interface PlanProgressProps {
-  plan: PlanProgress | null
+  plan: PlanProgressType | null
   planName?: string
 }
 
@@ -45,8 +45,8 @@ export function PlanProgress({ plan, planName }: PlanProgressProps) {
       </div>
 
       <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
-        {plan.tasks.map((task, i) => (
-          <div key={i} className="flex items-start gap-2 text-sm">
+        {plan.tasks.map((task) => (
+          <div key={task.description} className="flex items-start gap-2 text-sm">
             {task.completed ? (
               <CheckSquare className="w-4 h-4 text-accent mt-0.5 shrink-0" />
             ) : (

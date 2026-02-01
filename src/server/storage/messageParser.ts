@@ -68,7 +68,7 @@ export async function parseMessage(
       agent: json.agent,
       mode: json.mode,
       modelID: json.modelID || json.model?.modelID,
-      providerID: json.providerID,
+      providerID: json.providerID || json.model?.providerID,
       parentID: json.parentID,
       tokens: totalTokens,
       createdAt: new Date(json.time.created),

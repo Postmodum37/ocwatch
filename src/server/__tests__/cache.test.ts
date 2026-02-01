@@ -140,13 +140,16 @@ describe("Cache", () => {
   });
 
   test("getMessages caches results", async () => {
-    const messageFile = join(
+    const sessionMessageDir = join(
       testDir,
       "opencode",
       "storage",
       "message",
-      "message-1.json"
+      "session-1"
     );
+    await mkdir(sessionMessageDir, { recursive: true });
+    
+    const messageFile = join(sessionMessageDir, "message-1.json");
     await writeFile(
       messageFile,
       JSON.stringify({

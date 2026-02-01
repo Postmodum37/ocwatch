@@ -26,7 +26,7 @@ describe('Integration Tests', () => {
     const response = await fetch(`${SERVER_URL}/api/health`);
     expect(response.status).toBe(200);
     
-    const data = await response.json();
+    const data = await response.json() as { status: string };
     expect(data.status).toBe('ok');
   });
 
@@ -58,7 +58,7 @@ describe('Integration Tests', () => {
     const response = await fetch(`${SERVER_URL}/api/poll`);
     expect(response.status).toBe(200);
     
-    const data = await response.json();
+    const data = await response.json() as { sessions: unknown[]; activeSession: unknown; planProgress: unknown; lastUpdate: number };
     expect(data).toHaveProperty('sessions');
     expect(data).toHaveProperty('activeSession');
     expect(data).toHaveProperty('planProgress');

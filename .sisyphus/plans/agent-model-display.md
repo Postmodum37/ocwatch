@@ -55,11 +55,11 @@ Show agent name and model ID for each session in the dashboard UI, both in the s
 - `src/shared/types/index.ts` - Extended session type with agent/model
 
 ### Definition of Done
-- [ ] `/api/sessions/:id/messages` returns > 0 messages for active sessions
-- [ ] `/api/poll` response has `agent` and `modelID` fields on each session object
-- [ ] SessionList visually displays agent name for sessions with activity
-- [ ] AgentTree nodes display agent and model info
-- [ ] Sessions with no messages show "Unknown" agent/model gracefully
+- [x] `/api/sessions/:id/messages` returns > 0 messages for active sessions
+- [x] `/api/poll` response has `agent` and `modelID` fields on each session object
+- [x] SessionList visually displays agent name for sessions with activity
+- [x] AgentTree nodes display agent and model info
+- [x] Sessions with no messages show "Unknown" agent/model gracefully
 
 ### Must Have
 - Fix messageParser path to use `message/{sessionID}/{messageID}.json`
@@ -122,7 +122,7 @@ Critical Path: Task 1 → Task 2 → Task 3
 
 ## TODOs
 
-- [ ] 1. Fix messageParser.ts path construction and JSON handling
+- [x] 1. Fix messageParser.ts path construction and JSON handling
 
   **What to do**:
   - Change `listMessages()` to read from `message/{sessionID}/{messageID}.json` instead of `message/{messageID}.json`
@@ -174,7 +174,7 @@ Critical Path: Task 1 → Task 2 → Task 3
 
 ---
 
-- [ ] 2. Add agent/model fields to /api/poll response
+- [x] 2. Add agent/model fields to /api/poll response
 
   **What to do**:
   - Modify the `/api/poll` handler in `src/server/index.ts` to fetch first assistant message for each session
@@ -225,7 +225,7 @@ Critical Path: Task 1 → Task 2 → Task 3
 
 ---
 
-- [ ] 3. Update SessionList to display agent badge
+- [x] 3. Update SessionList to display agent badge
 
   **What to do**:
   - Add agent name display to each session item in `SessionList.tsx`
@@ -280,7 +280,7 @@ Critical Path: Task 1 → Task 2 → Task 3
 
 ---
 
-- [ ] 4. Update AgentTree to display agent/model in nodes
+- [x] 4. Update AgentTree to display agent/model in nodes
 
   **What to do**:
   - Update the tree endpoint usage to include agent/model data in nodes
@@ -364,11 +364,11 @@ curl -s http://localhost:50234/api/poll | jq '.sessions[0] | keys'
 ```
 
 ### Final Checklist
-- [ ] Messages endpoint returns data for active sessions
-- [ ] Poll response includes agent and modelID fields
-- [ ] SessionList shows agent name badge
-- [ ] AgentTree nodes show agent and model
-- [ ] Edge case: Sessions with 0 messages show gracefully (no crash, shows "Unknown")
-- [ ] No agent filtering UI added (guardrail)
-- [ ] No token/cost display added (guardrail)
-- [ ] Polling still at 2s interval (no change)
+- [x] Messages endpoint returns data for active sessions (verified: 21 messages)
+- [x] Poll response includes agent and modelID fields (verified: agent="atlas", modelID="kimi-k2.5-free")
+- [x] SessionList shows agent name badge (verified via screenshot)
+- [x] AgentTree nodes show agent and model (verified via screenshot)
+- [x] Edge case: Sessions with 0 messages show gracefully (hidden when null)
+- [x] No agent filtering UI added (guardrail followed)
+- [x] No token/cost display added (guardrail followed)
+- [x] Polling still at 2s interval (no change made)

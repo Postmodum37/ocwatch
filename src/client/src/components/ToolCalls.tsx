@@ -39,6 +39,7 @@ export const ToolCalls: React.FC<ToolCallsProps> = ({ toolCalls, isExpanded, onT
       data-testid="tool-calls-panel"
     >
       <button
+        type="button"
         onClick={onToggle}
         className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
       >

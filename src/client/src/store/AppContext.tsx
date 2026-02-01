@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { usePolling } from '../hooks/usePolling';
-import type { SessionMetadata, PlanProgress, ProjectInfo } from '@shared/types';
+import type { SessionMetadata, PlanProgress, ProjectInfo, MessageMeta, ActivitySession } from '@shared/types';
 
 interface AppContextValue {
   sessions: SessionMetadata[];
   activeSession: SessionMetadata | null;
   planProgress: PlanProgress | null;
+  messages: MessageMeta[];
+  activitySessions: ActivitySession[];
   selectedSessionId: string | null;
   projects: ProjectInfo[];
   selectedProjectId: string | null;
@@ -27,12 +29,13 @@ interface AppProviderProps {
 }
 
 export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderProps) {
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  
   const { data, loading, error, lastUpdate, isReconnecting } = usePolling({
     apiUrl,
     interval: pollingInterval,
+    sessionId: selectedSessionId,
   });
-
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
 
@@ -74,6 +77,8 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     sessions: data?.sessions || [],
     activeSession: data?.activeSession || null,
     planProgress: data?.planProgress || null,
+    messages: data?.messages || [],
+    activitySessions: data?.activitySessions || [],
     selectedSessionId,
     projects,
     selectedProjectId,

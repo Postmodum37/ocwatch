@@ -65,6 +65,34 @@ describe("sessionParser", () => {
     expect(result?.parentID).toBeUndefined();
   });
 
+  test("parseSession - reads parentID from JSON", async () => {
+    const childSessionPath = join(
+      STORAGE_DIR,
+      "session",
+      PROJECT_ID,
+      "ses_child.json"
+    );
+    const sessionData = {
+      id: "ses_child",
+      slug: "child-session",
+      projectID: PROJECT_ID,
+      directory: "/test/dir",
+      title: "Child Session",
+      parentID: "ses_parent123",
+      time: {
+        created: 1700000000000,
+        updated: 1700000001000,
+      },
+    };
+
+    await writeFile(childSessionPath, JSON.stringify(sessionData));
+
+    const result = await parseSession(childSessionPath);
+
+    expect(result).not.toBeNull();
+    expect(result?.parentID).toBe("ses_parent123");
+  });
+
   test("parseSession - missing file returns null", async () => {
     const result = await parseSession("/nonexistent/path.json");
     expect(result).toBeNull();

@@ -9,7 +9,7 @@ import {
 } from "./storage/sessionParser";
 import { listMessages, getFirstAssistantMessage } from "./storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "./storage/boulderParser";
-import type { SessionMetadata, MessageMeta, PlanProgress } from "../shared/types";
+import type { SessionMetadata, MessageMeta, PlanProgress, ActivitySession } from "../shared/types";
 import { errorHandler, notFoundHandler } from "./middleware/error";
 
 interface TreeNode {
@@ -270,12 +270,58 @@ app.get("/api/projects", async (c) => {
   return c.json(projectsWithDetails);
 });
 
-// Polling endpoint with ETag support
+async function getSessionHierarchy(
+  rootSessionId: string,
+  allSessions: SessionMetadata[]
+): Promise<ActivitySession[]> {
+  const result: ActivitySession[] = [];
+  const sessionsToProcess = [rootSessionId];
+  const processed = new Set<string>();
+
+  while (sessionsToProcess.length > 0) {
+    const sessionId = sessionsToProcess.shift()!;
+    if (processed.has(sessionId)) continue;
+    processed.add(sessionId);
+
+    const session = allSessions.find((s) => s.id === sessionId);
+    if (!session) continue;
+
+    const messages = await listMessages(sessionId);
+    const firstAssistantMsg = messages
+      .filter((m) => m.role === "assistant")
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+    
+    const totalTokens = messages
+      .filter((m) => m.tokens !== undefined)
+      .reduce((sum, m) => sum + (m.tokens || 0), 0);
+
+    result.push({
+      id: session.id,
+      title: session.title,
+      agent: firstAssistantMsg?.agent || "unknown",
+      modelID: firstAssistantMsg?.modelID,
+      providerID: firstAssistantMsg?.providerID,
+      parentID: session.parentID,
+      tokens: totalTokens > 0 ? totalTokens : undefined,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    });
+
+    const childSessions = allSessions.filter((s) => s.parentID === sessionId);
+    for (const child of childSessions) {
+      sessionsToProcess.push(child.id);
+    }
+  }
+
+  return result;
+}
+
 interface PollResponse {
   sessions: SessionMetadata[];
   activeSession: SessionMetadata | null;
   planProgress: PlanProgress | null;
   messages: MessageMeta[];
+  activitySessions: ActivitySession[];
   lastUpdate: number;
 }
 
@@ -289,6 +335,7 @@ function generateETag(data: PollResponse): string {
      activeSession: data.activeSession,
      planProgress: data.planProgress,
      messages: data.messages,
+     activitySessions: data.activitySessions,
    };
    const hash = createHash("sha256")
      .update(JSON.stringify(dataForHash))
@@ -304,6 +351,7 @@ app.get("/api/poll", async (c) => {
        activeSession: null,
        planProgress: null,
        messages: [],
+       activitySessions: [],
        lastUpdate: Date.now(),
      };
      return c.json(pollData);
@@ -366,6 +414,7 @@ app.get("/api/poll", async (c) => {
 
     // Fetch messages for target session
     let messages: MessageMeta[] = [];
+    let activitySessions: ActivitySession[] = [];
     const sessionId = c.req.query('sessionId');
     const targetSessionId = sessionId || activeSession?.id;
     if (targetSessionId) {
@@ -374,6 +423,8 @@ app.get("/api/poll", async (c) => {
         (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
       );
       messages = sortedMessages.slice(0, 100);
+      
+      activitySessions = await getSessionHierarchy(targetSessionId, allSessions);
     }
 
     const pollData: PollResponse = {
@@ -381,6 +432,7 @@ app.get("/api/poll", async (c) => {
       activeSession,
       planProgress,
       messages,
+      activitySessions,
       lastUpdate: now,
     };
 

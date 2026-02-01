@@ -101,12 +101,14 @@ ocwatch/
 ## COMMANDS
 
 ```bash
-# Development (starts server + opens browser)
-bun run dev
+# Development (hot reload for both server + client)
+bun run dev                           # Runs server (--watch) + Vite dev server concurrently
+bun run dev:server                    # Server only with hot reload (port 50234)
+bun run dev:client                    # Vite only with HMR (port 5173)
 
-# Production build
-cd src/client && bun run build
-bun run start
+# Production
+bun run build                         # Build client for production
+bun run start                         # Start production server (serves built client)
 
 # Tests
 bun test                              # Server tests
@@ -122,6 +124,7 @@ cd src/client && bun run lint
 
 ## NOTES
 
+- **Dev workflow**: `bun run dev` starts both server (with Bun --watch for hot reload) and Vite dev server (with HMR). Open http://localhost:5173 - API calls are proxied to :50234
 - **Storage format**: OpenCode stores sessions in `~/.local/share/opencode/storage/session/{projectID}/{sessionID}.json`
 - **Message storage**: `storage/message/{sessionID}/{messageID}.json`
 - **Part files**: `storage/part/{sessionID}/{partID}.json` (lazy loaded)
