@@ -64,11 +64,11 @@ Make agent status indicators accurately reflect actual agent state by using tool
 - SessionList component with matching updates
 
 ### Definition of Done
-- [ ] `bun test` passes with new status logic tests
-- [ ] `cd src/client && bun run test` passes with component tests
-- [ ] Spinner stops within 7s of tool completion (5s grace + 2s poll)
-- [ ] Parent with working children shows hollow circle + "waiting on N agents"
-- [ ] Activity text shows actual tool calls in `tool: context...` format
+- [x] `bun test` passes with new status logic tests
+- [x] `cd src/client && bun run test` passes with component tests
+- [x] Spinner stops within 7s of tool completion (5s grace + 2s poll)
+- [x] Parent with working children shows hollow circle + "waiting on N agents"
+- [x] Activity text shows actual tool calls in `tool: context...` format
 
 ### Must Have
 - Status uses actual tool completion, not just timestamps
@@ -139,7 +139,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ## TODOs
 
-- [ ] 1. Add "waiting" to SessionStatus type and update interfaces
+- [x] 1. Add "waiting" to SessionStatus type and update interfaces
 
   **What to do**:
   - Add "waiting" to `SessionStatus` union type
@@ -223,7 +223,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 2. Update getSessionStatus() with tool completion and waiting logic
+- [x] 2. Update getSessionStatus() with tool completion and waiting logic
 
   **What to do**:
   - Actually pass `hasPendingToolCall` (currently always false!)
@@ -320,7 +320,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 3. Add getPartsForSession() function to get tool state without scanning
+- [x] 3. Add getPartsForSession() function to get tool state without scanning
 
   **What to do**:
   - Add function to get parts referenced by a session's messages
@@ -409,7 +409,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 4. Update LiveActivity component with new status states and activity text
+- [x] 4. Update LiveActivity component with new status states and activity text
 
   **What to do**:
   - Add "waiting" status visual: hollow/outline circle icon
@@ -502,7 +502,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 5. Update SessionList component with matching status changes
+- [x] 5. Update SessionList component with matching status changes
 
   **What to do**:
   - Mirror LiveActivity changes to SessionList sidebar
@@ -574,7 +574,7 @@ Parallel Speedup: ~30% faster than sequential
 
 ---
 
-- [ ] 6. Integrate status logic in server endpoints
+- [x] 6. Integrate status logic in server endpoints
 
   **What to do**:
   - Update `/api/poll` to actually pass `hasPendingToolCall` to `getSessionStatus()`
@@ -697,16 +697,16 @@ bun test src/__tests__/integration.test.ts
 ```
 
 ### Final Checklist
-- [ ] All "Must Have" present:
-  - [ ] Status uses actual tool completion
-  - [ ] "waiting" state for parents blocked on children
-  - [ ] Activity text replaces "Thinking..."
-  - [ ] Both LiveActivity and SessionList updated
-- [ ] All "Must NOT Have" absent:
-  - [ ] No part directory scanning
-  - [ ] No WebSocket
-  - [ ] No state persistence
-  - [ ] No poll interval change
-- [ ] All tests pass
-- [ ] Spinner stops within 7s of tool completion
-- [ ] Parent with working children shows hollow circle + "waiting on N agents"
+- [x] All "Must Have" present:
+  - [x] Status uses actual tool completion
+  - [x] "waiting" state for parents blocked on children
+  - [x] Activity text replaces "Thinking..."
+  - [x] Both LiveActivity and SessionList updated
+- [x] All "Must NOT Have" absent:
+  - [x] No part directory scanning
+  - [x] No WebSocket
+  - [x] No state persistence
+  - [x] No poll interval change
+- [x] All tests pass
+- [x] Spinner stops within 7s of tool completion
+- [x] Parent with working children shows hollow circle + "waiting on N agents"

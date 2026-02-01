@@ -1,9 +1,10 @@
 {
   "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/agent-status-improvement.md",
   "started_at": "2026-02-01T21:23:32.770Z",
+  "completed_at": "2026-02-01T23:41:45.000Z",
   "session_ids": ["ses_3e4e91502ffex2DGcEwIaGNCFu"],
   "plan_name": "agent-status-improvement",
-  "status": "active",
-  "tasks_completed": 0,
+  "status": "completed",
+  "tasks_completed": 16,
   "tasks_total": 16
 }
