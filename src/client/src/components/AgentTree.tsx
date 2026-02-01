@@ -67,10 +67,30 @@ const AgentTree: React.FC<AgentTreeProps> = ({ sessions, selectedId, onSelect })
     sessions.forEach((session) => {
       const isSelected = session.id === selectedId;
       
-      nodes.push({
+        nodes.push({
         id: session.id,
         data: { 
-          label: session.title || session.id,
+          label: (
+            <div className="flex flex-col text-left h-full justify-center">
+              <div className="font-medium truncate" title={session.title || session.id}>
+                {session.title || session.id}
+              </div>
+              {(session.agent || session.modelID) && (
+                <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400 truncate">
+                  {session.agent && (
+                    <span className="bg-[#374151] px-1.5 py-0.5 rounded text-gray-300">
+                      {session.agent}
+                    </span>
+                  )}
+                  {session.modelID && (
+                    <span className="truncate opacity-75" title={session.modelID}>
+                      {session.modelID}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          ),
           session 
         },
         position: { x: 0, y: 0 },
