@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Activity, Clock, Folder, ChevronDown, Inbox } from 'lucide-react';
-import type { SessionMetadata, ProjectInfo } from '@shared/types';
+import { Loader2, Check, Circle, Folder, ChevronDown, Inbox } from 'lucide-react';
+import type { SessionMetadata, ProjectInfo, SessionStatus } from '@shared/types';
 import { EmptyState } from './EmptyState';
 
 interface SessionListProps {
@@ -110,8 +110,21 @@ export const SessionList: React.FC<SessionListProps> = ({
         ) : (
           filteredSessions.map((session) => {
             const isSelected = session.id === selectedId;
-            const lastActive = new Date(session.updatedAt);
-            const isActive = (new Date().getTime() - lastActive.getTime()) < 5 * 60 * 1000;
+            const status: SessionStatus = session.status || 'completed';
+
+            const StatusIcon = () => {
+              switch (status) {
+                case 'working':
+                  return <Loader2 className="w-4 h-4 text-accent animate-spin" data-testid="session-status-working" />;
+                case 'idle':
+                  return <Circle className="w-4 h-4 text-success animate-pulse" data-testid="session-status-idle" />;
+                case 'completed':
+                default:
+                  return <Check className="w-4 h-4 text-text-secondary" data-testid="session-status-completed" />;
+              }
+            };
+
+            const dotColor = status === 'working' ? 'bg-accent' : status === 'idle' ? 'bg-success' : 'bg-text-secondary';
 
             return (
               <button
@@ -124,18 +137,14 @@ export const SessionList: React.FC<SessionListProps> = ({
                 `}
               >
                 <div className="mt-1 shrink-0">
-                  {isActive ? (
-                    <Activity className="w-4 h-4 text-success" />
-                  ) : (
-                    <Clock className="w-4 h-4 text-text-secondary" />
-                  )}
+                  <StatusIcon />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className={`font-medium truncate text-sm mb-1 ${isSelected ? 'text-accent' : 'text-text-primary'}`}>
                     {session.title || 'Untitled Session'}
                   </h3>
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-success' : 'bg-text-secondary'}`} />
+                    <div className={`w-2 h-2 rounded-full ${dotColor}`} />
                     <span className="text-xs text-text-secondary truncate shrink-0">
                       {formatRelativeTime(session.updatedAt)}
                     </span>

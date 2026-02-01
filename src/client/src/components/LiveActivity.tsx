@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
-import { Activity, Check, Loader2 } from 'lucide-react';
-import type { ActivitySession } from '@shared/types';
+import { Activity, Check, Loader2, Circle } from 'lucide-react';
+import type { ActivitySession, SessionStatus } from '@shared/types';
 import { getAgentColor } from '../utils/agentColors';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -46,40 +46,51 @@ function buildSessionTree(sessions: ActivitySession[]): SessionNode[] {
     }
   });
 
-  const sortNodes = (nodes: SessionNode[], isRoot: boolean = false) => {
+  const sortNodes = (nodes: SessionNode[]) => {
     nodes.sort((a, b) => {
-      const timeA = new Date(a.session.createdAt).getTime();
-      const timeB = new Date(b.session.createdAt).getTime();
-      return isRoot ? timeB - timeA : timeA - timeB;
+      const timeA = new Date(a.session.updatedAt).getTime();
+      const timeB = new Date(b.session.updatedAt).getTime();
+      return timeB - timeA; // Most recent activity first
     });
     nodes.forEach(node => {
-      sortNodes(node.children, false);
+      sortNodes(node.children);
     });
   };
 
-  sortNodes(roots, true);
+  sortNodes(roots);
   return roots;
 }
 
-const StatusIndicator: React.FC<{ isRunning: boolean }> = ({ isRunning }) => {
-  if (isRunning) {
-    return (
-      <span className="flex items-center justify-center w-4 h-4">
-        <Loader2 className="w-3 h-3 text-accent animate-spin" />
-      </span>
-    );
+const StatusIndicator: React.FC<{ status: SessionStatus }> = ({ status }) => {
+  switch (status) {
+    case 'working':
+      return (
+        <span className="flex items-center justify-center w-4 h-4" data-testid="status-working">
+          <Loader2 className="w-3 h-3 text-accent animate-spin" />
+        </span>
+      );
+    case 'idle':
+      return (
+        <span className="flex items-center justify-center w-4 h-4" data-testid="status-idle">
+          <Circle className="w-3 h-3 text-success animate-pulse" />
+        </span>
+      );
+    case 'completed':
+    default:
+      return (
+        <span className="flex items-center justify-center w-4 h-4" data-testid="status-completed">
+          <Check className="w-3 h-3 text-green-500" />
+        </span>
+      );
   }
-  return (
-    <span className="flex items-center justify-center w-4 h-4">
-      <Check className="w-3 h-3 text-green-500" />
-    </span>
-  );
 };
 
 const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }> = ({ node, depth, isLast }) => {
   const { session, children } = node;
   const agentColor = getAgentColor(session.agent);
-  const isRunning = session.tokens === undefined;
+  const status: SessionStatus = session.status || 'completed';
+  
+  const currentActionText = session.currentAction || (status === 'working' ? 'Thinking...' : null);
   
   return (
     <div className="flex flex-col">
@@ -94,7 +105,7 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
           </div>
         )}
         
-        <StatusIndicator isRunning={isRunning} />
+        <StatusIndicator status={status} />
         
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -105,6 +116,12 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
               {session.agent}
             </span>
             
+            {currentActionText && (
+              <span className="text-text-secondary text-xs truncate max-w-[200px]" data-testid="current-action">
+                {currentActionText}
+              </span>
+            )}
+            
             {(session.providerID || session.modelID) && (
               <span className="text-gray-500 text-xs truncate">
                 {session.providerID}/{session.modelID}
@@ -112,8 +129,8 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
             )}
             
             <span className="text-gray-600 text-xs">
-                              {formatRelativeTime(session.updatedAt)}
-                            </span>
+              {formatRelativeTime(session.updatedAt)}
+            </span>
             
             {session.tokens !== undefined && (
               <span className="text-gray-500 text-xs ml-auto shrink-0">

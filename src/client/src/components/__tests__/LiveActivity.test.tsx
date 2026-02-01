@@ -115,4 +115,38 @@ describe('LiveActivity', () => {
 
     expect(screen.getByText('unknown')).toBeInTheDocument();
   });
+
+  it('sorts children by most recent activity (updatedAt descending)', () => {
+    const sessionsWithVaryingActivity: ActivitySession[] = [
+      {
+        id: 'root',
+        title: 'Root',
+        agent: 'prometheus',
+        createdAt: new Date('2024-01-15T10:00:00'),
+        updatedAt: new Date('2024-01-15T10:30:00'),
+      },
+      {
+        id: 'child-old',
+        title: 'Old child',
+        agent: 'explore',
+        parentID: 'root',
+        createdAt: new Date('2024-01-15T10:05:00'),
+        updatedAt: new Date('2024-01-15T10:10:00'),
+      },
+      {
+        id: 'child-recent',
+        title: 'Recent child',
+        agent: 'sisyphus',
+        parentID: 'root',
+        createdAt: new Date('2024-01-15T10:03:00'),
+        updatedAt: new Date('2024-01-15T10:25:00'),
+      },
+    ];
+
+    render(<LiveActivity sessions={sessionsWithVaryingActivity} loading={false} />);
+
+    const agentBadges = screen.getAllByText(/sisyphus|explore/);
+    expect(agentBadges[0]).toHaveTextContent('sisyphus');
+    expect(agentBadges[1]).toHaveTextContent('explore');
+  });
 });

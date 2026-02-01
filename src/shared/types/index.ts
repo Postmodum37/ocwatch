@@ -3,9 +3,8 @@
  * Ported from Go types in internal/state/state.go and internal/parser/parser.go
  */
 
-/**
- * SessionMetadata represents an OpenCode session
- */
+export type SessionStatus = "working" | "idle" | "completed";
+
 export interface SessionMetadata {
   id: string;
   projectID: string;
@@ -15,6 +14,8 @@ export interface SessionMetadata {
   agent?: string | null;
   modelID?: string | null;
   providerID?: string | null;
+  status?: SessionStatus;
+  currentAction?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +48,8 @@ export interface ActivitySession {
   providerID?: string;
   parentID?: string;
   tokens?: number;
+  status?: SessionStatus;
+  currentAction?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +57,15 @@ export interface ActivitySession {
 /**
  * PartMeta represents a part file (tool call)
  */
+export interface ToolInput {
+  filePath?: string;
+  command?: string;
+  pattern?: string;
+  url?: string;
+  query?: string;
+  [key: string]: unknown;
+}
+
 export interface PartMeta {
   id: string;
   sessionID: string;
@@ -62,6 +74,8 @@ export interface PartMeta {
   callID?: string;
   tool?: string;
   state?: string;
+  input?: ToolInput;
+  title?: string;
 }
 
 /**

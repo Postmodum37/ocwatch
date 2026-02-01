@@ -9,7 +9,9 @@ import {
 } from "./storage/sessionParser";
 import { listMessages, getFirstAssistantMessage } from "./storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "./storage/boulderParser";
-import type { SessionMetadata, MessageMeta, PlanProgress, ActivitySession } from "../shared/types";
+import { formatCurrentAction } from "./storage/partParser";
+import { getSessionStatus, getStatusFromTimestamp } from "./utils/sessionStatus";
+import type { SessionMetadata, MessageMeta, PlanProgress, ActivitySession, SessionStatus } from "../shared/types";
 import { errorHandler, notFoundHandler } from "./middleware/error";
 
 interface TreeNode {
@@ -30,6 +32,45 @@ interface TreeEdge {
 interface SessionTree {
   nodes: TreeNode[];
   edges: TreeEdge[];
+}
+
+interface AgentPhase {
+  agent: string;
+  startTime: Date;
+  endTime: Date;
+  tokens: number;
+  messageCount: number;
+}
+
+function detectAgentPhases(messages: MessageMeta[]): AgentPhase[] {
+  const sorted = messages
+    .filter(m => m.role === 'assistant' && m.agent)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  
+  if (sorted.length === 0) return [];
+  
+  const phases: AgentPhase[] = [];
+  let currentPhase: AgentPhase | null = null;
+  
+  for (const msg of sorted) {
+    if (!currentPhase || currentPhase.agent !== msg.agent) {
+      if (currentPhase) phases.push(currentPhase);
+      currentPhase = {
+        agent: msg.agent!,
+        startTime: msg.createdAt,
+        endTime: msg.createdAt,
+        tokens: msg.tokens || 0,
+        messageCount: 1,
+      };
+    } else {
+      currentPhase.endTime = msg.createdAt;
+      currentPhase.tokens += msg.tokens || 0;
+      currentPhase.messageCount++;
+    }
+  }
+  if (currentPhase) phases.push(currentPhase);
+  
+  return phases;
 }
 
 function buildAgentHierarchy(messages: MessageMeta[]): Record<string, string[]> {
@@ -72,14 +113,11 @@ async function buildSessionTree(
     }
 
     const messages = await listMessages(sessionID);
+    const status = getSessionStatus(messages);
+
     const lastMessage = messages.sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
     )[0];
-
-    const now = Date.now();
-    const isActive = lastMessage
-      ? now - lastMessage.createdAt.getTime() < 5 * 60 * 1000
-      : false;
 
     nodes.push({
       id: session.id,
@@ -87,7 +125,7 @@ async function buildSessionTree(
         title: session.title,
         agent: lastMessage?.agent,
         model: lastMessage?.modelID,
-        isActive,
+        isActive: status === "working" || status === "idle",
       },
     });
 
@@ -160,13 +198,7 @@ app.get("/api/sessions", async (c) => {
   const sessionsWithActivity = await Promise.all(
     rootSessions.map(async (session) => {
       const messages = await listMessages(session.id);
-      const lastMessage = messages.sort(
-        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-      )[0];
-
-      const isActive = lastMessage
-        ? now - lastMessage.createdAt.getTime() < 5 * 60 * 1000
-        : false;
+      const status = getSessionStatus(messages);
 
       return {
         id: session.id,
@@ -175,7 +207,8 @@ app.get("/api/sessions", async (c) => {
         parentID: session.parentID,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
-        isActive,
+        status,
+        isActive: status === "working" || status === "idle",
       };
     })
   );
@@ -275,45 +308,125 @@ async function getSessionHierarchy(
   allSessions: SessionMetadata[]
 ): Promise<ActivitySession[]> {
   const result: ActivitySession[] = [];
-  const sessionsToProcess = [rootSessionId];
   const processed = new Set<string>();
 
-  while (sessionsToProcess.length > 0) {
-    const sessionId = sessionsToProcess.shift()!;
-    if (processed.has(sessionId)) continue;
-    processed.add(sessionId);
+  const rootSession = allSessions.find((s) => s.id === rootSessionId);
+  if (!rootSession) return result;
 
-    const session = allSessions.find((s) => s.id === sessionId);
-    if (!session) continue;
+  const rootMessages = await listMessages(rootSessionId);
+  const phases = detectAgentPhases(rootMessages);
+  const childSessions = allSessions.filter((s) => s.parentID === rootSessionId);
 
-    const messages = await listMessages(sessionId);
-    const firstAssistantMsg = messages
+  if (phases.length <= 1) {
+    const firstAssistantMsg = rootMessages
       .filter((m) => m.role === "assistant")
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
     
-    const totalTokens = messages
+    const totalTokens = rootMessages
       .filter((m) => m.tokens !== undefined)
       .reduce((sum, m) => sum + (m.tokens || 0), 0);
 
+    const status = getSessionStatus(rootMessages);
+
     result.push({
-      id: session.id,
-      title: session.title,
+      id: rootSession.id,
+      title: rootSession.title,
       agent: firstAssistantMsg?.agent || "unknown",
       modelID: firstAssistantMsg?.modelID,
       providerID: firstAssistantMsg?.providerID,
-      parentID: session.parentID,
+      parentID: rootSession.parentID,
       tokens: totalTokens > 0 ? totalTokens : undefined,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
+      status,
+      currentAction: status === "working" ? "Thinking..." : null,
+      createdAt: rootSession.createdAt,
+      updatedAt: rootSession.updatedAt,
     });
+    processed.add(rootSessionId);
 
-    const childSessions = allSessions.filter((s) => s.parentID === sessionId);
     for (const child of childSessions) {
-      sessionsToProcess.push(child.id);
+      await processChildSession(child.id, rootSession.id, allSessions, result, processed);
+    }
+  } else {
+    for (let i = 0; i < phases.length; i++) {
+      const phase = phases[i];
+      const nextPhaseStart = phases[i + 1]?.startTime || new Date(8640000000000000);
+      const virtualId = `${rootSessionId}-phase-${i}-${phase.agent}`;
+
+      const phaseMessages = rootMessages.filter(
+        m => m.role === 'assistant' && m.agent === phase.agent &&
+             m.createdAt >= phase.startTime && m.createdAt <= phase.endTime
+      );
+      const firstPhaseMsg = phaseMessages[0];
+
+      result.push({
+        id: virtualId,
+        title: rootSession.title,
+        agent: phase.agent,
+        modelID: firstPhaseMsg?.modelID,
+        providerID: firstPhaseMsg?.providerID,
+        parentID: undefined,
+        tokens: phase.tokens > 0 ? phase.tokens : undefined,
+        status: getStatusFromTimestamp(phase.endTime),
+        currentAction: null,
+        createdAt: phase.startTime,
+        updatedAt: phase.endTime,
+      });
+
+      const phaseChildren = childSessions.filter(child =>
+        child.createdAt >= phase.startTime && child.createdAt < nextPhaseStart
+      );
+
+      for (const child of phaseChildren) {
+        await processChildSession(child.id, virtualId, allSessions, result, processed);
+      }
     }
   }
 
   return result;
+}
+
+async function processChildSession(
+  sessionId: string,
+  parentId: string,
+  allSessions: SessionMetadata[],
+  result: ActivitySession[],
+  processed: Set<string>
+): Promise<void> {
+  if (processed.has(sessionId)) return;
+  processed.add(sessionId);
+
+  const session = allSessions.find((s) => s.id === sessionId);
+  if (!session) return;
+
+  const messages = await listMessages(sessionId);
+  const firstAssistantMsg = messages
+    .filter((m) => m.role === "assistant")
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+
+  const totalTokens = messages
+    .filter((m) => m.tokens !== undefined)
+    .reduce((sum, m) => sum + (m.tokens || 0), 0);
+
+  const status = getSessionStatus(messages);
+
+  result.push({
+    id: session.id,
+    title: session.title,
+    agent: firstAssistantMsg?.agent || "unknown",
+    modelID: firstAssistantMsg?.modelID,
+    providerID: firstAssistantMsg?.providerID,
+    parentID: parentId,
+    tokens: totalTokens > 0 ? totalTokens : undefined,
+    status,
+    currentAction: status === "working" ? "Thinking..." : null,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+  });
+
+  const childSessions = allSessions.filter((s) => s.parentID === sessionId);
+  for (const child of childSessions) {
+    await processChildSession(child.id, session.id, allSessions, result, processed);
+  }
 }
 
 interface PollResponse {
@@ -373,28 +486,29 @@ app.get("/api/poll", async (c) => {
     const limitedSessions = sortedSessions.slice(0, 20);
     const rootSessions = limitedSessions.filter(s => !s.parentID);
 
-    // Enrich sessions with agent and modelID from first assistant message
     const sessionsWithAgent = await Promise.all(
       rootSessions.map(async (session) => {
         const firstAssistantMsg = await getFirstAssistantMessage(session.id);
-         return {
-           ...session,
-           agent: firstAssistantMsg?.agent || null,
-           modelID: firstAssistantMsg?.modelID || null,
-           providerID: firstAssistantMsg?.providerID || null,
-         };
+        const messages = await listMessages(session.id);
+        const status = getSessionStatus(messages);
+        
+        return {
+          ...session,
+          agent: firstAssistantMsg?.agent || null,
+          modelID: firstAssistantMsg?.modelID || null,
+          providerID: firstAssistantMsg?.providerID || null,
+          status,
+          currentAction: null as string | null,
+        };
       })
     );
 
-    // Find active session (most recent with activity < 5 minutes)
     let activeSession: SessionMetadata | null = null;
     for (const session of rootSessions) {
       const messages = await listMessages(session.id);
-      const lastMessage = messages.sort(
-        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-      )[0];
+      const status = getSessionStatus(messages);
 
-      if (lastMessage && now - lastMessage.createdAt.getTime() < 5 * 60 * 1000) {
+      if (status === "working" || status === "idle") {
         activeSession = session;
         break;
       }
