@@ -6,10 +6,11 @@
  * Only load individual part files on demand, never read all at once.
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { PartMeta } from "../../shared/types";
 import { getStoragePath } from "./sessionParser";
+import { listMessages } from "./messageParser";
 
 interface PartStateJSON {
   status?: string;
@@ -27,6 +28,10 @@ interface PartJSON {
   tool?: string;
   state?: string | PartStateJSON;
   text?: string;
+  time?: {
+    start: number;
+    end?: number;
+  };
 }
 
 /**
@@ -59,6 +64,8 @@ export async function parsePart(filePath: string): Promise<PartMeta | null> {
       }
     }
 
+    const completedAt = json.time?.end ? new Date(json.time.end) : undefined;
+
     return {
       id: json.id,
       sessionID: json.sessionID,
@@ -69,6 +76,7 @@ export async function parsePart(filePath: string): Promise<PartMeta | null> {
       state,
       input,
       title,
+      completedAt,
     };
   } catch (error) {
     return null;
@@ -155,4 +163,94 @@ export function formatCurrentAction(part: PartMeta): string | null {
   }
 
   return toolName;
+}
+
+export function isPendingToolCall(part: PartMeta): boolean {
+  if (!part.tool || part.type !== "tool") {
+    return false;
+  }
+
+  if (!part.state) {
+    return false;
+  }
+
+  return part.state === "pending";
+}
+
+export interface SessionToolState {
+  hasPendingToolCall: boolean;
+  pendingCount: number;
+  completedCount: number;
+  lastToolCompletedAt: Date | null;
+}
+
+export function getSessionToolState(parts: PartMeta[]): SessionToolState {
+  let pendingCount = 0;
+  let completedCount = 0;
+  let lastToolCompletedAt: Date | null = null;
+
+  for (const part of parts) {
+    if (part.type !== "tool" || !part.tool) {
+      continue;
+    }
+
+    if (isPendingToolCall(part)) {
+      pendingCount++;
+    } else if (part.state === "completed") {
+      completedCount++;
+      
+      if (part.completedAt) {
+        if (!lastToolCompletedAt || part.completedAt > lastToolCompletedAt) {
+          lastToolCompletedAt = part.completedAt;
+        }
+      }
+    }
+  }
+
+  return {
+    hasPendingToolCall: pendingCount > 0,
+    pendingCount,
+    completedCount,
+    lastToolCompletedAt,
+  };
+}
+
+export async function getPartsForSession(
+  sessionID: string,
+  storagePath?: string
+): Promise<PartMeta[]> {
+  const basePath = storagePath || getStoragePath();
+  const messages = await listMessages(sessionID, storagePath);
+  const parts: PartMeta[] = [];
+
+  for (const message of messages) {
+    const messagePartDir = join(
+      basePath,
+      "opencode",
+      "storage",
+      "part",
+      message.id
+    );
+
+    try {
+      const entries = await readdir(messagePartDir);
+
+      for (const entry of entries) {
+        if (!entry.endsWith(".json")) {
+          continue;
+        }
+
+        const partPath = join(messagePartDir, entry);
+        const part = await parsePart(partPath);
+
+        if (part) {
+          parts.push(part);
+        }
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  return parts;
 }

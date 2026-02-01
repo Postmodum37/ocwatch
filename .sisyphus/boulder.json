@@ -1,10 +1,9 @@
 {
-  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/agent-status-indicators.md",
-  "started_at": "2026-02-01T18:06:13.657Z",
-  "completed_at": "2026-02-01T18:24:00.000Z",
-  "session_ids": ["ses_3e5a7a540ffep8EUyeiMyClemd"],
-  "plan_name": "agent-status-indicators",
-  "status": "completed",
-  "tasks_completed": 5,
-  "tasks_total": 5
+  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/agent-status-improvement.md",
+  "started_at": "2026-02-01T21:23:32.770Z",
+  "session_ids": ["ses_3e4e91502ffex2DGcEwIaGNCFu"],
+  "plan_name": "agent-status-improvement",
+  "status": "active",
+  "tasks_completed": 0,
+  "tasks_total": 16
 }

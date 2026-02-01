@@ -57,9 +57,9 @@ Fix agent status indicators to accurately reflect working/idle/completed states,
 - `src/server/index.ts` - Use new status utility
 
 ### Definition of Done
-- [ ] Status indicators show: Working (spinner), Idle (pulse), Completed (check)
-- [ ] Current action displays tool + target (e.g., "Editing src/index.ts")
-- [ ] All tests pass: `bun test && cd src/client && bun run test`
+- [x] Status indicators show: Working (spinner), Idle (pulse), Completed (check)
+- [x] Current action displays tool + target (e.g., "Editing src/index.ts")
+- [x] All tests pass: `bun test && cd src/client && bun run test`
 
 ### Must Have
 - 3 distinct status states: working, idle, completed
@@ -189,12 +189,12 @@ Wave 3 (After Wave 2):
 **Acceptance Criteria**:
 
 **Unit Tests** (TDD):
-- [ ] Test file created: `src/server/__tests__/sessionStatus.test.ts`
-- [ ] Test: session with message < 30s ago → `'working'`
-- [ ] Test: session with message 2 min ago → `'idle'`
-- [ ] Test: session with message 10 min ago → `'completed'`
-- [ ] Test: session with pending tool call → `'working'` (regardless of time)
-- [ ] `bun test src/server/__tests__/sessionStatus.test.ts` → PASS
+- [x] Test file created: `src/server/__tests__/sessionStatus.test.ts`
+- [x] Test: session with message < 30s ago → `'working'`
+- [x] Test: session with message 2 min ago → `'idle'`
+- [x] Test: session with message 10 min ago → `'completed'`
+- [x] Test: session with pending tool call → `'working'` (regardless of time)
+- [x] `bun test src/server/__tests__/sessionStatus.test.ts` → PASS
 
 **Automated Verification**:
 ```bash
@@ -333,12 +333,12 @@ pkill -f "bun run src/server"
 **Acceptance Criteria**:
 
 **Unit Tests** (TDD):
-- [ ] Test file created: `src/server/__tests__/partParser.test.ts`
-- [ ] Test: `formatCurrentAction` with filePath → "Editing /short/path.ts"
-- [ ] Test: `formatCurrentAction` with long path → truncated to 40 chars
-- [ ] Test: `formatCurrentAction` with command → "Running bun test"
-- [ ] Test: `formatCurrentAction` with null input → tool name only
-- [ ] `bun test src/server/__tests__/partParser.test.ts` → PASS
+- [x] Test file created: `src/server/__tests__/partParser.test.ts`
+- [x] Test: `formatCurrentAction` with filePath → "Editing /short/path.ts"
+- [x] Test: `formatCurrentAction` with long path → truncated to 40 chars
+- [x] Test: `formatCurrentAction` with command → "Running bun test"
+- [x] Test: `formatCurrentAction` with null input → tool name only
+- [x] `bun test src/server/__tests__/partParser.test.ts` → PASS
 
 **Automated Verification**:
 ```bash
@@ -404,10 +404,10 @@ bun test src/server/__tests__/partParser.test.ts
 **Acceptance Criteria**:
 
 **Component Tests**:
-- [ ] Test: session with status='working' → spinner icon visible
-- [ ] Test: session with status='idle' → pulse dot visible
-- [ ] Test: session with status='completed' → check icon visible
-- [ ] `cd src/client && bun run test SessionList.test.tsx` → PASS
+- [x] Test: session with status='working' → spinner icon visible
+- [x] Test: session with status='idle' → pulse dot visible
+- [x] Test: session with status='completed' → check icon visible
+- [x] `cd src/client && bun run test SessionList.test.tsx` → PASS
 
 **Visual Verification (Playwright)**:
 ```typescript
@@ -475,10 +475,10 @@ bun test src/server/__tests__/partParser.test.ts
 **Acceptance Criteria**:
 
 **Component Tests**:
-- [ ] Test: session with currentAction → displays action text
-- [ ] Test: session with status='working' and no currentAction → displays "Thinking..."
-- [ ] Test: session with status='completed' and no currentAction → displays nothing
-- [ ] `cd src/client && bun run test LiveActivity.test.tsx` → PASS
+- [x] Test: session with currentAction → displays action text
+- [x] Test: session with status='working' and no currentAction → displays "Thinking..."
+- [x] Test: session with status='completed' and no currentAction → displays nothing
+- [x] `cd src/client && bun run test LiveActivity.test.tsx` → PASS
 
 **Visual Verification (Playwright)**:
 ```typescript
@@ -530,8 +530,8 @@ curl -s http://localhost:50234/api/poll | jq '.sessions[0].currentAction'
 ```
 
 ### Final Checklist
-- [ ] All "Must Have" present (3 status states, current action display)
-- [ ] All "Must NOT Have" absent (no history, no progress bars, no new endpoints)
-- [ ] All tests pass
-- [ ] Visual states match spec (spinner/pulse/check with correct colors)
-- [ ] Current action truncates long paths correctly
+- [x] All "Must Have" present (3 status states, current action display)
+- [x] All "Must NOT Have" absent (no history, no progress bars, no new endpoints)
+- [x] All tests pass
+- [x] Visual states match spec (spinner/pulse/check with correct colors)
+- [x] Current action truncates long paths correctly

@@ -3,7 +3,7 @@
  * Ported from Go types in internal/state/state.go and internal/parser/parser.go
  */
 
-export type SessionStatus = "working" | "idle" | "completed";
+export type SessionStatus = "working" | "idle" | "completed" | "waiting";
 
 export interface SessionMetadata {
   id: string;
@@ -50,6 +50,8 @@ export interface ActivitySession {
   tokens?: number;
   status?: SessionStatus;
   currentAction?: string | null;
+  lastToolCompletedAt?: Date;
+  workingChildCount?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +78,7 @@ export interface PartMeta {
   state?: string;
   input?: ToolInput;
   title?: string;
+  completedAt?: Date;
 }
 
 /**
