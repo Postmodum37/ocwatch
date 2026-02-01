@@ -75,6 +75,12 @@ const StatusIndicator: React.FC<{ status: SessionStatus }> = ({ status }) => {
           <Circle className="w-3 h-3 text-success animate-pulse" />
         </span>
       );
+    case 'waiting':
+      return (
+        <span className="flex items-center justify-center w-4 h-4" data-testid="status-waiting">
+          <Circle className="w-3 h-3 text-gray-500" />
+        </span>
+      );
     case 'completed':
     default:
       return (
@@ -90,7 +96,14 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
   const agentColor = getAgentColor(session.agent);
   const status: SessionStatus = session.status || 'completed';
   
-  const currentActionText = session.currentAction || (status === 'working' ? 'Thinking...' : null);
+  let currentActionText = session.currentAction;
+  if (!currentActionText) {
+    if (session.workingChildCount && session.workingChildCount > 0) {
+      currentActionText = `waiting on ${session.workingChildCount} agents`;
+    } else if (status === 'working') {
+      currentActionText = 'Thinking...';
+    }
+  }
   
   return (
     <div className="flex flex-col">

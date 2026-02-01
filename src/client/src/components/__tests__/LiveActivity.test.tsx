@@ -11,6 +11,7 @@ vi.mock('lucide-react', () => ({
   Activity: () => <div data-testid="icon-activity" />,
   Check: () => <div data-testid="icon-check" />,
   Loader2: () => <div data-testid="icon-loader" />,
+  Circle: () => <div data-testid="icon-circle" />,
 }));
 
 describe('LiveActivity', () => {
@@ -22,6 +23,7 @@ describe('LiveActivity', () => {
       modelID: 'claude-sonnet-4',
       providerID: 'anthropic',
       tokens: 1234,
+      status: 'working',
       createdAt: new Date('2024-01-15T10:30:00'),
       updatedAt: new Date('2024-01-15T10:35:00'),
     },
@@ -33,6 +35,7 @@ describe('LiveActivity', () => {
       providerID: 'anthropic',
       parentID: 'session-1',
       tokens: 567,
+      status: 'idle',
       createdAt: new Date('2024-01-15T10:30:05'),
       updatedAt: new Date('2024-01-15T10:32:00'),
     },
@@ -44,6 +47,7 @@ describe('LiveActivity', () => {
       providerID: 'anthropic',
       parentID: 'session-2',
       tokens: 89,
+      status: 'completed',
       createdAt: new Date('2024-01-15T10:30:10'),
       updatedAt: new Date('2024-01-15T10:31:00'),
     },
@@ -148,5 +152,61 @@ describe('LiveActivity', () => {
     const agentBadges = screen.getAllByText(/sisyphus|explore/);
     expect(agentBadges[0]).toHaveTextContent('sisyphus');
     expect(agentBadges[1]).toHaveTextContent('explore');
+  });
+
+  it('displays waiting status with hollow circle', () => {
+    const waitingSession: ActivitySession[] = [
+      {
+        id: 'waiting-1',
+        title: 'Waiting session',
+        agent: 'prometheus',
+        status: 'waiting',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    ];
+
+    render(<LiveActivity sessions={waitingSession} loading={false} />);
+    
+    const statusIndicator = screen.getByTestId('status-waiting');
+    expect(statusIndicator).toBeInTheDocument();
+    expect(screen.getByTestId('icon-circle')).toBeInTheDocument();
+  });
+
+  it('displays "waiting on N agents" when workingChildCount > 0', () => {
+    const waitingOnChildrenSession: ActivitySession[] = [
+      {
+        id: 'parent-1',
+        title: 'Parent',
+        agent: 'prometheus',
+        status: 'working',
+        workingChildCount: 3,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    ];
+
+    render(<LiveActivity sessions={waitingOnChildrenSession} loading={false} />);
+    
+    expect(screen.getByText('waiting on 3 agents')).toBeInTheDocument();
+  });
+
+  it('displays currentAction text instead of "Thinking..."', () => {
+    const actionSession: ActivitySession[] = [
+      {
+        id: 'action-1',
+        title: 'Action',
+        agent: 'prometheus',
+        status: 'working',
+        currentAction: 'running tool: ls',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    ];
+
+    render(<LiveActivity sessions={actionSession} loading={false} />);
+    
+    expect(screen.getByText('running tool: ls')).toBeInTheDocument();
+    expect(screen.queryByText('Thinking...')).not.toBeInTheDocument();
   });
 });

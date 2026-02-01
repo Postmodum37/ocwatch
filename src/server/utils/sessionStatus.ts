@@ -3,35 +3,56 @@
  * Determines session status based on message timestamps and tool call state
  */
 
-import type { MessageMeta, PartMeta } from "../../shared/types";
+import type { MessageMeta, PartMeta, SessionStatus } from "../../shared/types";
 
-export type SessionStatus = "working" | "idle" | "completed";
+export type { SessionStatus };
 
 // Thresholds in milliseconds
 const WORKING_THRESHOLD = 30 * 1000; // 30 seconds
 const COMPLETED_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+const GRACE_PERIOD = 5 * 1000; // 5 seconds
 
 /**
  * Determine session status based on messages and optional pending tool calls
  * 
  * @param messages - Array of messages from the session (should be sorted by createdAt desc)
  * @param hasPendingToolCall - Whether the session has a pending tool call
- * @returns SessionStatus: 'working' | 'idle' | 'completed'
+ * @param lastToolCompletedAt - Timestamp of last completed tool (for grace period)
+ * @param workingChildCount - Number of working child sessions (for waiting state)
+ * @returns SessionStatus: 'working' | 'idle' | 'completed' | 'waiting'
  * 
- * Logic:
- * - working: has message < 30s old OR has pending tool call
- * - idle: last message 30s-5min old
- * - completed: last message > 5min old (or no messages)
+ * Status precedence:
+ * 1. pending tool call → "working"
+ * 2. working children → "waiting"
+ * 3. grace period (< 5s after tool completion) → "working"
+ * 4. time-based (message age) → "working" | "idle" | "completed"
  */
 export function getSessionStatus(
   messages: MessageMeta[],
-  hasPendingToolCall: boolean = false
+  hasPendingToolCall: boolean = false,
+  lastToolCompletedAt?: Date,
+  workingChildCount?: number
 ): SessionStatus {
-  // If there's a pending tool call, session is working regardless of time
+  // Priority 1: Pending tool call overrides everything
   if (hasPendingToolCall) {
     return "working";
   }
 
+  // Priority 2: Parent with working children is waiting
+  if (workingChildCount && workingChildCount > 0) {
+    return "waiting";
+  }
+
+  // Priority 3: Grace period after tool completion
+  if (lastToolCompletedAt) {
+    const now = Date.now();
+    const timeSinceToolCompleted = now - lastToolCompletedAt.getTime();
+    if (timeSinceToolCompleted < GRACE_PERIOD) {
+      return "working";
+    }
+  }
+
+  // Priority 4: Time-based status from message timestamps
   // No messages = completed (nothing happening)
   if (!messages || messages.length === 0) {
     return "completed";

@@ -112,3 +112,91 @@ describe("isPendingToolCall", () => {
     expect(isPendingToolCall(part)).toBe(false);
   });
 });
+
+describe("getSessionStatus - tool completion and waiting logic", () => {
+  describe("grace period (5s after tool completion)", () => {
+    test("returns 'working' within 5s grace period after tool completion", () => {
+      const messages = [createMessage(120)]; // 2 min ago (would be idle)
+      const lastToolCompletedAt = new Date(Date.now() - 3000); // 3s ago
+      expect(getSessionStatus(messages, false, lastToolCompletedAt)).toBe("working");
+    });
+
+    test("returns time-based status after 5s grace period expires", () => {
+      const messages = [createMessage(120)]; // 2 min ago (idle)
+      const lastToolCompletedAt = new Date(Date.now() - 6000); // 6s ago
+      expect(getSessionStatus(messages, false, lastToolCompletedAt)).toBe("idle");
+    });
+
+    test("grace period at exactly 5s boundary (should expire)", () => {
+      const messages = [createMessage(120)]; // 2 min ago
+      const lastToolCompletedAt = new Date(Date.now() - 5000); // exactly 5s
+      expect(getSessionStatus(messages, false, lastToolCompletedAt)).toBe("idle");
+    });
+
+    test("grace period at 4.9s (still working)", () => {
+      const messages = [createMessage(120)]; // 2 min ago
+      const lastToolCompletedAt = new Date(Date.now() - 4900); // 4.9s ago
+      expect(getSessionStatus(messages, false, lastToolCompletedAt)).toBe("working");
+    });
+  });
+
+  describe("waiting status (parent with working children)", () => {
+    test("returns 'waiting' when workingChildCount > 0", () => {
+      const messages = [createMessage(120)]; // 2 min ago
+      expect(getSessionStatus(messages, false, undefined, 1)).toBe("waiting");
+    });
+
+    test("returns 'waiting' with multiple working children", () => {
+      const messages = [createMessage(10)]; // recent message
+      expect(getSessionStatus(messages, false, undefined, 3)).toBe("waiting");
+    });
+
+    test("returns time-based status when workingChildCount = 0", () => {
+      const messages = [createMessage(120)]; // 2 min ago
+      expect(getSessionStatus(messages, false, undefined, 0)).toBe("idle");
+    });
+  });
+
+  describe("status precedence", () => {
+    test("pending tool call overrides all (including waiting)", () => {
+      const messages = [createMessage(600)]; // old message
+      const lastToolCompletedAt = new Date(Date.now() - 10000); // old completion
+      expect(getSessionStatus(messages, true, lastToolCompletedAt, 5)).toBe("working");
+    });
+
+    test("waiting overrides grace period", () => {
+      const messages = [createMessage(120)]; // 2 min ago
+      const lastToolCompletedAt = new Date(Date.now() - 3000); // in grace period
+      expect(getSessionStatus(messages, false, lastToolCompletedAt, 2)).toBe("waiting");
+    });
+
+    test("grace period overrides time-based status", () => {
+      const messages = [createMessage(600)]; // 10 min ago (completed)
+      const lastToolCompletedAt = new Date(Date.now() - 2000); // 2s ago
+      expect(getSessionStatus(messages, false, lastToolCompletedAt, 0)).toBe("working");
+    });
+
+    test("time-based status used when no overrides", () => {
+      const messages = [createMessage(120)]; // 2 min ago
+      const lastToolCompletedAt = new Date(Date.now() - 10000); // old
+      expect(getSessionStatus(messages, false, lastToolCompletedAt, 0)).toBe("idle");
+    });
+  });
+
+  describe("backwards compatibility", () => {
+    test("works with only messages parameter (all defaults)", () => {
+      const messages = [createMessage(10)];
+      expect(getSessionStatus(messages)).toBe("working");
+    });
+
+    test("works with hasPendingToolCall only", () => {
+      const messages = [createMessage(600)];
+      expect(getSessionStatus(messages, true)).toBe("working");
+    });
+
+    test("all parameters optional except messages", () => {
+      const messages = [createMessage(45)];
+      expect(getSessionStatus(messages, false, undefined, undefined)).toBe("idle");
+    });
+  });
+});
