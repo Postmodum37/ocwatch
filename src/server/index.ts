@@ -42,6 +42,15 @@ interface AgentPhase {
   messageCount: number;
 }
 
+function isAssistantFinished(messages: MessageMeta[]): boolean {
+  const assistantMessages = messages.filter(m => m.role === "assistant");
+  if (assistantMessages.length === 0) return false;
+  const lastAssistant = assistantMessages.reduce((a, b) => 
+    a.createdAt.getTime() > b.createdAt.getTime() ? a : b
+  );
+  return lastAssistant.finish === "stop";
+}
+
 function detectAgentPhases(messages: MessageMeta[]): AgentPhase[] {
   const sorted = messages
     .filter(m => m.role === 'assistant' && m.agent)
@@ -113,7 +122,9 @@ async function buildSessionTree(
     }
 
     const messages = await listMessages(sessionID);
-    const status = getSessionStatus(messages);
+    const lastAssistantFinished = isAssistantFinished(messages);
+    const isSubagent = !!session.parentID;
+    const status = getSessionStatus(messages, false, undefined, undefined, lastAssistantFinished, isSubagent);
 
     const lastMessage = messages.sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
@@ -198,7 +209,8 @@ app.get("/api/sessions", async (c) => {
   const sessionsWithActivity = await Promise.all(
     rootSessions.map(async (session) => {
       const messages = await listMessages(session.id);
-      const status = getSessionStatus(messages);
+      const lastAssistantFinished = isAssistantFinished(messages);
+      const status = getSessionStatus(messages, false, undefined, undefined, lastAssistantFinished);
 
       return {
         id: session.id,
@@ -334,21 +346,27 @@ async function getSessionHierarchy(
       const childMessages = await listMessages(child.id);
       const childParts = await getPartsForSession(child.id);
       const childToolState = getSessionToolState(childParts);
+      const childLastAssistantFinished = isAssistantFinished(childMessages);
       const childStatus = getSessionStatus(
         childMessages,
         childToolState.hasPendingToolCall,
-        childToolState.lastToolCompletedAt || undefined
+        childToolState.lastToolCompletedAt || undefined,
+        undefined,
+        childLastAssistantFinished,
+        true
       );
       if (childStatus === "working") {
         workingChildCount++;
       }
     }
 
+    const rootLastAssistantFinished = isAssistantFinished(rootMessages);
     const status = getSessionStatus(
       rootMessages,
       toolState.hasPendingToolCall,
       toolState.lastToolCompletedAt || undefined,
-      workingChildCount
+      workingChildCount,
+      rootLastAssistantFinished
     );
 
     let currentAction: string | null = null;
@@ -398,17 +416,22 @@ async function getSessionHierarchy(
         const childMessages = await listMessages(child.id);
         const childParts = await getPartsForSession(child.id);
         const childToolState = getSessionToolState(childParts);
+        const childLastAssistantFinished = isAssistantFinished(childMessages);
         const childStatus = getSessionStatus(
           childMessages,
           childToolState.hasPendingToolCall,
-          childToolState.lastToolCompletedAt || undefined
+          childToolState.lastToolCompletedAt || undefined,
+          undefined,
+          childLastAssistantFinished,
+          true
         );
         if (childStatus === "working") {
           workingChildCount++;
         }
       }
 
-      const status = workingChildCount > 0 ? "waiting" : getStatusFromTimestamp(phase.endTime);
+      const phaseLastAssistantFinished = isAssistantFinished(phaseMessages);
+      const status = workingChildCount > 0 ? "waiting" : (phaseLastAssistantFinished ? "waiting" : getStatusFromTimestamp(phase.endTime));
 
       result.push({
         id: virtualId,
@@ -465,21 +488,28 @@ async function processChildSession(
     const childMessages = await listMessages(child.id);
     const childParts = await getPartsForSession(child.id);
     const childToolState = getSessionToolState(childParts);
+    const childLastAssistantFinished = isAssistantFinished(childMessages);
     const childStatus = getSessionStatus(
       childMessages,
       childToolState.hasPendingToolCall,
-      childToolState.lastToolCompletedAt || undefined
+      childToolState.lastToolCompletedAt || undefined,
+      undefined,
+      childLastAssistantFinished,
+      true
     );
     if (childStatus === "working") {
       workingChildCount++;
     }
   }
 
+  const lastAssistantFinished = isAssistantFinished(messages);
   const status = getSessionStatus(
     messages,
     toolState.hasPendingToolCall,
     toolState.lastToolCompletedAt || undefined,
-    workingChildCount
+    workingChildCount,
+    lastAssistantFinished,
+    true
   );
 
   let currentAction: string | null = null;
@@ -572,11 +602,14 @@ app.get("/api/poll", async (c) => {
         const messages = await listMessages(session.id);
         const parts = await getPartsForSession(session.id);
         const toolState = getSessionToolState(parts);
+        const lastAssistantFinished = isAssistantFinished(messages);
         
         const status = getSessionStatus(
           messages,
           toolState.hasPendingToolCall,
-          toolState.lastToolCompletedAt || undefined
+          toolState.lastToolCompletedAt || undefined,
+          undefined,
+          lastAssistantFinished
         );
         
         let currentAction: string | null = null;
@@ -603,11 +636,14 @@ app.get("/api/poll", async (c) => {
       const messages = await listMessages(session.id);
       const parts = await getPartsForSession(session.id);
       const toolState = getSessionToolState(parts);
+      const lastAssistantFinished = isAssistantFinished(messages);
       
       const status = getSessionStatus(
         messages,
         toolState.hasPendingToolCall,
-        toolState.lastToolCompletedAt || undefined
+        toolState.lastToolCompletedAt || undefined,
+        undefined,
+        lastAssistantFinished
       );
 
       if (status === "working" || status === "idle") {

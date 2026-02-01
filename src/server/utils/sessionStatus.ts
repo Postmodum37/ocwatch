@@ -19,19 +19,24 @@ const GRACE_PERIOD = 5 * 1000; // 5 seconds
  * @param hasPendingToolCall - Whether the session has a pending tool call
  * @param lastToolCompletedAt - Timestamp of last completed tool (for grace period)
  * @param workingChildCount - Number of working child sessions (for waiting state)
+ * @param lastAssistantFinished - Whether the last assistant message has finish="stop" (completed turn)
+ * @param isSubagent - Whether this is a subagent (has parentID). Subagents cannot wait for user input.
  * @returns SessionStatus: 'working' | 'idle' | 'completed' | 'waiting'
  * 
  * Status precedence:
  * 1. pending tool call → "working"
  * 2. working children → "waiting"
- * 3. grace period (< 5s after tool completion) → "working"
- * 4. time-based (message age) → "working" | "idle" | "completed"
+ * 3. assistant finished turn (finish="stop") → "waiting" (root only) or "completed" (subagent)
+ * 4. grace period (< 5s after tool completion) → "working"
+ * 5. time-based (message age) → "working" | "idle" | "completed"
  */
 export function getSessionStatus(
   messages: MessageMeta[],
   hasPendingToolCall: boolean = false,
   lastToolCompletedAt?: Date,
-  workingChildCount?: number
+  workingChildCount?: number,
+  lastAssistantFinished?: boolean,
+  isSubagent: boolean = false
 ): SessionStatus {
   // Priority 1: Pending tool call overrides everything
   if (hasPendingToolCall) {
@@ -41,6 +46,12 @@ export function getSessionStatus(
   // Priority 2: Parent with working children is waiting
   if (workingChildCount && workingChildCount > 0) {
     return "waiting";
+  }
+
+  // Priority 3: Assistant finished turn
+  // Only root agents can wait for user input. Subagents are "completed" when they finish.
+  if (lastAssistantFinished) {
+    return isSubagent ? "completed" : "waiting";
   }
 
   // Priority 3: Grace period after tool completion

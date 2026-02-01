@@ -102,6 +102,8 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
       currentActionText = `waiting on ${session.workingChildCount} agents`;
     } else if (status === 'working') {
       currentActionText = 'Thinking...';
+    } else if (status === 'waiting') {
+      currentActionText = 'Waiting for input';
     }
   }
   

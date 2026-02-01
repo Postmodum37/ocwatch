@@ -34,6 +34,7 @@ export interface MessageMeta {
   parentID?: string;
   tokens?: number;
   createdAt: Date;
+  finish?: string;
 }
 
 /**

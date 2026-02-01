@@ -72,6 +72,7 @@ export async function parseMessage(
       parentID: json.parentID,
       tokens: totalTokens,
       createdAt: new Date(json.time.created),
+      finish: json.finish,
     };
   } catch (error) {
     if (error instanceof SyntaxError) {

@@ -199,4 +199,75 @@ describe("getSessionStatus - tool completion and waiting logic", () => {
       expect(getSessionStatus(messages, false, undefined, undefined)).toBe("idle");
     });
   });
+
+  describe("assistant finished turn (lastAssistantFinished)", () => {
+    test("returns 'waiting' when lastAssistantFinished=true and no pending tools", () => {
+      const messages = [createMessage(10)]; // recent message (would be working)
+      expect(getSessionStatus(messages, false, undefined, undefined, true)).toBe("waiting");
+    });
+
+    test("pending tool call overrides finished status", () => {
+      const messages = [createMessage(10)];
+      expect(getSessionStatus(messages, true, undefined, undefined, true)).toBe("working");
+    });
+
+    test("finished status returns waiting even for old messages", () => {
+      const messages = [createMessage(120)]; // 2 min ago (would be idle)
+      expect(getSessionStatus(messages, false, undefined, undefined, true)).toBe("waiting");
+    });
+
+    test("returns time-based when not finished", () => {
+      const messages = [createMessage(10)]; // recent (would be working)
+      expect(getSessionStatus(messages, false, undefined, undefined, false)).toBe("working");
+    });
+
+    test("finished=undefined defaults to time-based status", () => {
+      const messages = [createMessage(10)];
+      expect(getSessionStatus(messages, false, undefined, undefined, undefined)).toBe("working");
+    });
+
+    test("finished overrides grace period", () => {
+      const messages = [createMessage(120)];
+      const lastToolCompletedAt = new Date(Date.now() - 3000); // in grace period
+      expect(getSessionStatus(messages, false, lastToolCompletedAt, 0, true)).toBe("waiting");
+    });
+  });
+
+  describe("subagent behavior (isSubagent=true)", () => {
+    test("subagent returns 'completed' when finished (not 'waiting')", () => {
+      const messages = [createMessage(10)]; // recent message
+      expect(getSessionStatus(messages, false, undefined, undefined, true, true)).toBe("completed");
+    });
+
+    test("subagent still returns 'working' with pending tool call", () => {
+      const messages = [createMessage(10)];
+      expect(getSessionStatus(messages, true, undefined, undefined, true, true)).toBe("working");
+    });
+
+    test("subagent returns 'completed' for finished even with old messages", () => {
+      const messages = [createMessage(120)]; // 2 min ago
+      expect(getSessionStatus(messages, false, undefined, undefined, true, true)).toBe("completed");
+    });
+
+    test("subagent returns 'waiting' when has working children", () => {
+      const messages = [createMessage(10)];
+      expect(getSessionStatus(messages, false, undefined, 2, true, true)).toBe("waiting");
+    });
+
+    test("subagent finished overrides grace period with 'completed'", () => {
+      const messages = [createMessage(120)];
+      const lastToolCompletedAt = new Date(Date.now() - 3000); // in grace period
+      expect(getSessionStatus(messages, false, lastToolCompletedAt, 0, true, true)).toBe("completed");
+    });
+
+    test("root agent returns 'waiting' when finished (default isSubagent=false)", () => {
+      const messages = [createMessage(10)];
+      expect(getSessionStatus(messages, false, undefined, undefined, true, false)).toBe("waiting");
+    });
+
+    test("subagent returns time-based status when not finished", () => {
+      const messages = [createMessage(10)]; // working
+      expect(getSessionStatus(messages, false, undefined, undefined, false, true)).toBe("working");
+    });
+  });
 });
