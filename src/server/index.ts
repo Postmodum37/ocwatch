@@ -155,9 +155,10 @@ app.get("/api/sessions", async (c) => {
   );
 
   const limitedSessions = sortedSessions.slice(0, 20);
+  const rootSessions = limitedSessions.filter(s => !s.parentID);
 
   const sessionsWithActivity = await Promise.all(
-    limitedSessions.map(async (session) => {
+    rootSessions.map(async (session) => {
       const messages = await listMessages(session.id);
       const lastMessage = messages.sort(
         (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
@@ -274,6 +275,7 @@ interface PollResponse {
   sessions: SessionMetadata[];
   activeSession: SessionMetadata | null;
   planProgress: PlanProgress | null;
+  messages: MessageMeta[];
   lastUpdate: number;
 }
 
@@ -282,103 +284,120 @@ interface PollResponse {
  * Uses SHA256 hash of JSON stringified data (excluding lastUpdate timestamp)
  */
 function generateETag(data: PollResponse): string {
-  const dataForHash = {
-    sessions: data.sessions,
-    activeSession: data.activeSession,
-    planProgress: data.planProgress,
-  };
-  const hash = createHash("sha256")
-    .update(JSON.stringify(dataForHash))
-    .digest("hex");
-  return `"${hash.substring(0, 16)}"`;
+   const dataForHash = {
+     sessions: data.sessions,
+     activeSession: data.activeSession,
+     planProgress: data.planProgress,
+     messages: data.messages,
+   };
+   const hash = createHash("sha256")
+     .update(JSON.stringify(dataForHash))
+     .digest("hex");
+   return `"${hash.substring(0, 16)}"`;
 }
 
 app.get("/api/poll", async (c) => {
-  const storageExists = await checkStorageExists();
-  if (!storageExists) {
-    const pollData: PollResponse = {
-      sessions: [],
-      activeSession: null,
-      planProgress: null,
-      lastUpdate: Date.now(),
-    };
-    return c.json(pollData);
-  }
+   const storageExists = await checkStorageExists();
+   if (!storageExists) {
+     const pollData: PollResponse = {
+       sessions: [],
+       activeSession: null,
+       planProgress: null,
+       messages: [],
+       lastUpdate: Date.now(),
+     };
+     return c.json(pollData);
+   }
 
-  const allSessions = await listAllSessions();
+   const allSessions = await listAllSessions();
 
-  const now = Date.now();
-  const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+   const now = Date.now();
+   const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
 
-  const recentSessions = allSessions.filter(
-    (s) => s.updatedAt.getTime() >= twentyFourHoursAgo
-  );
-
-  const sortedSessions = recentSessions.sort(
-    (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
-  );
-
-   const limitedSessions = sortedSessions.slice(0, 20);
-
-   // Enrich sessions with agent and modelID from first assistant message
-   const sessionsWithAgent = await Promise.all(
-     limitedSessions.map(async (session) => {
-       const firstAssistantMsg = await getFirstAssistantMessage(session.id);
-       return {
-         ...session,
-         agent: firstAssistantMsg?.agent || null,
-         modelID: firstAssistantMsg?.modelID || null,
-       };
-     })
+   const recentSessions = allSessions.filter(
+     (s) => s.updatedAt.getTime() >= twentyFourHoursAgo
    );
 
-   // Find active session (most recent with activity < 5 minutes)
-   let activeSession: SessionMetadata | null = null;
-   for (const session of limitedSessions) {
-     const messages = await listMessages(session.id);
-     const lastMessage = messages.sort(
-       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-     )[0];
+   const sortedSessions = recentSessions.sort(
+     (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+   );
 
-     if (lastMessage && now - lastMessage.createdAt.getTime() < 5 * 60 * 1000) {
-       activeSession = session;
-       break;
-     }
+    const limitedSessions = sortedSessions.slice(0, 20);
+    const rootSessions = limitedSessions.filter(s => !s.parentID);
+
+    // Enrich sessions with agent and modelID from first assistant message
+    const sessionsWithAgent = await Promise.all(
+      rootSessions.map(async (session) => {
+        const firstAssistantMsg = await getFirstAssistantMessage(session.id);
+         return {
+           ...session,
+           agent: firstAssistantMsg?.agent || null,
+           modelID: firstAssistantMsg?.modelID || null,
+           providerID: firstAssistantMsg?.providerID || null,
+         };
+      })
+    );
+
+    // Find active session (most recent with activity < 5 minutes)
+    let activeSession: SessionMetadata | null = null;
+    for (const session of rootSessions) {
+      const messages = await listMessages(session.id);
+      const lastMessage = messages.sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+      )[0];
+
+      if (lastMessage && now - lastMessage.createdAt.getTime() < 5 * 60 * 1000) {
+        activeSession = session;
+        break;
+      }
+    }
+
+    // Get plan progress from current directory
+    let planProgress: PlanProgress | null = null;
+    try {
+      const cwd = process.cwd();
+      const boulder = await parseBoulder(cwd);
+      if (boulder?.activePlan) {
+        planProgress = await calculatePlanProgress(boulder.activePlan);
+      }
+    } catch (error) {
+      // Silently fail if no plan found
+    }
+
+    // Fetch messages for target session
+    let messages: MessageMeta[] = [];
+    const sessionId = c.req.query('sessionId');
+    const targetSessionId = sessionId || activeSession?.id;
+    if (targetSessionId) {
+      const fetchedMessages = await listMessages(targetSessionId);
+      const sortedMessages = fetchedMessages.sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+      );
+      messages = sortedMessages.slice(0, 100);
+    }
+
+    const pollData: PollResponse = {
+      sessions: sessionsWithAgent,
+      activeSession,
+      planProgress,
+      messages,
+      lastUpdate: now,
+    };
+
+   // Generate ETag
+   const etag = generateETag(pollData);
+
+   // Check If-None-Match header
+   const clientETag = c.req.header("If-None-Match");
+   if (clientETag === etag) {
+     // Data hasn't changed, return 304 Not Modified
+     c.header("ETag", etag);
+     return new Response(null, { status: 304, headers: { ETag: etag } });
    }
 
-   // Get plan progress from current directory
-   let planProgress: PlanProgress | null = null;
-   try {
-     const cwd = process.cwd();
-     const boulder = await parseBoulder(cwd);
-     if (boulder?.activePlan) {
-       planProgress = await calculatePlanProgress(boulder.activePlan);
-     }
-   } catch (error) {
-     // Silently fail if no plan found
-   }
-
-   const pollData: PollResponse = {
-     sessions: sessionsWithAgent,
-     activeSession,
-     planProgress,
-     lastUpdate: now,
-   };
-
-  // Generate ETag
-  const etag = generateETag(pollData);
-
-  // Check If-None-Match header
-  const clientETag = c.req.header("If-None-Match");
-  if (clientETag === etag) {
-    // Data hasn't changed, return 304 Not Modified
-    c.header("ETag", etag);
-    return new Response(null, { status: 304, headers: { ETag: etag } });
-  }
-
-  // Data changed or first request, return 200 with ETag
-  c.header("ETag", etag);
-  return c.json(pollData);
+   // Data changed or first request, return 200 with ETag
+   c.header("ETag", etag);
+   return c.json(pollData);
 });
 
 app.use("/*", serveStatic({ root: "./src/client/dist" }));
@@ -493,13 +512,10 @@ export default {
   fetch: app.fetch,
 };
 
-// Print startup message
-console.log(`🚀 OCWatch server running on ${url}`);
-console.log(`📋 Press Ctrl+C to stop`);
-
-// Auto-open browser if not disabled
-if (!flags.noBrowser) {
-  openBrowser(url).catch(() => {
-    // Silently ignore errors
-  });
+console.log(`🚀 OCWatch API server running on ${url}`);
+if (flags.noBrowser) {
+  console.log(`📡 API ready for Vite dev server`);
+} else {
+  console.log(`📋 Press Ctrl+C to stop`);
+  openBrowser(url).catch(() => {});
 }
