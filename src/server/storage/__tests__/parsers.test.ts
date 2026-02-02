@@ -210,6 +210,45 @@ describe("messageParser", () => {
     expect(result?.tokens).toBeUndefined();
   });
 
+  test("parseMessage - extracts cost field", async () => {
+    const messagePath = join(STORAGE_DIR, "message", SESSION_ID, "msg_withcost.json");
+    const messageData = {
+      id: "msg_withcost",
+      sessionID: SESSION_ID,
+      role: "assistant",
+      time: { created: 1700000000000 },
+      cost: 0.0234,
+      tokens: {
+        input: 100,
+        output: 200,
+      },
+    };
+
+    await writeFile(messagePath, JSON.stringify(messageData));
+
+    const result = await parseMessage(messagePath);
+
+    expect(result).not.toBeNull();
+    expect(result?.cost).toBe(0.0234);
+  });
+
+  test("parseMessage - missing cost field", async () => {
+    const messagePath = join(STORAGE_DIR, "message", SESSION_ID, "msg_nocost.json");
+    const messageData = {
+      id: "msg_nocost",
+      sessionID: SESSION_ID,
+      role: "assistant",
+      time: { created: 1700000000000 },
+    };
+
+    await writeFile(messagePath, JSON.stringify(messageData));
+
+    const result = await parseMessage(messagePath);
+
+    expect(result).not.toBeNull();
+    expect(result?.cost).toBeUndefined();
+  });
+
   test("getMessage - retrieves message by ID", async () => {
     const result = await getMessage(MESSAGE_ID, SESSION_ID, TEST_DIR);
 

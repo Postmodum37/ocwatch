@@ -92,7 +92,9 @@ export const SessionList: React.FC<SessionListProps> = ({
                   }`}
                 >
                   <span className="truncate">{project.directory.split('/').pop()}</span>
-                  <span className="text-xs text-text-secondary ml-2 shrink-0">({project.sessionCount})</span>
+                  <span className="text-xs text-text-secondary ml-2 shrink-0">
+                    {formatRelativeTime(project.lastActivityAt)}
+                  </span>
                 </button>
               ))}
             </div>

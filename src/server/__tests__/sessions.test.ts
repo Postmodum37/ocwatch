@@ -211,6 +211,18 @@ describe("Session API Endpoints", () => {
         expect(project).toHaveProperty("id");
         expect(project).toHaveProperty("directory");
         expect(project).toHaveProperty("sessionCount");
+        expect(project).toHaveProperty("lastActivityAt");
+      }
+    });
+
+    test("projects are sorted by most recent activity", async () => {
+      const res = await app.request("/api/projects");
+      const data = (await res.json()) as any[];
+
+      if (data.length >= 2) {
+        const firstActivity = new Date(data[0].lastActivityAt).getTime();
+        const secondActivity = new Date(data[1].lastActivityAt).getTime();
+        expect(firstActivity).toBeGreaterThanOrEqual(secondActivity);
       }
     });
   });

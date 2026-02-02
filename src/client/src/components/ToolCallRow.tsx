@@ -1,3 +1,7 @@
+/**
+ * @deprecated No longer used by LiveActivity after UI simplification.
+ * Tool calls now display inline without expansion. Keep for potential future use.
+ */
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Check, Loader2, AlertCircle } from 'lucide-react';
 import type { ToolCallSummary } from '@shared/types';

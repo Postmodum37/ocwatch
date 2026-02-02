@@ -54,11 +54,13 @@ const mockProjects: ProjectInfo[] = [
     id: 'p1',
     directory: '/tmp/p1',
     sessionCount: 2,
+    lastActivityAt: new Date(),
   },
   {
     id: 'p2',
     directory: '/tmp/p2',
     sessionCount: 1,
+    lastActivityAt: new Date(Date.now() - 3600000),
   },
 ];
 
@@ -186,7 +188,7 @@ describe('SessionList', () => {
     expect(onProjectSelect).toHaveBeenCalledWith('p1');
   });
 
-  it('shows session count in project dropdown', () => {
+  it('shows last activity time in project dropdown', () => {
     render(
       <SessionList 
         sessions={mockSessions} 
@@ -201,8 +203,9 @@ describe('SessionList', () => {
     const button = screen.getByTestId('project-dropdown-button');
     fireEvent.click(button);
     
-    expect(screen.getByText('(2)')).toBeDefined();
-    expect(screen.getByText('(1)')).toBeDefined();
+    const dropdown = screen.getByTestId('project-dropdown-menu');
+    expect(dropdown.textContent).toContain('just now');
+    expect(dropdown.textContent).toContain('1h ago');
   });
 
   it('renders waiting status correctly', () => {

@@ -82,6 +82,58 @@ function detectAgentPhases(messages: MessageMeta[]): AgentPhase[] {
   return phases;
 }
 
+/**
+ * Aggregate session statistics from activity sessions and their messages
+ * @param activitySessions - Array of activity sessions
+ * @param allMessages - Map of sessionID to messages
+ * @returns SessionStats with total tokens, cost, and model breakdown
+ */
+function aggregateSessionStats(
+  activitySessions: ActivitySession[],
+  allMessages: Map<string, MessageMeta[]>
+): SessionStats {
+  let totalTokens = 0;
+  let totalCost = 0;
+  let hasCost = false;
+  const modelTokensMap = new Map<string, { modelID: string; providerID?: string; tokens: number }>();
+
+  for (const session of activitySessions) {
+    const messages = allMessages.get(session.id) || [];
+    
+    for (const msg of messages) {
+      if (msg.tokens) {
+        totalTokens += msg.tokens;
+        
+        const modelKey = `${msg.modelID || 'unknown'}:${msg.providerID || ''}`;
+        const existing = modelTokensMap.get(modelKey);
+        if (existing) {
+          existing.tokens += msg.tokens;
+        } else {
+          modelTokensMap.set(modelKey, {
+            modelID: msg.modelID || 'unknown',
+            providerID: msg.providerID,
+            tokens: msg.tokens,
+          });
+        }
+      }
+      
+      if (msg.cost !== undefined) {
+        totalCost += msg.cost;
+        hasCost = true;
+      }
+    }
+  }
+
+  const modelBreakdown = Array.from(modelTokensMap.values())
+    .sort((a, b) => b.tokens - a.tokens);
+
+  return {
+    totalTokens,
+    totalCost: hasCost ? totalCost : undefined,
+    modelBreakdown,
+  };
+}
+
 function buildAgentHierarchy(messages: MessageMeta[]): Record<string, string[]> {
   const hierarchy: Record<string, string[]> = {};
 
@@ -706,6 +758,7 @@ app.get("/api/poll", async (c) => {
     // Fetch messages for target session
     let messages: MessageMeta[] = [];
     let activitySessions: ActivitySession[] = [];
+    let sessionStats: SessionStats | undefined = undefined;
     const sessionId = c.req.query('sessionId');
     const targetSessionId = sessionId || activeSession?.id;
     if (targetSessionId) {
@@ -716,6 +769,14 @@ app.get("/api/poll", async (c) => {
       messages = sortedMessages.slice(0, 100);
       
       activitySessions = await getSessionHierarchy(targetSessionId, allSessions);
+      
+      const allMessagesMap = new Map<string, MessageMeta[]>();
+      for (const session of activitySessions) {
+        const sessionMessages = await listMessages(session.id);
+        allMessagesMap.set(session.id, sessionMessages);
+      }
+      
+      sessionStats = aggregateSessionStats(activitySessions, allMessagesMap);
     }
 
     const pollData: PollResponse = {
@@ -724,6 +785,7 @@ app.get("/api/poll", async (c) => {
       planProgress,
       messages,
       activitySessions,
+      sessionStats,
       lastUpdate: now,
     };
 

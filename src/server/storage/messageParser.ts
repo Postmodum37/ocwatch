@@ -71,6 +71,7 @@ export async function parseMessage(
       providerID: json.providerID || json.model?.providerID,
       parentID: json.parentID,
       tokens: totalTokens,
+      cost: json.cost,
       createdAt: new Date(json.time.created),
       finish: json.finish,
     };

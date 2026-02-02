@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useMemo, useState } from 'react';
-import { Activity, Check, Loader2, Circle, ChevronRight, ChevronDown } from 'lucide-react';
+import React, { useEffect, useRef, useMemo } from 'react';
+import { Activity, Check, Loader2, Circle } from 'lucide-react';
 import type { ActivitySession, SessionStatus, ToolCallSummary } from '@shared/types';
-import { getAgentColor } from '../utils/agentColors';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
-import { ToolCallRow } from './ToolCallRow';
+import { AgentBadge } from './AgentBadge';
 
 interface LiveActivityProps {
   sessions: ActivitySession[];
@@ -116,10 +115,7 @@ function getFullToolDisplayText(toolCalls?: ToolCallSummary[]): { toolName: stri
 
 const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }> = ({ node, depth, isLast }) => {
   const { session, children } = node;
-  const agentColor = getAgentColor(session.agent);
   const status: SessionStatus = session.status || 'completed';
-  const [toolsExpanded, setToolsExpanded] = useState(false);
-  const [showAllTools, setShowAllTools] = useState(false);
   
   let currentActionText = session.currentAction;
   if (!currentActionText) {
@@ -136,115 +132,58 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
     ? currentActionText.slice(0, 77) + '...' 
     : currentActionText;
 
-  const hasToolCalls = session.toolCalls && session.toolCalls.length > 0;
-  
-  const visibleToolCalls = hasToolCalls 
-    ? (showAllTools ? session.toolCalls : session.toolCalls?.slice(0, 5)) 
-    : [];
-  const remainingTools = (session.toolCalls?.length || 0) - (visibleToolCalls?.length || 0);
-  
   const toolInfo = getFullToolDisplayText(session.toolCalls);
   
   return (
     <div className="flex flex-col">
       <div 
-        className={`flex items-start gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2 ${status === 'completed' ? 'opacity-60' : ''} ${hasToolCalls ? 'cursor-pointer' : ''}`}
+        className={`flex items-center gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2 ${status === 'completed' ? 'opacity-60' : ''}`}
         style={{ marginLeft: `${depth * 20}px` }}
-        onClick={() => hasToolCalls && setToolsExpanded(!toolsExpanded)}
         data-testid={`session-row-${session.id}`}
       >
         {depth > 0 && (
-          <div className="flex items-center text-border select-none shrink-0 mt-0.5">
+          <div className="flex items-center text-border select-none shrink-0">
             <span className="text-xs">{isLast ? '└' : '├'}</span>
             <span className="text-xs">─</span>
           </div>
         )}
         
-        {hasToolCalls && (
-          <div className="mt-0.5 text-gray-500" data-testid={`session-row-expand-${session.id}`}>
-            {toolsExpanded ? (
-              <ChevronDown className="w-3 h-3" />
-            ) : (
-              <ChevronRight className="w-3 h-3" />
-            )}
-          </div>
-        )}
-        {!hasToolCalls && <div className="w-3" />}
-        
         <StatusIndicator status={status} />
         
-        <div className="flex items-start justify-between flex-1 min-w-0 gap-4">
-          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <span 
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-white text-xs font-medium shrink-0"
-                style={{ backgroundColor: agentColor }}
-              >
-                {session.agent}
-              </span>
-              
-              <span className="text-text-secondary text-xs truncate" data-testid="current-action">
-                {truncatedAction}
-              </span>
-            </div>
-            
-            {toolInfo && (
-              <div className="flex items-center gap-1.5 text-xs text-gray-500 pl-0.5" data-testid="tool-info">
-                <span className="text-gray-400 font-mono">{toolInfo.toolName}</span>
-                {toolInfo.toolArg && (
-                  <span className="text-gray-500 truncate font-mono">{toolInfo.toolArg}</span>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col items-end shrink-0 text-xs">
-            {(session.providerID || session.modelID) && (
-              <span className="text-gray-500 truncate max-w-[180px]">
-                {session.providerID}/{session.modelID}
-              </span>
-            )}
-            <div className="flex items-center gap-1 text-gray-600">
-              <span>{formatRelativeTime(session.updatedAt)}</span>
-              {session.tokens !== undefined && (
-                <>
-                  <span>·</span>
-                  <span>{session.tokens.toLocaleString()} tokens</span>
-                </>
+        <AgentBadge agent={session.agent} status={status} />
+        
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="text-text-secondary text-xs truncate" data-testid="current-action">
+            {truncatedAction}
+          </span>
+          
+          {toolInfo && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono" data-testid="tool-info">
+              <span className="text-gray-400">{toolInfo.toolName}</span>
+              {toolInfo.toolArg && (
+                <span className="text-gray-500 truncate">{toolInfo.toolArg}</span>
               )}
             </div>
+          )}
+        </div>
+
+        <div className="flex flex-col items-end shrink-0 text-xs">
+          {(session.providerID || session.modelID) && (
+            <span className="text-gray-500 truncate max-w-[180px]">
+              {session.providerID}/{session.modelID}
+            </span>
+          )}
+          <div className="flex items-center gap-1 text-gray-600">
+            <span>{formatRelativeTime(session.updatedAt)}</span>
+            {session.tokens !== undefined && (
+              <>
+                <span>·</span>
+                <span>{session.tokens.toLocaleString()} tokens</span>
+              </>
+            )}
           </div>
         </div>
       </div>
-
-      {toolsExpanded && hasToolCalls && (
-        <div 
-          className="flex flex-col border-l border-white/[0.1] ml-[calc(20px+6px)] pl-2 my-1 gap-1"
-          style={{ marginLeft: `${(depth * 20) + 20}px` }}
-          data-testid={`tool-calls-expanded-${session.id}`}
-        >
-          <div data-testid={`tool-calls-list-${session.id}`}>
-             {visibleToolCalls?.map(toolCall => (
-                <ToolCallRow key={toolCall.id} toolCall={toolCall} />
-             ))}
-             {(session.toolCalls?.length || 0) > 5 && (
-               <div 
-                 className="text-xs text-accent hover:text-accent/80 cursor-pointer px-2 py-1 flex items-center gap-1"
-                 onClick={(e) => {
-                   e.stopPropagation();
-                   setShowAllTools(!showAllTools);
-                 }}
-               >
-                 {showAllTools ? (
-                   <>Show less</>
-                 ) : (
-                   <>Show {remainingTools} more</>
-                 )}
-               </div>
-             )}
-          </div>
-        </div>
-      )}
 
       {children.map((child, idx) => (
         <SessionRow 
