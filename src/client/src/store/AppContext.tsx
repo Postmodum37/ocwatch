@@ -16,8 +16,10 @@ interface AppContextValue {
   error: Error | null;
   lastUpdate: number;
   isReconnecting: boolean;
+  agentFilter: string[];
   setSelectedSessionId: (id: string | null) => void;
   setSelectedProjectId: (id: string | null) => void;
+  setAgentFilter: (agents: string[]) => void;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -30,6 +32,7 @@ interface AppProviderProps {
 
 export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderProps) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [agentFilter, setAgentFilter] = useState<string[]>([]);
   
   const { data, loading, error, lastUpdate, isReconnecting } = usePolling({
     apiUrl,
@@ -86,8 +89,10 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     error,
     lastUpdate,
     isReconnecting,
+    agentFilter,
     setSelectedSessionId,
     setSelectedProjectId,
+    setAgentFilter,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
