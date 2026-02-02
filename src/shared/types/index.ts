@@ -121,6 +121,128 @@ export interface ToolCallSummary {
 }
 
 /**
+ * ActivityType enum for activity stream events
+ */
+export type ActivityType = "tool-call" | "agent-spawn" | "agent-complete";
+
+/**
+ * ToolCallActivity represents a tool invocation in the activity stream
+ */
+export interface ToolCallActivity {
+  id: string;
+  type: "tool-call";
+  timestamp: Date;
+  agentName: string;
+  toolName: string;
+  state: "pending" | "complete" | "error";
+  summary?: string;
+  input?: object;
+  error?: string;
+}
+
+/**
+ * AgentSpawnActivity represents an agent being spawned
+ */
+export interface AgentSpawnActivity {
+  id: string;
+  type: "agent-spawn";
+  timestamp: Date;
+  agentName: string;
+  spawnedAgentName: string;
+}
+
+/**
+ * AgentCompleteActivity represents an agent completing
+ */
+export interface AgentCompleteActivity {
+  id: string;
+  type: "agent-complete";
+  timestamp: Date;
+  agentName: string;
+  status: SessionStatus;
+  durationMs?: number;
+}
+
+/**
+ * ActivityItem is a union type of all activity events
+ */
+export type ActivityItem =
+  | ToolCallActivity
+  | AgentSpawnActivity
+  | AgentCompleteActivity;
+
+/**
+ * Synthesize activity items from sessions
+ * Collects tool calls and creates lifecycle events from session tree
+ */
+export function synthesizeActivityItems(
+  sessions: ActivitySession[]
+): ActivityItem[] {
+  const items: ActivityItem[] = [];
+  const sessionMap = new Map<string, ActivitySession>();
+
+  // Build session map for quick lookup
+  sessions.forEach((session) => {
+    sessionMap.set(session.id, session);
+  });
+
+  // Process each session
+  sessions.forEach((session) => {
+    // Add agent spawn event if this is a child session
+    if (session.parentID && sessionMap.has(session.parentID)) {
+      const parent = sessionMap.get(session.parentID)!;
+      items.push({
+        id: `spawn-${session.id}`,
+        type: "agent-spawn",
+        timestamp: session.createdAt,
+        agentName: parent.agent,
+        spawnedAgentName: session.agent,
+      });
+    }
+
+    // Add tool call activities
+    if (session.toolCalls && session.toolCalls.length > 0) {
+      session.toolCalls.forEach((toolCall) => {
+        items.push({
+          id: toolCall.id,
+          type: "tool-call",
+          timestamp: new Date(toolCall.timestamp),
+          agentName: toolCall.agentName,
+          toolName: toolCall.name,
+          state: toolCall.state,
+          summary: toolCall.summary,
+          input: toolCall.input,
+        });
+      });
+    }
+
+    // Add agent complete event
+    if (session.status && session.status !== "working" && session.status !== "idle") {
+      const durationMs = session.updatedAt
+        ? new Date(session.updatedAt).getTime() -
+          new Date(session.createdAt).getTime()
+        : undefined;
+
+      items.push({
+        id: `complete-${session.id}`,
+        type: "agent-complete",
+        timestamp: session.updatedAt,
+        agentName: session.agent,
+        status: session.status,
+        durationMs,
+      });
+    }
+  });
+
+  // Sort by timestamp (oldest first)
+  items.sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  return items;
+}
+
+/**
  * PlanProgress represents progress on a plan
  */
 export interface PlanProgress {
