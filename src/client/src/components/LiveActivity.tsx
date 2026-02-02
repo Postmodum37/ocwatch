@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { Activity, Check, Loader2, Circle, ChevronRight, ChevronDown } from 'lucide-react';
-import type { ActivitySession, SessionStatus } from '@shared/types';
+import type { ActivitySession, SessionStatus, ToolCallSummary } from '@shared/types';
 import { getAgentColor } from '../utils/agentColors';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -18,9 +18,11 @@ function formatRelativeTime(date: Date | string): string {
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(minutes / 60);
   
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
+  if (minutes < 1) return '<1m';
+  if (minutes < 60) return `${minutes}m`;
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
   return d.toLocaleDateString();
 }
 
@@ -92,6 +94,26 @@ const StatusIndicator: React.FC<{ status: SessionStatus }> = ({ status }) => {
   }
 };
 
+function extractPrimaryArg(input: object, maxLength: number = 60): string | null {
+  const typedInput = input as { filePath?: string; command?: string; pattern?: string; query?: string; url?: string };
+  const keys = ['filePath', 'command', 'pattern', 'query', 'url'];
+  for (const key of keys) {
+    if (typedInput[key as keyof typeof typedInput]) {
+      const val = String(typedInput[key as keyof typeof typedInput]);
+      return val.length > maxLength ? '...' + val.slice(-maxLength) : val;
+    }
+  }
+  return null;
+}
+
+function getFullToolDisplayText(toolCalls?: ToolCallSummary[]): { toolName: string; toolArg: string | null } | null {
+  if (!toolCalls || toolCalls.length === 0) return null;
+  const latest = toolCalls[0]; // [0] is most recent (sorted desc)
+  const toolName = latest.name.replace('mcp_', ''); // Clean up prefix
+  const toolArg = extractPrimaryArg(latest.input, 60);
+  return { toolName, toolArg };
+}
+
 const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }> = ({ node, depth, isLast }) => {
   const { session, children } = node;
   const agentColor = getAgentColor(session.agent);
@@ -110,19 +132,23 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
     }
   }
 
+  const truncatedAction = currentActionText && currentActionText.length > 80 
+    ? currentActionText.slice(0, 77) + '...' 
+    : currentActionText;
+
   const hasToolCalls = session.toolCalls && session.toolCalls.length > 0;
-  // DEBUG LOG
-  // if (hasToolCalls) console.log('Session', session.id, 'showAllTools:', showAllTools, 'total:', session.toolCalls?.length);
   
   const visibleToolCalls = hasToolCalls 
     ? (showAllTools ? session.toolCalls : session.toolCalls?.slice(0, 5)) 
     : [];
   const remainingTools = (session.toolCalls?.length || 0) - (visibleToolCalls?.length || 0);
   
+  const toolInfo = getFullToolDisplayText(session.toolCalls);
+  
   return (
     <div className="flex flex-col">
       <div 
-        className={`flex items-start gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2 ${hasToolCalls ? 'cursor-pointer' : ''}`}
+        className={`flex items-start gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2 ${status === 'completed' ? 'opacity-60' : ''} ${hasToolCalls ? 'cursor-pointer' : ''}`}
         style={{ marginLeft: `${depth * 20}px` }}
         onClick={() => hasToolCalls && setToolsExpanded(!toolsExpanded)}
         data-testid={`session-row-${session.id}`}
@@ -147,36 +173,46 @@ const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }
         
         <StatusIndicator status={status} />
         
-        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span 
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-white text-xs font-medium shrink-0"
-              style={{ backgroundColor: agentColor }}
-            >
-              {session.agent}
-            </span>
-            
-            {currentActionText && (
-              <span className="text-text-secondary text-xs truncate max-w-[200px]" data-testid="current-action">
-                {currentActionText}
+        <div className="flex items-start justify-between flex-1 min-w-0 gap-4">
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <span 
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-white text-xs font-medium shrink-0"
+                style={{ backgroundColor: agentColor }}
+              >
+                {session.agent}
               </span>
-            )}
+              
+              <span className="text-text-secondary text-xs truncate" data-testid="current-action">
+                {truncatedAction}
+              </span>
+            </div>
             
+            {toolInfo && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 pl-0.5" data-testid="tool-info">
+                <span className="text-gray-400 font-mono">{toolInfo.toolName}</span>
+                {toolInfo.toolArg && (
+                  <span className="text-gray-500 truncate font-mono">{toolInfo.toolArg}</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col items-end shrink-0 text-xs">
             {(session.providerID || session.modelID) && (
-              <span className="text-gray-500 text-xs truncate">
+              <span className="text-gray-500 truncate max-w-[180px]">
                 {session.providerID}/{session.modelID}
               </span>
             )}
-            
-            <span className="text-gray-600 text-xs">
-              {formatRelativeTime(session.updatedAt)}
-            </span>
-            
-            {session.tokens !== undefined && (
-              <span className="text-gray-500 text-xs ml-auto shrink-0">
-                {session.tokens.toLocaleString()} tokens
-              </span>
-            )}
+            <div className="flex items-center gap-1 text-gray-600">
+              <span>{formatRelativeTime(session.updatedAt)}</span>
+              {session.tokens !== undefined && (
+                <>
+                  <span>·</span>
+                  <span>{session.tokens.toLocaleString()} tokens</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -449,7 +449,8 @@ async function getSessionHierarchy(
             ? (isLastPhase ? "waiting" : "completed") 
             : getStatusFromTimestamp(phase.endTime));
 
-      const toolCalls = await getToolCallsForSession(rootSessionId, messageAgent);
+      const allToolCalls = await getToolCallsForSession(rootSessionId, messageAgent);
+      const toolCalls = allToolCalls.filter(tc => tc.agentName === phase.agent);
 
       result.push({
         id: virtualId,

@@ -308,38 +308,112 @@ describe('LiveActivity', () => {
      expect(allToolCallRows.length).toBeGreaterThan(5);
    });
 
-   it('click agent row again collapses to last 5 tool calls', () => {
-     const sessionWithTools: ActivitySession[] = [
-       {
-         id: 'session-collapse-tools',
-         title: 'Session to collapse',
-         agent: 'sisyphus',
-         status: 'working',
-         createdAt: new Date(),
-         updatedAt: new Date(),
-         toolCalls: Array(10).fill(null).map((_, i) => ({
-             id: `tool-${i}`,
-             name: 'test',
-             state: 'complete' as const,
-             summary: 'test',
-             input: {},
-             timestamp: new Date().toISOString(),
-             agentName: 'test'
-         }))
-       }
-     ];
+    it('click agent row again collapses to last 5 tool calls', () => {
+      const sessionWithTools: ActivitySession[] = [
+        {
+          id: 'session-collapse-tools',
+          title: 'Session to collapse',
+          agent: 'sisyphus',
+          status: 'working',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          toolCalls: Array(10).fill(null).map((_, i) => ({
+              id: `tool-${i}`,
+              name: 'test',
+              state: 'complete' as const,
+              summary: 'test',
+              input: {},
+              timestamp: new Date().toISOString(),
+              agentName: 'test'
+          }))
+        }
+      ];
 
-     render(<LiveActivity sessions={sessionWithTools} loading={false} />);
+      render(<LiveActivity sessions={sessionWithTools} loading={false} />);
 
-     const expandButton = screen.getByTestId('session-row-expand-session-collapse-tools');
-     
-     fireEvent.click(expandButton);
-     expect(screen.getByTestId('tool-calls-expanded-session-collapse-tools')).toBeInTheDocument();
+      const expandButton = screen.getByTestId('session-row-expand-session-collapse-tools');
+      
+      fireEvent.click(expandButton);
+      expect(screen.getByTestId('tool-calls-expanded-session-collapse-tools')).toBeInTheDocument();
 
-     fireEvent.click(expandButton);
-     expect(screen.queryByTestId('tool-calls-expanded-session-collapse-tools')).not.toBeInTheDocument();
-     
-     const collapsedToolCallRows = screen.queryAllByTestId(/^tool-call-row-tool-/);
-     expect(collapsedToolCallRows.length).toBe(0);
-   });
+      fireEvent.click(expandButton);
+      expect(screen.queryByTestId('tool-calls-expanded-session-collapse-tools')).not.toBeInTheDocument();
+      
+      const collapsedToolCallRows = screen.queryAllByTestId(/^tool-call-row-tool-/);
+      expect(collapsedToolCallRows.length).toBe(0);
+    });
+
+    describe('SessionRow compact layout', () => {
+      it('truncates task summary longer than 80 characters', () => {
+        const longActionSession: ActivitySession[] = [{
+          id: 'long-action',
+          title: 'Test',
+          agent: 'sisyphus',
+          status: 'working',
+          currentAction: 'This is a very long action text that should be truncated at approximately eighty characters total',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }];
+        render(<LiveActivity sessions={longActionSession} loading={false} />);
+        
+        const actionText = screen.getByTestId('current-action');
+        expect(actionText.textContent).toContain('This is a very long action text that should be truncated at approximately eig...');
+      });
+
+      it('shows tool name with primary argument on separate line when toolCalls exist', () => {
+        const sessionWithTool: ActivitySession[] = [{
+          id: 'with-tool',
+          title: 'Test',
+          agent: 'sisyphus',
+          status: 'working',
+          currentAction: 'Working on files',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          toolCalls: [{
+            id: 't1',
+            name: 'mcp_read',
+            state: 'pending',
+            summary: 'Reading file',
+            input: { filePath: 'src/auth.ts' },
+            timestamp: new Date().toISOString(),
+            agentName: 'sisyphus'
+          }]
+        }];
+        render(<LiveActivity sessions={sessionWithTool} loading={false} />);
+        
+        const toolInfo = screen.getByTestId('tool-info');
+        expect(toolInfo.textContent).toContain('read');
+        expect(toolInfo.textContent).toContain('src/auth.ts');
+      });
+
+      it('applies opacity-60 class to completed agents', () => {
+        const completedSession: ActivitySession[] = [{
+          id: 'completed-1',
+          title: 'Done',
+          agent: 'explore',
+          status: 'completed',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }];
+        render(<LiveActivity sessions={completedSession} loading={false} />);
+        
+        const row = screen.getByTestId('session-row-completed-1');
+        expect(row.className).toContain('opacity-60');
+      });
+
+      it('formats time without "ago" suffix', () => {
+        const session: ActivitySession[] = [{
+          id: 'time-test',
+          title: 'Test',
+          agent: 'sisyphus',
+          status: 'working',
+          createdAt: new Date(),
+          updatedAt: new Date(Date.now() - 5 * 60 * 1000),
+        }];
+        render(<LiveActivity sessions={session} loading={false} />);
+        
+        expect(screen.getByText('5m')).toBeInTheDocument();
+        expect(screen.queryByText('5m ago')).not.toBeInTheDocument();
+      });
+    });
 });
