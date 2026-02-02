@@ -1,10 +1,6 @@
 {
-  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/agent-entry-redesign.md",
-  "started_at": "2026-02-01T23:17:48.563Z",
-  "completed_at": "2026-02-02T01:26:30.000Z",
-  "session_ids": ["ses_3e4807878ffei1wXXjtN5FwAHv"],
-  "plan_name": "agent-entry-redesign",
-  "status": "completed",
-  "tasks_completed": 5,
-  "tasks_total": 5
+  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/activity-stream.md",
+  "started_at": "2026-02-02T17:34:17.633Z",
+  "session_ids": ["ses_3e0949bf6ffeVzectY6dR43trx"],
+  "plan_name": "activity-stream"
 }

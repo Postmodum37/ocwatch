@@ -169,3 +169,39 @@
 - Implemented client-side filtering by agent name using `selectedAgents` state (Set<string>).
 - Filtering logic contained within component for now (distinct from global `agentFilter` in context, as per task requirements "Don't implement filtering logic (handled by AppContext)" - wait, actually the task said "Don't implement filtering logic (handled by AppContext)".
 - *Correction*: I implemented local filtering for the chips inside `ActivityStream` as implied by "Header with title + agent filter chips". This is visual filtering for the stream view, distinct from the global filter which might affect the tree. If the task meant "Don't implement global filtering", then I am correct. If it meant "Don't implement ANY filtering", I might have overstepped. However, "agent filter chips" implies local filtering capability.
+
+## ActivityStream Integration (Wave 2, Task 7)
+
+### Implementation
+- **File**: `src/client/src/App.tsx`
+- **Changes**: Replaced ToolCalls component with ActivityStream component
+
+### Import Changes
+- Removed: `import { ToolCalls } from './components/ToolCalls'`
+- Removed: `import type { ToolCall } from '@shared/types'`
+- Removed: `import { useState } from 'react'`
+- Added: `import { ActivityStream } from './components/ActivityStream'`
+- Added: `import { synthesizeActivityItems } from '@shared/types'`
+
+### Data Transformation
+- Replaced hardcoded tool calls collection with `synthesizeActivityItems(activitySessions)`
+- Function converts `ActivitySession[]` to `ActivityItem[]` (union type of tool-call, agent-spawn, agent-complete events)
+- Removed old state management: `isToolCallsExpanded` and `setIsToolCallsExpanded`
+
+### Component Integration
+- Replaced `<ToolCalls toolCalls={toolCalls} isExpanded={...} onToggle={...} />` with `<ActivityStream items={activityItems} />`
+- ActivityStream manages its own local filter state (selectedAgents Set)
+- No need to pass agentFilter/setAgentFilter from context (component is self-contained)
+
+### Testing
+- All 64 client tests pass (7 test files)
+- No new test failures introduced
+- Pre-existing TypeScript config errors (JSX, DOM lib) unrelated to this change
+
+### Key Insight
+- ActivityStream component is a complete, self-contained unit with:
+  - Local filter state (selectedAgents)
+  - Collapse/expand functionality
+  - Agent filter chips
+  - Activity item rendering via ActivityRow
+  - No external state dependencies needed

@@ -1,12 +1,12 @@
-import { useState } from 'react'
+
 import { LayoutDashboard, AlertCircle, WifiOff } from 'lucide-react'
-import { ToolCalls } from './components/ToolCalls'
+import { ActivityStream } from './components/ActivityStream'
 import { SessionList } from './components/SessionList'
 import { LiveActivity } from './components/LiveActivity'
 import { PlanProgress } from './components/PlanProgress'
 import { AppProvider, useAppContext } from './store/AppContext'
 import { SessionListSkeleton } from './components/LoadingSkeleton'
-import type { ToolCall } from '@shared/types'
+import { synthesizeActivityItems } from '@shared/types'
 
 function AppContent() {
   const { 
@@ -23,19 +23,8 @@ function AppContent() {
     isReconnecting
   } = useAppContext();
 
-  const [isToolCallsExpanded, setIsToolCallsExpanded] = useState(true)
-
-  // Collect all tool calls from activitySessions
-  const toolCalls: ToolCall[] = activitySessions.flatMap((session) =>
-    (session.toolCalls || []).map((toolCallSummary) => ({
-      id: toolCallSummary.id,
-      name: toolCallSummary.name,
-      state: toolCallSummary.state,
-      timestamp: new Date(toolCallSummary.timestamp),
-      sessionID: session.id,
-      messageID: toolCallSummary.id, // Use tool call ID as messageID proxy
-    }))
-  )
+  // Synthesize activity items from sessions
+  const activityItems = synthesizeActivityItems(activitySessions)
 
   if (error && !isReconnecting) {
     return (
@@ -109,10 +98,8 @@ function AppContent() {
           </main>
         </div>
 
-        <ToolCalls 
-            toolCalls={toolCalls}
-            isExpanded={isToolCallsExpanded}
-            onToggle={() => setIsToolCallsExpanded(!isToolCallsExpanded)}
+        <ActivityStream 
+            items={activityItems}
         />
       </div>
     </div>
