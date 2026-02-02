@@ -1,5 +1,4 @@
 
-import { useMemo } from 'react'
 import { LayoutDashboard, AlertCircle, WifiOff } from 'lucide-react'
 import { ActivityStream } from './components/ActivityStream'
 import { SessionList } from './components/SessionList'
@@ -7,7 +6,7 @@ import { LiveActivity } from './components/LiveActivity'
 import { PlanProgress } from './components/PlanProgress'
 import { AppProvider, useAppContext } from './store/AppContext'
 import { SessionListSkeleton } from './components/LoadingSkeleton'
-import { synthesizeActivityItems, type ActivitySession } from '@shared/types'
+import { synthesizeActivityItems } from '@shared/types'
 
 function AppContent() {
   const { 
@@ -24,26 +23,7 @@ function AppContent() {
     isReconnecting
   } = useAppContext();
 
-  const filteredSessions = useMemo(() => {
-    if (!selectedSessionId) return activitySessions;
-    
-    const collectSessionTree = (sessions: ActivitySession[], rootId: string): ActivitySession[] => {
-      const result: ActivitySession[] = [];
-      const collect = (id: string) => {
-        const session = sessions.find(s => s.id === id);
-        if (session) {
-          result.push(session);
-          sessions.filter(s => s.parentID === id).forEach(child => { collect(child.id); });
-        }
-      };
-      collect(rootId);
-      return result;
-    };
-    
-    return collectSessionTree(activitySessions, selectedSessionId);
-  }, [activitySessions, selectedSessionId]);
-
-  const activityItems = synthesizeActivityItems(filteredSessions)
+  const activityItems = synthesizeActivityItems(activitySessions)
 
   if (error && !isReconnecting) {
     return (
