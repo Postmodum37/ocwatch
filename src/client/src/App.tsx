@@ -6,6 +6,7 @@ import { LiveActivity } from './components/LiveActivity'
 import { PlanProgress } from './components/PlanProgress'
 import { AppProvider, useAppContext } from './store/AppContext'
 import { SessionListSkeleton } from './components/LoadingSkeleton'
+import type { ToolCall } from '@shared/types'
 
 function AppContent() {
   const { 
@@ -23,6 +24,18 @@ function AppContent() {
   } = useAppContext();
 
   const [isToolCallsExpanded, setIsToolCallsExpanded] = useState(true)
+
+  // Collect all tool calls from activitySessions
+  const toolCalls: ToolCall[] = activitySessions.flatMap((session) =>
+    (session.toolCalls || []).map((toolCallSummary) => ({
+      id: toolCallSummary.id,
+      name: toolCallSummary.name,
+      state: toolCallSummary.state,
+      timestamp: new Date(toolCallSummary.timestamp),
+      sessionID: session.id,
+      messageID: toolCallSummary.id, // Use tool call ID as messageID proxy
+    }))
+  )
 
   if (error && !isReconnecting) {
     return (
@@ -97,7 +110,7 @@ function AppContent() {
         </div>
 
         <ToolCalls 
-            toolCalls={[]}
+            toolCalls={toolCalls}
             isExpanded={isToolCallsExpanded}
             onToggle={() => setIsToolCallsExpanded(!isToolCallsExpanded)}
         />
