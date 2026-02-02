@@ -41,8 +41,10 @@ export const ActivityStream: React.FC<ActivityStreamProps> = ({ items, totalToke
   const toolCallCount = items.filter(i => i.type === 'tool-call').length;
   const agentCount = agents.length;
 
+  const panelHeight = isCollapsed ? 'h-auto' : 'h-64 max-h-[40vh]';
+
   return (
-    <div className="flex flex-col h-full bg-surface border-l border-border shadow-sm w-full md:w-96 lg:w-[450px]">
+    <div className={`flex flex-col ${panelHeight} bg-surface border-t border-border shadow-lg w-full shrink-0`}>
       <div className="flex items-center justify-between p-3 border-b border-border bg-surface shrink-0">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-accent" />

@@ -1,6 +1,10 @@
 {
   "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/activity-stream.md",
   "started_at": "2026-02-02T17:34:17.633Z",
+  "completed_at": "2026-02-02T19:51:00.000Z",
   "session_ids": ["ses_3e0949bf6ffeVzectY6dR43trx"],
-  "plan_name": "activity-stream"
+  "plan_name": "activity-stream",
+  "status": "completed",
+  "tasks_completed": 8,
+  "tasks_total": 8
 }

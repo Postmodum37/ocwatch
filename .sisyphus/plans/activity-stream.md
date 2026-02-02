@@ -67,14 +67,14 @@ Create a polished Activity Stream component that replaces the bottom toolbar, sh
 - `src/client/src/components/__tests__/ActivityStream.test.tsx` - Component tests
 
 ### Definition of Done
-- [ ] Activity stream renders with real tool call data (not empty)
-- [ ] Agent filter chips work (click to filter, click again to clear)
-- [ ] Rows expand on click to show details
-- [ ] New items animate in (slide-down)
-- [ ] State changes pulse (pending -> complete)
-- [ ] Summary bar shows aggregate stats when collapsed
-- [ ] All existing tests pass
-- [ ] New component tests pass
+- [x] Activity stream renders with real tool call data (not empty)
+- [x] Agent filter chips work (click to filter, click again to clear)
+- [x] Rows expand on click to show details
+- [x] New items animate in (slide-down)
+- [x] State changes pulse (pending -> complete)
+- [x] Summary bar shows aggregate stats when collapsed
+- [x] All existing tests pass
+- [x] New component tests pass
 
 ### Must Have
 - Tool call activity from session data
@@ -156,7 +156,7 @@ Wave 4 (After Wave 3):
 
 ## TODOs
 
-- [ ] 1. Create ActivityItem types and helpers
+- [x] 1. Create ActivityItem types and helpers
 
   **What to do**:
   - Add `ActivityItem` union type to `src/shared/types/index.ts`
@@ -200,7 +200,7 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 2. Wire tool calls data to component props
+- [x] 2. Wire tool calls data to component props
 
   **What to do**:
   - In `App.tsx`, replace `toolCalls={[]}` with actual data from `activitySessions`
@@ -260,7 +260,7 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 3. Build ActivityStream component
+- [x] 3. Build ActivityStream component
 
   **What to do**:
   - Create `src/client/src/components/ActivityStream.tsx`
@@ -319,7 +319,7 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 4. Add CSS animation keyframes
+- [x] 4. Add CSS animation keyframes
 
   **What to do**:
   - Create `src/client/src/styles/animations.css` with keyframes
@@ -390,7 +390,7 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 5. Integrate ActivityStream in App.tsx
+- [x] 5. Integrate ActivityStream in App.tsx
 
   **What to do**:
   - Replace `<ToolCalls>` import with `<ActivityStream>`
@@ -438,7 +438,7 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 6. Add agent filter state to AppContext
+- [x] 6. Add agent filter state to AppContext
 
   **What to do**:
   - Add `agentFilter: string[]` to AppContextValue interface
@@ -481,7 +481,7 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 7. Write component tests
+- [x] 7. Write component tests
 
   **What to do**:
   - Create `src/client/src/components/__tests__/ActivityStream.test.tsx`
@@ -528,7 +528,7 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 8. Final integration and polish
+- [x] 8. Final integration and polish
 
   **What to do**:
   - Run full build and verify no errors
@@ -624,11 +624,11 @@ cd /Users/tomas/Workspace/ocwatch/src/client && bun run test
 ```
 
 ### Final Checklist
-- [ ] Activity stream shows real data (not "No tool calls recorded yet")
-- [ ] Agent filter chips appear and work
-- [ ] Rows expand on click
-- [ ] Animations are smooth (200-300ms)
-- [ ] Summary bar shows when collapsed
-- [ ] No new npm dependencies added
-- [ ] All tests pass
-- [ ] Build succeeds
+- [x] Activity stream shows real data (not "No tool calls recorded yet")
+- [x] Agent filter chips appear and work
+- [x] Rows expand on click
+- [x] Animations are smooth (200-300ms)
+- [x] Summary bar shows when collapsed
+- [x] No new npm dependencies added
+- [x] All tests pass
+- [x] Build succeeds
