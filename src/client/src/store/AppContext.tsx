@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { usePolling } from '../hooks/usePolling';
-import type { SessionMetadata, PlanProgress, ProjectInfo, MessageMeta, ActivitySession } from '@shared/types';
+import type { SessionMetadata, PlanProgress, ProjectInfo, MessageMeta, ActivitySession, SessionStats } from '@shared/types';
 
 interface AppContextValue {
   sessions: SessionMetadata[];
   activeSession: SessionMetadata | null;
   planProgress: PlanProgress | null;
+  sessionStats: SessionStats | null;
   messages: MessageMeta[];
   activitySessions: ActivitySession[];
   selectedSessionId: string | null;
@@ -56,8 +57,6 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
           const projectParam = params.get('project');
           if (projectParam) {
             setSelectedProjectId(projectParam);
-          } else if (projectsData.length > 0) {
-            setSelectedProjectId(projectsData[0].id);
           }
         }
       } catch (err) {
@@ -80,6 +79,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     sessions: data?.sessions || [],
     activeSession: data?.activeSession || null,
     planProgress: data?.planProgress || null,
+    sessionStats: data?.sessionStats || null,
     messages: data?.messages || [],
     activitySessions: data?.activitySessions || [],
     selectedSessionId,

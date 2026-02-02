@@ -4,6 +4,7 @@ import { ActivityStream } from './components/ActivityStream'
 import { SessionList } from './components/SessionList'
 import { LiveActivity } from './components/LiveActivity'
 import { PlanProgress } from './components/PlanProgress'
+import { SessionStats } from './components/SessionStats'
 import { AppProvider, useAppContext } from './store/AppContext'
 import { SessionListSkeleton } from './components/LoadingSkeleton'
 import { synthesizeActivityItems } from '@shared/types'
@@ -11,9 +12,10 @@ import { synthesizeActivityItems } from '@shared/types'
 function AppContent() {
   const { 
     sessions, 
-    planProgress, 
+    planProgress,
+    sessionStats, 
     activitySessions,
-    selectedSessionId, 
+    selectedSessionId,  
     setSelectedSessionId,
     projects,
     selectedProjectId,
@@ -66,27 +68,30 @@ function AppContent() {
       
       <div className="flex-1 flex flex-col min-w-0 relative h-full">
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="flex items-center justify-between gap-6 border-b border-border p-6 flex-shrink-0">
+          <header className="flex items-center justify-between gap-4 border-b border-border p-4 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-surface rounded-lg border border-border">
-                <LayoutDashboard className="w-6 h-6 text-accent" />
+              <div className="p-1.5 bg-surface rounded-lg border border-border">
+                <LayoutDashboard className="w-5 h-5 text-accent" />
               </div>
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">OCWatch</h1>
-                <p className="text-text-secondary text-sm">OpenCode Activity Monitor</p>
+              <div className="flex items-baseline gap-2">
+                <h1 className="text-lg font-semibold tracking-tight">OCWatch</h1>
+                <span className="text-text-secondary text-xs hidden sm:inline-block">Activity Monitor</span>
               </div>
               {isReconnecting && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-warning/10 border border-warning/20 rounded-lg">
-                  <WifiOff className="w-4 h-4 text-warning animate-pulse" />
-                  <span className="text-sm text-warning">Reconnecting...</span>
+                <div className="flex items-center gap-2 px-2 py-1 bg-warning/10 border border-warning/20 rounded-lg">
+                  <WifiOff className="w-3 h-3 text-warning animate-pulse" />
+                  <span className="text-xs text-warning">Reconnecting...</span>
                 </div>
               )}
             </div>
-            {planProgress && (
-              <div className="w-80">
-                <PlanProgress plan={planProgress} />
-              </div>
-            )}
+            <div className="flex items-center gap-4">
+              {planProgress && (
+                <div className="w-64 hidden lg:block">
+                  <PlanProgress plan={planProgress} />
+                </div>
+              )}
+              <SessionStats stats={sessionStats} />
+            </div>
           </header>
 
           <main className="flex-1 min-h-0 overflow-hidden flex flex-col">

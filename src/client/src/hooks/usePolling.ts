@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { SessionMetadata, PlanProgress, MessageMeta, ActivitySession } from '@shared/types';
+import type { SessionMetadata, PlanProgress, MessageMeta, ActivitySession, SessionStats } from '@shared/types';
 
 export interface PollResponse {
   sessions: SessionMetadata[];
@@ -8,6 +8,7 @@ export interface PollResponse {
   messages: MessageMeta[];
   activitySessions: ActivitySession[];
   lastUpdate: number;
+  sessionStats?: SessionStats | null;
 }
 
 interface UsePollingState {
