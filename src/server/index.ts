@@ -11,7 +11,7 @@ import { listMessages, getFirstAssistantMessage } from "./storage/messageParser"
 import { parseBoulder, calculatePlanProgress } from "./storage/boulderParser";
 import { formatCurrentAction, getPartsForSession, getSessionToolState, isPendingToolCall, getToolCallsForSession } from "./storage/partParser";
 import { getSessionStatus, getStatusFromTimestamp } from "./utils/sessionStatus";
-import type { SessionMetadata, MessageMeta, PlanProgress, ActivitySession, SessionStatus } from "../shared/types";
+import type { SessionMetadata, MessageMeta, PlanProgress, ActivitySession, SessionStatus, SessionStats } from "../shared/types";
 import { errorHandler, notFoundHandler } from "./middleware/error";
 
 interface TreeNode {
@@ -293,23 +293,31 @@ app.get("/api/plan", (c) => {
   return c.json(null);
 });
 
-// Projects endpoint
 app.get("/api/projects", async (c) => {
   const projectIDs = await listProjects();
+  const allSessions = await listAllSessions();
 
-  const projectsWithDetails = await Promise.all(
-    projectIDs.map(async (projectID) => {
-      const sessions = await listAllSessions();
-      const projectSessions = sessions.filter((s) => s.projectID === projectID);
+  const projectsWithDetails = projectIDs.map((projectID) => {
+    const projectSessions = allSessions.filter((s) => s.projectID === projectID);
+    const directory = projectSessions[0]?.directory || "";
 
-      const directory = projectSessions[0]?.directory || "";
+    const lastActivityAt =
+      projectSessions.length > 0
+        ? new Date(
+            Math.max(...projectSessions.map((s) => s.updatedAt.getTime()))
+          )
+        : new Date(0);
 
-      return {
-        id: projectID,
-        directory,
-        sessionCount: projectSessions.length,
-      };
-    })
+    return {
+      id: projectID,
+      directory,
+      sessionCount: projectSessions.length,
+      lastActivityAt,
+    };
+  });
+
+  projectsWithDetails.sort(
+    (a, b) => b.lastActivityAt.getTime() - a.lastActivityAt.getTime()
   );
 
   return c.json(projectsWithDetails);
@@ -575,6 +583,7 @@ interface PollResponse {
   planProgress: PlanProgress | null;
   messages: MessageMeta[];
   activitySessions: ActivitySession[];
+  sessionStats?: SessionStats;
   lastUpdate: number;
 }
 

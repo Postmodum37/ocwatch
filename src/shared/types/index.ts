@@ -33,6 +33,7 @@ export interface MessageMeta {
   providerID?: string;
   parentID?: string;
   tokens?: number;
+  cost?: number;
   createdAt: Date;
   finish?: string;
 }
@@ -253,6 +254,24 @@ export interface PlanProgress {
 }
 
 /**
+ * ModelTokens represents token usage for a specific model
+ */
+export interface ModelTokens {
+  modelID: string;
+  providerID?: string;
+  tokens: number;
+}
+
+/**
+ * SessionStats represents aggregated statistics for a session
+ */
+export interface SessionStats {
+  totalTokens: number;
+  totalCost?: number;
+  modelBreakdown: ModelTokens[];
+}
+
+/**
  * Boulder represents the current plan state
  */
 export interface Boulder {
@@ -270,6 +289,7 @@ export interface ProjectInfo {
   id: string;
   directory: string;
   sessionCount: number;
+  lastActivityAt: Date;
 }
 
 /**
