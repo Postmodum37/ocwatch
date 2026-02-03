@@ -41,7 +41,7 @@ export function synthesizeActivityItems(
       });
     }
 
-    if (session.status && session.status !== "working" && session.status !== "idle") {
+    if (session.status === "completed") {
       const durationMs = session.updatedAt
         ? new Date(session.updatedAt).getTime() -
           new Date(session.createdAt).getTime()
