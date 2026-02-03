@@ -64,9 +64,8 @@ Examples:
 export async function openBrowser(url: string): Promise<void> {
   try {
     const isHeadless =
-      !process.env.DISPLAY &&
-      !process.env.WAYLAND_DISPLAY &&
-      process.env.CI !== "true";
+      process.env.CI === "true" ||
+      (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY);
 
     if (isHeadless) {
       console.log(`📱 Open browser: ${url}`);

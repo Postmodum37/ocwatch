@@ -1,5 +1,4 @@
 import type { Hono } from "hono";
-import { ZodError } from "zod";
 import { 
   generateETag, 
   fetchPollData, 
@@ -9,7 +8,7 @@ import {
   setPollInProgress,
   getPollCacheTTL
 } from "../services/pollService";
-import { sessionIdSchema } from "../validation";
+import { sessionIdSchema, validateWithResponse } from "../validation";
 
 export function registerPollRoute(app: Hono) {
   app.get("/api/poll", async (c) => {
@@ -18,14 +17,9 @@ export function registerPollRoute(app: Hono) {
     
     let sessionId: string | undefined;
     if (rawSessionId) {
-      try {
-        sessionId = sessionIdSchema.parse(rawSessionId);
-      } catch (e) {
-        if (e instanceof ZodError) {
-          return c.json({ error: "VALIDATION_ERROR", message: e.message }, 400);
-        }
-        throw e;
-      }
+      const validation = validateWithResponse(sessionIdSchema, rawSessionId, c);
+      if (!validation.success) return validation.response;
+      sessionId = validation.value;
     }
     
     const pollCache = getPollCache();

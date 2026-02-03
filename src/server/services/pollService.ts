@@ -7,6 +7,7 @@ import { getPartsForSession, getSessionToolState, isPendingToolCall, formatCurre
 import { getSessionStatus } from "../utils/sessionStatus";
 import { isAssistantFinished, getSessionHierarchy } from "./sessionService";
 import { aggregateSessionStats } from "./statsService";
+import { TWENTY_FOUR_HOURS_MS, MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, POLL_CACHE_TTL_MS } from "../../shared/constants";
 
 export function generateETag(data: PollResponse): string {
    const dataForHash = {
@@ -24,7 +25,6 @@ export function generateETag(data: PollResponse): string {
 
 let pollCache: { data: PollResponse; etag: string; timestamp: number } | null = null;
 let pollInProgress: Promise<PollResponse> | null = null;
-const POLL_CACHE_TTL = 2000;
 
 export function getPollCache() {
   return pollCache;
@@ -43,7 +43,7 @@ export function setPollInProgress(promise: Promise<PollResponse> | null) {
 }
 
 export function getPollCacheTTL() {
-  return POLL_CACHE_TTL;
+  return POLL_CACHE_TTL_MS;
 }
 
 export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
@@ -62,7 +62,7 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
   const allSessions = await listAllSessions();
 
   const now = Date.now();
-  const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+  const twentyFourHoursAgo = now - TWENTY_FOUR_HOURS_MS;
 
   const recentSessions = allSessions.filter(
     (s) => s.updatedAt.getTime() >= twentyFourHoursAgo
@@ -72,104 +72,111 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
     (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
   );
 
-   const limitedSessions = sortedSessions.slice(0, 20);
-   const rootSessions = limitedSessions.filter(s => !s.parentID);
+  const limitedSessions = sortedSessions.slice(0, MAX_SESSIONS_LIMIT);
+  const rootSessions = limitedSessions.filter(s => !s.parentID);
 
-   const sessionsWithAgent = await Promise.all(
-     rootSessions.map(async (session) => {
-       const firstAssistantMsg = await getFirstAssistantMessage(session.id);
-       const messages = await listMessages(session.id);
-       const parts = await getPartsForSession(session.id);
-       const toolState = getSessionToolState(parts);
-       const lastAssistantFinished = isAssistantFinished(messages);
-       
-       const status = getSessionStatus(
-         messages,
-         toolState.hasPendingToolCall,
-         toolState.lastToolCompletedAt || undefined,
-         undefined,
-         lastAssistantFinished
-       );
-       
-       let currentAction: string | null = null;
-       if (status === "working") {
-         const pendingParts = parts.filter(p => isPendingToolCall(p));
-         if (pendingParts.length > 0) {
-           currentAction = formatCurrentAction(pendingParts[0]);
-         }
-       }
-       
-       return {
-         ...session,
-         agent: firstAssistantMsg?.agent || null,
-         modelID: firstAssistantMsg?.modelID || null,
-         providerID: firstAssistantMsg?.providerID || null,
-         status,
-         currentAction,
-       };
-     })
-   );
+  const messagesCache = new Map<string, MessageMeta[]>();
+  async function getCachedMessages(id: string): Promise<MessageMeta[]> {
+    if (!messagesCache.has(id)) {
+      messagesCache.set(id, await listMessages(id));
+    }
+    return messagesCache.get(id)!;
+  }
 
-   let activeSession: SessionMetadata | null = null;
-   for (const session of rootSessions) {
-     const messages = await listMessages(session.id);
-     const parts = await getPartsForSession(session.id);
-     const toolState = getSessionToolState(parts);
-     const lastAssistantFinished = isAssistantFinished(messages);
-     
-     const status = getSessionStatus(
-       messages,
-       toolState.hasPendingToolCall,
-       toolState.lastToolCompletedAt || undefined,
-       undefined,
-       lastAssistantFinished
-     );
+  const sessionsWithAgent = await Promise.all(
+    rootSessions.map(async (session) => {
+      const firstAssistantMsg = await getFirstAssistantMessage(session.id);
+      const messages = await getCachedMessages(session.id);
+      const parts = await getPartsForSession(session.id);
+      const toolState = getSessionToolState(parts);
+      const lastAssistantFinished = isAssistantFinished(messages);
+      
+      const status = getSessionStatus(
+        messages,
+        toolState.hasPendingToolCall,
+        toolState.lastToolCompletedAt || undefined,
+        undefined,
+        lastAssistantFinished
+      );
+      
+      let currentAction: string | null = null;
+      if (status === "working") {
+        const pendingParts = parts.filter(p => isPendingToolCall(p));
+        if (pendingParts.length > 0) {
+          currentAction = formatCurrentAction(pendingParts[0]);
+        }
+      }
+      
+      return {
+        ...session,
+        agent: firstAssistantMsg?.agent || null,
+        modelID: firstAssistantMsg?.modelID || null,
+        providerID: firstAssistantMsg?.providerID || null,
+        status,
+        currentAction,
+      };
+    })
+  );
 
-     if (status === "working" || status === "idle") {
-       activeSession = session;
-       break;
-     }
-   }
+  let activeSession: SessionMetadata | null = null;
+  for (const session of rootSessions) {
+    const messages = await getCachedMessages(session.id);
+    const parts = await getPartsForSession(session.id);
+    const toolState = getSessionToolState(parts);
+    const lastAssistantFinished = isAssistantFinished(messages);
+    
+    const status = getSessionStatus(
+      messages,
+      toolState.hasPendingToolCall,
+      toolState.lastToolCompletedAt || undefined,
+      undefined,
+      lastAssistantFinished
+    );
 
-   let planProgress: PlanProgress | null = null;
-   try {
-     const cwd = process.cwd();
-     const boulder = await parseBoulder(cwd);
-     if (boulder?.activePlan) {
-       planProgress = await calculatePlanProgress(boulder.activePlan);
-     }
-   } catch {
-   }
+    if (status === "working" || status === "idle") {
+      activeSession = session;
+      break;
+    }
+  }
 
-   let messages: MessageMeta[] = [];
-   let activitySessions: ActivitySession[] = [];
-   let sessionStats = undefined;
-   const targetSessionId = sessionId || activeSession?.id;
-   if (targetSessionId) {
-     const fetchedMessages = await listMessages(targetSessionId);
-     const sortedMessages = fetchedMessages.sort(
-       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-     );
-     messages = sortedMessages.slice(0, 100);
-     
-     activitySessions = await getSessionHierarchy(targetSessionId, allSessions);
-     
-     const allMessagesMap = new Map<string, MessageMeta[]>();
-     for (const session of activitySessions) {
-       const sessionMessages = await listMessages(session.id);
-       allMessagesMap.set(session.id, sessionMessages);
-     }
-     
-     sessionStats = aggregateSessionStats(activitySessions, allMessagesMap);
-   }
+  let planProgress: PlanProgress | null = null;
+  try {
+    const cwd = process.cwd();
+    const boulder = await parseBoulder(cwd);
+    if (boulder?.activePlan) {
+      planProgress = await calculatePlanProgress(boulder.activePlan);
+    }
+  } catch (err) {
+    console.debug('Failed to parse boulder.json:', err instanceof Error ? err.message : err);
+  }
 
-   return {
-     sessions: sessionsWithAgent,
-     activeSession,
-     planProgress,
-     messages,
-     activitySessions,
-     sessionStats,
-     lastUpdate: now,
-   };
+  let messages: MessageMeta[] = [];
+  let activitySessions: ActivitySession[] = [];
+  let sessionStats = undefined;
+  const targetSessionId = sessionId || activeSession?.id;
+  if (targetSessionId) {
+    const fetchedMessages = await getCachedMessages(targetSessionId);
+    const sortedMessages = fetchedMessages.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
+    messages = sortedMessages.slice(0, MAX_MESSAGES_LIMIT);
+    
+    activitySessions = await getSessionHierarchy(targetSessionId, allSessions);
+    
+    for (const session of activitySessions) {
+      await getCachedMessages(session.id);
+    }
+    
+    sessionStats = aggregateSessionStats(activitySessions, messagesCache);
+  }
+
+  return {
+    sessions: sessionsWithAgent,
+    activeSession,
+    planProgress,
+    messages,
+    activitySessions,
+    sessionStats,
+    lastUpdate: now,
+  };
 }

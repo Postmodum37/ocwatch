@@ -56,7 +56,9 @@ describe('ActivityStream', () => {
     expect(screen.getAllByTestId('icon-activity')[0]).toBeInTheDocument();
     expect(screen.getByText('Activity Stream')).toBeInTheDocument();
     expect(screen.getByText('0')).toBeInTheDocument();
-    expect(screen.getByText('No activity found')).toBeInTheDocument();
+    const { container } = render(<ActivityStream items={[]} />);
+    const shimmerElements = container.querySelectorAll('[class*="animate-shimmer"]');
+    expect(shimmerElements.length).toBeGreaterThan(0);
   });
 
   it('renders activity items when data provided', () => {
@@ -272,5 +274,14 @@ describe('ActivityStream', () => {
 
     // No filters selected, so message should not appear
     expect(screen.queryByText('Try clearing filters')).not.toBeInTheDocument();
+  });
+
+  it('uses the correct expanded height class', () => {
+    const items: ActivityItem[] = [mockToolCallActivity];
+    render(<ActivityStream items={items} />);
+    
+    const container = screen.getByText('Activity Stream').closest('.h-80');
+    expect(container).toBeInTheDocument();
+    expect(container).toHaveClass('max-h-[50vh]');
   });
 });

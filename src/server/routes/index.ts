@@ -5,6 +5,7 @@ import { registerPartRoutes } from "./parts";
 import { registerProjectRoutes } from "./projects";
 import { registerPlanRoute } from "./plan";
 import { registerPollRoute } from "./poll";
+import { registerSSERoute } from "./sse";
 
 export function registerRoutes(app: Hono) {
   registerHealthRoutes(app);
@@ -13,4 +14,5 @@ export function registerRoutes(app: Hono) {
   registerProjectRoutes(app);
   registerPlanRoute(app);
   registerPollRoute(app);
+  registerSSERoute(app);
 }

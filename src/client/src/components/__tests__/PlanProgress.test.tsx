@@ -39,7 +39,8 @@ describe('PlanProgress', () => {
   })
 
   it('renders empty state when no plan provided', () => {
-    render(<PlanProgressComponent plan={null} planName="Current Plan" />)
-    expect(screen.getByText('No active plan')).toBeDefined()
+    const { container } = render(<PlanProgressComponent plan={null} planName="Current Plan" />)
+    const shimmerElements = container.querySelectorAll('[class*="animate-shimmer"]');
+    expect(shimmerElements.length).toBeGreaterThan(0)
   })
 })

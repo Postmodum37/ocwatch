@@ -57,10 +57,26 @@
     box-shadow: 
       inset 0 1px 0 rgba(255,255,255,0.15),
       0 1px 2px rgba(0,0,0,0.2),
-      0 0 12px var(--badge-color, rgba(88, 166, 255, 0.5));
+      0 0 16px var(--badge-color, rgba(88, 166, 255, 0.6));
   }
 }
 
 .animate-badge-glow {
   animation: badge-glow 2s ease-in-out infinite;
+}
+
+/* Shimmer loading animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #161b22 25%, #30363d 50%, #161b22 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { usePolling } from '../hooks/usePolling';
+import { useSSE } from '../hooks/useSSE';
 import type { SessionMetadata, PlanProgress, ProjectInfo, MessageMeta, ActivitySession, SessionStats } from '@shared/types';
 
 interface AppContextValue {
@@ -35,9 +35,9 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [agentFilter, setAgentFilter] = useState<string[]>([]);
   
-  const { data, loading, error, lastUpdate, isReconnecting } = usePolling({
+  const { data, loading, error, lastUpdate, isReconnecting } = useSSE({
     apiUrl,
-    interval: pollingInterval,
+    pollingInterval,
     sessionId: selectedSessionId,
   });
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);

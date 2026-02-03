@@ -1,4 +1,5 @@
 import { useState, memo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Terminal, 
   FileText, 
@@ -116,50 +117,60 @@ export const ActivityRow = memo<ActivityRowProps>(function ActivityRow({ item })
    const isExpandable = item.type === 'tool-call' && (item.input || item.error);
 
    return (
-     <div className="flex flex-col border-b border-border/50 animate-slide-in-from-top">
-       <button
-         type="button"
-         disabled={!isExpandable}
-         className={`flex items-center gap-3 p-2 hover:bg-white/[0.02] transition-colors text-left ${isExpandable ? 'cursor-pointer' : ''}`}
-         onClick={() => isExpandable && setIsExpanded(!isExpanded)}
-         onKeyDown={(e) => {
-           if (isExpandable && (e.key === 'Enter' || e.key === ' ')) {
-             e.preventDefault();
-             setIsExpanded(!isExpanded);
-           }
-         }}
-       >
-         <span className="text-xs text-gray-600 font-mono shrink-0 w-16">
-           {formatTime(item.timestamp)}
-         </span>
-         
-         <div 
-           className="w-1.5 h-1.5 rounded-full shrink-0" 
-           style={{ backgroundColor: agentColor }} 
-           title={item.agentName}
-         />
-         
-         <div className="shrink-0">
-           {renderIcon()}
-         </div>
+      <div className="flex flex-col border-b border-border/50">
+        <button
+          type="button"
+          disabled={!isExpandable}
+          className={`flex items-center gap-3 p-2 hover:bg-white/[0.02] transition-colors text-left ${isExpandable ? 'cursor-pointer' : ''}`}
+          onClick={() => isExpandable && setIsExpanded(!isExpanded)}
+          onKeyDown={(e) => {
+            if (isExpandable && (e.key === 'Enter' || e.key === ' ')) {
+              e.preventDefault();
+              setIsExpanded(!isExpanded);
+            }
+          }}
+        >
+          <span className="text-xs text-gray-600 font-mono shrink-0 w-16">
+            {formatTime(item.timestamp)}
+          </span>
+          
+          <div 
+            className="w-1.5 h-1.5 rounded-full shrink-0" 
+            style={{ backgroundColor: agentColor }} 
+            title={item.agentName}
+          />
+          
+          <div className="shrink-0">
+            {renderIcon()}
+          </div>
 
-         <div className="flex-1 min-w-0 text-sm flex items-center">
-           {renderSummary()}
-         </div>
+          <div className="flex-1 min-w-0 text-sm flex items-center">
+            {renderSummary()}
+          </div>
 
-         <div className="shrink-0 flex items-center gap-2">
-           {renderStatus()}
-           {isExpandable && (
-             isExpanded ? <ChevronDown className="w-3 h-3 text-gray-500" /> : <ChevronRight className="w-3 h-3 text-gray-500" />
-           )}
-         </div>
-       </button>
+          <div className="shrink-0 flex items-center gap-2">
+            {renderStatus()}
+            {isExpandable && (
+              isExpanded ? <ChevronDown className="w-3 h-3 text-gray-500" /> : <ChevronRight className="w-3 h-3 text-gray-500" />
+            )}
+          </div>
+        </button>
 
-       {isExpanded && (
-         <div className="pb-2 pr-2">
-           {renderDetails()}
-         </div>
-       )}
-     </div>
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="pb-2 pr-2">
+                {renderDetails()}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
    );
 });

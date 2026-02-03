@@ -1,4 +1,4 @@
-import { CheckSquare, Square, ListTodo } from 'lucide-react'
+import { CheckSquare, Square } from 'lucide-react'
 import type { PlanProgress as PlanProgressType } from '@shared/types'
 
 interface PlanProgressProps {
@@ -10,11 +10,25 @@ export function PlanProgress({ plan, planName }: PlanProgressProps) {
   if (!plan) {
     return (
       <div 
-        className="flex items-center gap-2 p-4 text-text-secondary bg-surface rounded-lg border border-border"
+        className="flex flex-col gap-3 p-4 bg-surface rounded-lg border border-border min-w-[300px]"
         data-testid="plan-progress"
       >
-        <ListTodo className="w-5 h-5" />
-        <span>No active plan</span>
+        <div className="flex items-center justify-between">
+          <div className="h-5 rounded w-24 animate-shimmer" />
+          <div className="h-5 rounded w-12 animate-shimmer" />
+        </div>
+        <div className="w-full bg-background rounded-full h-2">
+          <div className="bg-accent h-2 rounded-full animate-shimmer" />
+        </div>
+        <div className="h-3 rounded w-32 animate-shimmer" />
+        <div className="flex flex-col gap-2">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <div className="w-4 h-4 rounded mt-0.5 animate-shimmer" />
+              <div className="flex-1 h-3 rounded animate-shimmer" />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

@@ -18,3 +18,6 @@ export const POLL_CACHE_TTL_MS = 2000;
 
 // RingBuffer capacity
 export const RINGBUFFER_CAPACITY = 1000;
+
+// Session hierarchy depth limit
+export const MAX_RECURSION_DEPTH = 10;

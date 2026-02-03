@@ -8,6 +8,7 @@ import type {
   SessionTree, 
   AgentPhase 
 } from "../../shared/types";
+import { MAX_RECURSION_DEPTH } from "../../shared/constants";
 import { listMessages } from "../storage/messageParser";
 import { 
   getPartsForSession, 
@@ -86,7 +87,11 @@ export async function buildSessionTree(
   const edges: TreeEdge[] = [];
   const visited = new Set<string>();
 
-  async function processSession(sessionID: string) {
+  async function processSession(sessionID: string, depth = 0) {
+    if (depth > MAX_RECURSION_DEPTH) {
+      console.warn(`Max recursion depth reached for session ${sessionID}`);
+      return;
+    }
     if (visited.has(sessionID)) {
       return;
     }
@@ -121,7 +126,7 @@ export async function buildSessionTree(
         source: session.parentID,
         target: session.id,
       });
-      await processSession(session.parentID);
+      await processSession(session.parentID, depth + 1);
     }
 
     const children = allSessions.filter((s) => s.parentID === sessionID);
@@ -130,11 +135,11 @@ export async function buildSessionTree(
         source: sessionID,
         target: child.id,
       });
-      await processSession(child.id);
+      await processSession(child.id, depth + 1);
     }
   }
 
-  await processSession(rootSessionID);
+  await processSession(rootSessionID, 0);
 
   return { nodes, edges };
 }
@@ -228,7 +233,7 @@ export async function getSessionHierarchy(
     processed.add(rootSessionId);
 
     for (const child of childSessions) {
-      await processChildSession(child.id, rootSession.id, allSessions, result, processed);
+      await processChildSession(child.id, rootSession.id, allSessions, result, processed, 1);
     }
   } else {
     for (let i = 0; i < phases.length; i++) {
@@ -292,7 +297,7 @@ export async function getSessionHierarchy(
       });
 
       for (const child of phaseChildren) {
-        await processChildSession(child.id, virtualId, allSessions, result, processed);
+        await processChildSession(child.id, virtualId, allSessions, result, processed, 1);
       }
     }
   }
@@ -305,8 +310,13 @@ export async function processChildSession(
   parentId: string,
   allSessions: SessionMetadata[],
   result: ActivitySession[],
-  processed: Set<string>
+  processed: Set<string>,
+  depth = 0
 ): Promise<void> {
+  if (depth > MAX_RECURSION_DEPTH) {
+    console.warn(`Max recursion depth reached for child session ${sessionId}`);
+    return;
+  }
   if (processed.has(sessionId)) return;
   processed.add(sessionId);
 
@@ -389,6 +399,6 @@ export async function processChildSession(
   });
 
   for (const child of childSessions) {
-    await processChildSession(child.id, session.id, allSessions, result, processed);
+    await processChildSession(child.id, session.id, allSessions, result, processed, depth + 1);
   }
 }

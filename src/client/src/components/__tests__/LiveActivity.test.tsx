@@ -210,6 +210,57 @@ describe('LiveActivity', () => {
      expect(screen.queryByText('Thinking...')).not.toBeInTheDocument();
    });
 
+    it('shows activity indicator in header when any session is working', () => {
+      const workingSession: ActivitySession[] = [
+        {
+          id: 'working-1',
+          title: 'Working',
+          agent: 'prometheus',
+          status: 'working',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+      ];
+      render(<LiveActivity sessions={workingSession} loading={false} />);
+      
+      const activityIndicator = screen.getByTitle('Activity in progress');
+      expect(activityIndicator).toBeInTheDocument();
+    });
+
+    it('does not show activity indicator when no session is working', () => {
+      const idleSession: ActivitySession[] = [
+        {
+          id: 'idle-1',
+          title: 'Idle',
+          agent: 'prometheus',
+          status: 'idle',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+      ];
+      render(<LiveActivity sessions={idleSession} loading={false} />);
+      
+      const activityIndicator = screen.queryByTitle('Activity in progress');
+      expect(activityIndicator).not.toBeInTheDocument();
+    });
+
+    it('applies glow animation to working status indicator', () => {
+      const workingSession: ActivitySession[] = [
+        {
+          id: 'working-glow',
+          title: 'Working',
+          agent: 'prometheus',
+          status: 'working',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+      ];
+      render(<LiveActivity sessions={workingSession} loading={false} />);
+      
+      const statusIndicator = screen.getByTestId('status-working');
+      expect(statusIndicator.className).toContain('animate-badge-glow');
+    });
+
     describe('SessionRow compact layout', () => {
       it('truncates task summary longer than 80 characters', () => {
         const longActionSession: ActivitySession[] = [{

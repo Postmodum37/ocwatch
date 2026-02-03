@@ -9,7 +9,7 @@
     "dev:server": "bun --watch src/server/index.ts --no-browser",
     "dev:client": "cd src/client && bun run dev",
     "start": "bun run src/server/index.ts --no-browser",
-    "test": "bun test",
+    "test": "(cd src/server && bun test) && bun test src/__tests__/*.test.ts",
     "build": "cd src/client && bun run build"
   },
   "dependencies": {

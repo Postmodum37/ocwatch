@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo, memo } from 'react';
+import React, { useEffect, useRef, useMemo, memo, useState } from 'react';
 import { Activity, Check, Loader2, Circle } from 'lucide-react';
 import type { ActivitySession, SessionStatus, ToolCallSummary } from '@shared/types';
 import { EmptyState } from './EmptyState';
@@ -65,12 +65,16 @@ function buildSessionTree(sessions: ActivitySession[]): SessionNode[] {
 
 const StatusIndicator = memo<{ status: SessionStatus }>(function StatusIndicator({ status }) {
    switch (status) {
-     case 'working':
-       return (
-         <span className="flex items-center justify-center w-4 h-4" data-testid="status-working">
-           <Loader2 className="w-3 h-3 text-accent animate-spin" />
-         </span>
-       );
+      case 'working':
+        return (
+          <span 
+            className="flex items-center justify-center w-4 h-4 rounded-full animate-badge-glow" 
+            style={{ '--badge-color': 'rgba(88, 166, 255, 0.5)' } as React.CSSProperties}
+            data-testid="status-working"
+          >
+            <Loader2 className="w-3 h-3 text-accent animate-spin" />
+          </span>
+        );
      case 'idle':
        return (
          <span className="flex items-center justify-center w-4 h-4" data-testid="status-idle">
@@ -199,6 +203,16 @@ const SessionRow = memo<{ node: SessionNode; depth: number; isLast: boolean }>(f
 
 export const LiveActivity: React.FC<LiveActivityProps> = ({ sessions, loading }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const isWorking = useMemo(() => sessions.some(s => s.status === 'working'), [sessions]);
+
+  useEffect(() => {
+    if (sessions.length > 0) {
+      setIsUpdating(true);
+      const timer = setTimeout(() => setIsUpdating(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [sessions]);
 
   const newestSessionId = sessions[0]?.id;
   useEffect(() => {
@@ -241,11 +255,19 @@ export const LiveActivity: React.FC<LiveActivityProps> = ({ sessions, loading })
   return (
     <div className="h-full w-full bg-surface overflow-hidden flex flex-col">
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-        <h3 className="font-semibold text-sm">Live Activity</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-sm">Live Activity</h3>
+          {isWorking && (
+            <span className="relative flex h-2 w-2" title="Activity in progress">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            <span className={`absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 ${isUpdating ? 'animate-ping' : ''}`}></span>
+            <span className={`relative inline-flex rounded-full h-2 w-2 transition-all duration-300 ${isUpdating ? 'bg-green-400 scale-125' : 'bg-green-500'}`}></span>
           </span>
           <span className="text-xs text-text-secondary">Connected</span>
         </div>
