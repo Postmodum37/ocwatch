@@ -6,6 +6,7 @@ import {
   getSessionToolState,
   isPendingToolCall,
   getToolCallsForSession,
+  formatCurrentAction,
 } from "../partParser";
 
 const TEST_DIR = "/tmp/ocwatch-partparser-test";
@@ -458,25 +459,264 @@ describe("getToolCallsForSession", () => {
     expect(pendingCall?.state).toBe("pending");
   });
 
-  test("returns empty array for session with no parts", async () => {
-    const EMPTY_SESSION_ID = "ses_empty";
-    await mkdir(join(STORAGE_DIR, "message", EMPTY_SESSION_ID), { recursive: true });
+   test("returns empty array for session with no parts", async () => {
+     const EMPTY_SESSION_ID = "ses_empty";
+     await mkdir(join(STORAGE_DIR, "message", EMPTY_SESSION_ID), { recursive: true });
 
-    const messageData = {
-      id: "msg_empty",
-      sessionID: EMPTY_SESSION_ID,
-      role: "assistant",
-      agent: "empty-agent",
-      time: { created: 1700000000000 },
+     const messageData = {
+       id: "msg_empty",
+       sessionID: EMPTY_SESSION_ID,
+       role: "assistant",
+       agent: "empty-agent",
+       time: { created: 1700000000000 },
+     };
+     await writeFile(
+       join(STORAGE_DIR, "message", EMPTY_SESSION_ID, "msg_empty.json"),
+       JSON.stringify(messageData)
+     );
+
+     const messageAgent = new Map([["msg_empty", "empty-agent"]]);
+     const result = await getToolCallsForSession(EMPTY_SESSION_ID, messageAgent, TEST_DIR);
+
+     expect(result).toEqual([]);
+   });
+});
+
+describe("formatCurrentAction", () => {
+  test("returns null when part has no tool", () => {
+    const part = {
+      id: "prt_test",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID_1,
+      type: "text",
     };
-    await writeFile(
-      join(STORAGE_DIR, "message", EMPTY_SESSION_ID, "msg_empty.json"),
-      JSON.stringify(messageData)
-    );
 
-    const messageAgent = new Map([["msg_empty", "empty-agent"]]);
-    const result = await getToolCallsForSession(EMPTY_SESSION_ID, messageAgent, TEST_DIR);
-
-    expect(result).toEqual([]);
+    expect(formatCurrentAction(part)).toBeNull();
   });
+
+  test("handles delegate_task with description and subagent_type", () => {
+    const part = {
+      id: "prt_test",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID_1,
+      type: "tool",
+      tool: "task",
+      input: {
+        description: "Explore codebase",
+        subagent_type: "explore",
+      },
+    };
+
+    expect(formatCurrentAction(part)).toBe("Explore codebase (explore)");
+  });
+
+  test("handles delegate_task with only subagent_type", () => {
+    const part = {
+      id: "prt_test",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID_1,
+      type: "tool",
+      tool: "task",
+      input: {
+        subagent_type: "librarian",
+      },
+    };
+
+    expect(formatCurrentAction(part)).toBe("Delegating (librarian)");
+  });
+
+  test("handles delegate_task with neither description nor subagent_type", () => {
+    const part = {
+      id: "prt_test",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID_1,
+      type: "tool",
+      tool: "task",
+      input: {},
+    };
+
+    expect(formatCurrentAction(part)).toBe("Delegating task");
+  });
+
+  test("handles delegate_task tool name (not just task)", () => {
+    const part = {
+      id: "prt_test",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID_1,
+      type: "tool",
+      tool: "delegate_task",
+      input: {
+        description: "Run tests",
+        subagent_type: "explore",
+      },
+    };
+
+    expect(formatCurrentAction(part)).toBe("Run tests (explore)");
+  });
+
+  test("falls back to title when delegate_task has no description", () => {
+    const part = {
+      id: "prt_test",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID_1,
+      type: "tool",
+      tool: "task",
+      input: {
+        subagent_type: "explore",
+      },
+      title: "Custom Title",
+    };
+
+    expect(formatCurrentAction(part)).toBe("Delegating (explore)");
+  });
+
+  test("returns tool display name for non-delegate_task tools", () => {
+    const part = {
+      id: "prt_test",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID_1,
+      type: "tool",
+      tool: "mcp_read",
+      input: {
+        filePath: "/test/file.ts",
+      },
+    };
+
+    expect(formatCurrentAction(part)).toContain("Reading");
+  });
+
+   test("handles delegate_task with empty input object", () => {
+     const part = {
+       id: "prt_test",
+       sessionID: SESSION_ID,
+       messageID: MESSAGE_ID_1,
+       type: "tool",
+       tool: "task",
+     };
+
+     expect(formatCurrentAction(part)).toBe("Delegating task");
+   });
+
+   test("handles todowrite with multiple todos", () => {
+     const part = {
+       id: "prt_test",
+       sessionID: SESSION_ID,
+       messageID: MESSAGE_ID_1,
+       type: "tool",
+       tool: "todowrite",
+       input: {
+         todos: [
+           { id: "1", content: "Setup", status: "pending", priority: "high" },
+           { id: "2", content: "Build", status: "pending", priority: "high" },
+           { id: "3", content: "Test", status: "pending", priority: "high" },
+         ],
+       },
+     };
+
+     expect(formatCurrentAction(part)).toBe("Updated 3 todos: Setup, Build...");
+   });
+
+   test("handles todowrite with empty todos array", () => {
+     const part = {
+       id: "prt_test",
+       sessionID: SESSION_ID,
+       messageID: MESSAGE_ID_1,
+       type: "tool",
+       tool: "todowrite",
+       input: {
+         todos: [],
+       },
+     };
+
+     expect(formatCurrentAction(part)).toBe("Cleared todos");
+   });
+
+   test("handles todowrite with single todo", () => {
+     const part = {
+       id: "prt_test",
+       sessionID: SESSION_ID,
+       messageID: MESSAGE_ID_1,
+       type: "tool",
+       tool: "todowrite",
+       input: {
+         todos: [
+           { id: "1", content: "Single task", status: "pending", priority: "high" },
+         ],
+       },
+     };
+
+     expect(formatCurrentAction(part)).toBe("Updated 1 todos: Single task");
+   });
+
+   test("handles todowrite with long content truncated at 30 chars", () => {
+     const part = {
+       id: "prt_test",
+       sessionID: SESSION_ID,
+       messageID: MESSAGE_ID_1,
+       type: "tool",
+       tool: "todowrite",
+       input: {
+         todos: [
+           { id: "1", content: "A very long todo item that exceeds thirty chars", status: "pending", priority: "high" },
+         ],
+       },
+     };
+
+     expect(formatCurrentAction(part)).toBe("Updated 1 todos: A very long todo item that exc");
+   });
+
+   test("handles todowrite with two todos no ellipsis", () => {
+     const part = {
+       id: "prt_test",
+       sessionID: SESSION_ID,
+       messageID: MESSAGE_ID_1,
+       type: "tool",
+       tool: "todowrite",
+       input: {
+         todos: [
+           { id: "1", content: "First", status: "pending", priority: "high" },
+           { id: "2", content: "Second", status: "pending", priority: "high" },
+         ],
+       },
+     };
+
+     expect(formatCurrentAction(part)).toBe("Updated 2 todos: First, Second");
+   });
+
+   test("handles todowrite with no input", () => {
+     const part = {
+       id: "prt_test",
+       sessionID: SESSION_ID,
+       messageID: MESSAGE_ID_1,
+       type: "tool",
+       tool: "todowrite",
+     };
+
+     expect(formatCurrentAction(part)).toBe("Cleared todos");
+   });
+
+   test("handles todoread", () => {
+     const part = {
+       id: "prt_test",
+       sessionID: SESSION_ID,
+       messageID: MESSAGE_ID_1,
+       type: "tool",
+       tool: "todoread",
+       input: {},
+     };
+
+     expect(formatCurrentAction(part)).toBe("Reading todos");
+   });
+
+   test("handles todoread with no input", () => {
+     const part = {
+       id: "prt_test",
+       sessionID: SESSION_ID,
+       messageID: MESSAGE_ID_1,
+       type: "tool",
+       tool: "todoread",
+     };
+
+     expect(formatCurrentAction(part)).toBe("Reading todos");
+   });
 });

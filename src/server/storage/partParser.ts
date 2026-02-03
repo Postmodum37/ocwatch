@@ -172,13 +172,42 @@ export function formatCurrentAction(part: PartMeta): string | null {
       return `${toolName} ${truncatePath(part.input.url)}`;
     }
     if (part.input.query) {
-      return `${toolName} "${part.input.query}"`;
-    }
-  }
+       return `${toolName} "${part.input.query}"`;
+     }
+   }
 
-  if (part.title) {
-    return part.title;
-  }
+    // Handle delegate_task (tool name is "task" or "delegate_task")
+    if (part.tool === "task" || part.tool === "delegate_task") {
+      const input = part.input as { description?: string; subagent_type?: string } | undefined;
+      const desc = input?.description;
+      const agentType = input?.subagent_type;
+      if (desc && agentType) return `${desc} (${agentType})`;
+      if (desc) return desc;
+      if (agentType) return `Delegating (${agentType})`;
+      return "Delegating task";
+    }
+
+    // Handle todowrite
+    if (part.tool === "todowrite") {
+      const input = part.input as { todos?: Array<{ content?: string }> } | undefined;
+      const todos = input?.todos;
+      if (!todos || todos.length === 0) return "Cleared todos";
+      const preview = todos
+        .slice(0, 2)
+        .map(t => (t.content || "").slice(0, 30))
+        .filter(Boolean)
+        .join(", ");
+      return `Updated ${todos.length} todos: ${preview}${todos.length > 2 ? "..." : ""}`;
+    }
+
+    // Handle todoread
+    if (part.tool === "todoread") {
+      return "Reading todos";
+    }
+
+    if (part.title) {
+      return part.title;
+    }
 
   return toolName;
 }
