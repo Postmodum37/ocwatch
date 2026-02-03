@@ -1,10 +1,9 @@
 {
-  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/session-stats-compact.md",
-  "started_at": "2026-02-02T23:06:00.000Z",
-  "completed_at": "2026-02-02T23:15:00.000Z",
-  "session_ids": ["ses_3dfeb33d9ffegcLakNdVlDN5Ae"],
-  "plan_name": "session-stats-compact",
+  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/dashboard-snappiness.md",
+  "started_at": "2026-02-03T18:47:27.716Z",
+  "session_ids": ["ses_3db2b4337ffenyAWxq2IsU7TeB"],
+  "plan_name": "dashboard-snappiness",
   "status": "completed",
-  "tasks_completed": 3,
-  "tasks_total": 3
+  "tasks_completed": 9,
+  "tasks_total": 19
 }
