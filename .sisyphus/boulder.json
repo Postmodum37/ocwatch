@@ -1,6 +1,10 @@
 {
   "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/session-stats-compact.md",
   "started_at": "2026-02-02T23:06:00.000Z",
+  "completed_at": "2026-02-02T23:15:00.000Z",
   "session_ids": ["ses_3dfeb33d9ffegcLakNdVlDN5Ae"],
-  "plan_name": "session-stats-compact"
+  "plan_name": "session-stats-compact",
+  "status": "completed",
+  "tasks_completed": 3,
+  "tasks_total": 3
 }

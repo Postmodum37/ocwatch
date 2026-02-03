@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Activity, ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
 import type { ActivityItem } from '@shared/types';
 import { ActivityRow } from './ActivityRow';
@@ -12,12 +12,21 @@ interface ActivityStreamProps {
 export const ActivityStream: React.FC<ActivityStreamProps> = ({ items, totalTokens = 0 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
+  const prevAgentsRef = useRef<string>('');
 
   const agents = useMemo(() => {
     const agentSet = new Set<string>();
     items.forEach(item => { agentSet.add(item.agentName); });
     return Array.from(agentSet).sort();
   }, [items]);
+
+  useEffect(() => {
+    const agentsKey = agents.join(',');
+    if (prevAgentsRef.current !== '' && prevAgentsRef.current !== agentsKey) {
+      setSelectedAgents(new Set());
+    }
+    prevAgentsRef.current = agentsKey;
+  }, [agents]);
 
   const filteredItems = useMemo(() => {
     if (selectedAgents.size === 0) return items;

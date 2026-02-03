@@ -51,8 +51,39 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
   const etagRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const retryTimeoutRef = useRef<number | null>(null);
+  const currentSessionIdRef = useRef<string | null | undefined>(sessionId);
+  const failedAttemptsRef = useRef(0);
+
+  useEffect(() => {
+    if (currentSessionIdRef.current !== sessionId) {
+      currentSessionIdRef.current = sessionId;
+      etagRef.current = null;
+      
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+      
+      failedAttemptsRef.current = 0;
+      
+      setState(prev => ({
+        ...prev,
+        loading: true,
+        data: prev.data ? {
+          ...prev.data,
+          messages: [],
+          activitySessions: [],
+          sessionStats: null,
+        } : null,
+        error: null,
+        failedAttempts: 0,
+      }));
+    }
+  }, [sessionId]);
 
   const fetchData = useCallback(async () => {
+    const fetchSessionId = currentSessionIdRef.current;
+    
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -72,6 +103,10 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         signal: abortController.signal,
       });
 
+      if (currentSessionIdRef.current !== fetchSessionId) {
+        return;
+      }
+
       if (response.status === 304) {
         setState(prev => ({
           ...prev,
@@ -80,6 +115,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
           isReconnecting: false,
           failedAttempts: 0,
         }));
+        failedAttemptsRef.current = 0;
         return;
       }
 
@@ -94,6 +130,10 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
 
       const data: PollResponse = await response.json();
 
+      if (currentSessionIdRef.current !== fetchSessionId) {
+        return;
+      }
+
       setState({
         data,
         loading: false,
@@ -102,32 +142,36 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         isReconnecting: false,
         failedAttempts: 0,
       });
+      failedAttemptsRef.current = 0;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
 
-      setState(prev => {
-        const newFailedAttempts = prev.failedAttempts + 1;
-        const shouldRetry = newFailedAttempts < maxRetries;
+      if (currentSessionIdRef.current !== fetchSessionId) {
+        return;
+      }
 
-        return {
-          ...prev,
-          loading: false,
-          error: err instanceof Error ? err : new Error('Unknown error'),
-          isReconnecting: shouldRetry,
-          failedAttempts: newFailedAttempts,
-        };
-      });
+      const newFailedAttempts = failedAttemptsRef.current + 1;
+      failedAttemptsRef.current = newFailedAttempts;
+      const shouldRetry = newFailedAttempts < maxRetries;
 
-      if (state.failedAttempts + 1 < maxRetries) {
-        const backoffDelay = Math.min(1000 * Math.pow(2, state.failedAttempts), 10000);
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err : new Error('Unknown error'),
+        isReconnecting: shouldRetry,
+        failedAttempts: newFailedAttempts,
+      }));
+
+      if (shouldRetry) {
+        const backoffDelay = Math.min(1000 * Math.pow(2, newFailedAttempts - 1), 10000);
         retryTimeoutRef.current = setTimeout(() => {
           fetchData();
         }, backoffDelay);
       }
     }
-  }, [pollUrl, maxRetries, state.failedAttempts]);
+  }, [pollUrl, maxRetries]);
 
   useEffect(() => {
     if (!enabled) {

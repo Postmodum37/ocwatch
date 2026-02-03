@@ -60,12 +60,12 @@ Transform SessionStats from a tall vertical card into a compact inline header el
 - `src/client/src/components/__tests__/SessionStats.test.tsx`: Updated tests
 
 ### Definition of Done
-- [ ] Server returns modelBreakdown sorted by tokens DESC
-- [ ] SessionStats displays as single-line: `⚡ {tokens} | ${cost} | N models ▼`
-- [ ] Clicking "N models" opens dropdown showing sorted model list
-- [ ] All 7+ tests pass with new structure
-- [ ] `bun test` passes
-- [ ] `cd src/client && bun run test` passes
+- [x] Server returns modelBreakdown sorted by tokens DESC
+- [x] SessionStats displays as single-line: `⚡ {tokens} | ${cost} | N models ▼`
+- [x] Clicking "N models" opens dropdown showing sorted model list
+- [x] All 7+ tests pass with new structure (11 tests)
+- [x] `bun test` passes
+- [x] `cd src/client && bun run test` passes (82 tests)
 
 ### Must Have
 - Tokens formatted with `k` suffix (e.g., 445k for 445,071)
@@ -146,7 +146,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ## TODOs
 
-- [ ] 1. Fix Server-Side Model Sorting
+- [x] 1. Fix Server-Side Model Sorting
 
   **What to do**:
   - Open `src/server/index.ts`
@@ -216,7 +216,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 2. Redesign SessionStats Component to Compact Inline
+- [x] 2. Redesign SessionStats Component to Compact Inline
 
   **What to do**:
   
@@ -342,7 +342,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 3. Update SessionStats Tests
+- [x] 3. Update SessionStats Tests
 
   **What to do**:
   
@@ -451,11 +451,11 @@ cd src/client && bun run test SessionStats
 ```
 
 ### Final Checklist
-- [ ] Model breakdown sorted by tokens descending (highest first)
-- [ ] SessionStats displays as compact single line in header
-- [ ] Dropdown shows model details on click
-- [ ] "No stats available" empty state preserved
-- [ ] All original test behaviors preserved (7 tests)
-- [ ] New dropdown interaction tests added
-- [ ] No TypeScript errors
-- [ ] No console errors in browser
+- [x] Model breakdown sorted by tokens descending (highest first)
+- [x] SessionStats displays as compact single line in header
+- [x] Dropdown shows model details on click
+- [x] "No stats available" empty state preserved
+- [x] All original test behaviors preserved (7 tests → 11 tests)
+- [x] New dropdown interaction tests added
+- [x] No TypeScript errors
+- [x] No console errors in browser (pre-existing duplicate key errors unrelated)

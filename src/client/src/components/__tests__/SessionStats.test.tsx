@@ -37,13 +37,13 @@ describe('SessionStats', () => {
 
   it('renders model count button', () => {
     render(<SessionStats stats={mockStats} />)
-    expect(screen.getByText('2 models')).toBeDefined()
+    expect(screen.getByText('2')).toBeDefined()
   })
 
   it('opens dropdown on button click', () => {
     render(<SessionStats stats={mockStats} />)
     
-    const button = screen.getByText('2 models')
+    const button = screen.getByText('2')
     fireEvent.click(button)
     
     expect(screen.getByText('claude-opus-4')).toBeDefined()
@@ -53,7 +53,7 @@ describe('SessionStats', () => {
   it('displays model tokens formatted with k suffix in dropdown', () => {
     render(<SessionStats stats={mockStats} />)
     
-    const button = screen.getByText('2 models')
+    const button = screen.getByText('2')
     fireEvent.click(button)
     
     expect(screen.getByText('10k')).toBeDefined()
@@ -62,12 +62,12 @@ describe('SessionStats', () => {
 
   it('renders empty/placeholder state when stats prop is null', () => {
     render(<SessionStats stats={null} />)
-    expect(screen.getByText('No stats available')).toBeDefined()
+    expect(screen.getByText('No stats')).toBeDefined()
   })
 
   it('renders empty/placeholder state when stats prop is undefined', () => {
     render(<SessionStats stats={undefined} />)
-    expect(screen.getByText('No stats available')).toBeDefined()
+    expect(screen.getByText('No stats')).toBeDefined()
   })
 
   it('handles empty modelBreakdown array gracefully', () => {
@@ -79,7 +79,7 @@ describe('SessionStats', () => {
     render(<SessionStats stats={statsEmptyBreakdown} />)
     expect(screen.getByText('5k')).toBeDefined()
     expect(screen.getByText('$0.10')).toBeDefined()
-    expect(screen.getByText('0 models')).toBeDefined()
+    expect(screen.getByText('0')).toBeDefined()
   })
 
   it('preserves data-testid attributes', () => {

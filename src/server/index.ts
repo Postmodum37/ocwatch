@@ -657,19 +657,48 @@ function generateETag(data: PollResponse): string {
    return `"${hash.substring(0, 16)}"`;
 }
 
+let pollCache: { data: PollResponse; etag: string; timestamp: number } | null = null;
+let pollInProgress: Promise<PollResponse> | null = null;
+const POLL_CACHE_TTL = 2000;
+
 app.get("/api/poll", async (c) => {
-   const storageExists = await checkStorageExists();
-   if (!storageExists) {
-     const pollData: PollResponse = {
-       sessions: [],
-       activeSession: null,
-       planProgress: null,
-       messages: [],
-       activitySessions: [],
-       lastUpdate: Date.now(),
-     };
-     return c.json(pollData);
+   const clientETag = c.req.header("If-None-Match");
+   const sessionId = c.req.query('sessionId');
+   
+   if (!sessionId && pollCache && Date.now() - pollCache.timestamp < POLL_CACHE_TTL) {
+     if (clientETag === pollCache.etag) {
+       return new Response(null, { status: 304, headers: { ETag: pollCache.etag } });
+     }
+     c.header("ETag", pollCache.etag);
+     return c.json(pollCache.data);
    }
+   
+   if (!sessionId && pollInProgress) {
+     try {
+       const data = await pollInProgress;
+       const etag = generateETag(data);
+       if (clientETag === etag) {
+         return new Response(null, { status: 304, headers: { ETag: etag } });
+       }
+       c.header("ETag", etag);
+       return c.json(data);
+     } catch {
+       pollInProgress = null;
+     }
+   }
+   
+   const fetchPollData = async (): Promise<PollResponse> => {
+     const storageExists = await checkStorageExists();
+     if (!storageExists) {
+       return {
+         sessions: [],
+         activeSession: null,
+         planProgress: null,
+         messages: [],
+         activitySessions: [],
+         lastUpdate: Date.now(),
+       };
+     }
 
    const allSessions = await listAllSessions();
 
@@ -743,7 +772,6 @@ app.get("/api/poll", async (c) => {
       }
     }
 
-    // Get plan progress from current directory
     let planProgress: PlanProgress | null = null;
     try {
       const cwd = process.cwd();
@@ -751,15 +779,13 @@ app.get("/api/poll", async (c) => {
       if (boulder?.activePlan) {
         planProgress = await calculatePlanProgress(boulder.activePlan);
       }
-    } catch (error) {
-      // Silently fail if no plan found
+    } catch {
+      // Plan not found
     }
 
-    // Fetch messages for target session
     let messages: MessageMeta[] = [];
     let activitySessions: ActivitySession[] = [];
     let sessionStats: SessionStats | undefined = undefined;
-    const sessionId = c.req.query('sessionId');
     const targetSessionId = sessionId || activeSession?.id;
     if (targetSessionId) {
       const fetchedMessages = await listMessages(targetSessionId);
@@ -779,7 +805,7 @@ app.get("/api/poll", async (c) => {
       sessionStats = aggregateSessionStats(activitySessions, allMessagesMap);
     }
 
-    const pollData: PollResponse = {
+    return {
       sessions: sessionsWithAgent,
       activeSession,
       planProgress,
@@ -788,19 +814,26 @@ app.get("/api/poll", async (c) => {
       sessionStats,
       lastUpdate: now,
     };
-
-   // Generate ETag
+   };
+   
+   let pollData: PollResponse;
+   if (!sessionId) {
+     pollInProgress = fetchPollData();
+     try {
+       pollData = await pollInProgress;
+       const etag = generateETag(pollData);
+       pollCache = { data: pollData, etag, timestamp: Date.now() };
+     } finally {
+       pollInProgress = null;
+     }
+   } else {
+     pollData = await fetchPollData();
+   }
+   
    const etag = generateETag(pollData);
-
-   // Check If-None-Match header
-   const clientETag = c.req.header("If-None-Match");
    if (clientETag === etag) {
-     // Data hasn't changed, return 304 Not Modified
-     c.header("ETag", etag);
      return new Response(null, { status: 304, headers: { ETag: etag } });
    }
-
-   // Data changed or first request, return 200 with ETag
    c.header("ETag", etag);
    return c.json(pollData);
 });

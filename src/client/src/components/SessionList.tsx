@@ -40,6 +40,11 @@ export const SessionList: React.FC<SessionListProps> = ({
   const selectedProject = projects.find(p => p.id === selectedProjectId);
   const projectName = selectedProject?.directory.split('/').pop() || 'All Projects';
 
+  const getProjectName = (projectID: string): string => {
+    const project = projects.find(p => p.id === projectID);
+    return project?.directory.split('/').pop() || projectID.slice(0, 8);
+  };
+
   return (
     <div className="w-[280px] h-full bg-surface border-r border-border flex flex-col" data-testid="session-list">
       <div className="p-4 border-b border-border">
@@ -102,73 +107,82 @@ export const SessionList: React.FC<SessionListProps> = ({
         </div>
         <h2 className="text-text-primary font-semibold text-lg">Sessions</h2>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        {filteredSessions.length === 0 ? (
-          <EmptyState
-            icon={Inbox}
-            title="No Sessions"
-            description={selectedProjectId ? "No sessions found in this project" : "No active sessions in the last 24 hours"}
-          />
-        ) : (
-          filteredSessions.map((session) => {
-            const isSelected = session.id === selectedId;
-            const status: SessionStatus = session.status || 'completed';
+       <div className="flex-1 overflow-y-auto">
+         {filteredSessions.length === 0 ? (
+           <EmptyState
+             icon={Inbox}
+             title="No Sessions"
+             description={selectedProjectId ? "No sessions found in this project" : "No active sessions in the last 24 hours"}
+           />
+         ) : (
+           filteredSessions.map((session) => {
+             const isSelected = session.id === selectedId;
+             const status: SessionStatus = session.status || 'completed';
 
-              const StatusIcon = () => {
-              switch (status) {
-                case 'working':
-                  return <Loader2 className="w-4 h-4 text-accent animate-spin" data-testid="session-status-working" />;
-                case 'idle':
-                  return <Circle className="w-4 h-4 text-success animate-pulse" data-testid="session-status-idle" />;
-                case 'waiting':
-                  return <Circle className="w-4 h-4 text-text-secondary" data-testid="session-status-waiting" />;
-                case 'completed':
-                default:
-                  return <Check className="w-4 h-4 text-text-secondary" data-testid="session-status-completed" />;
-              }
-            };
+               const StatusIcon = () => {
+               switch (status) {
+                 case 'working':
+                   return <Loader2 className="w-4 h-4 text-accent animate-spin" data-testid="session-status-working" />;
+                 case 'idle':
+                   return <Circle className="w-4 h-4 text-success animate-pulse" data-testid="session-status-idle" />;
+                 case 'waiting':
+                   return <Circle className="w-4 h-4 text-text-secondary" data-testid="session-status-waiting" />;
+                 case 'completed':
+                 default:
+                   return <Check className="w-4 h-4 text-text-secondary" data-testid="session-status-completed" />;
+               }
+             };
 
-            const dotColor = status === 'working' ? 'bg-accent' : status === 'idle' ? 'bg-success' : 'bg-text-secondary';
+             const dotColor = status === 'working' ? 'bg-accent' : status === 'idle' ? 'bg-success' : 'bg-text-secondary';
 
-            return (
-              <button
-                type="button"
-                key={session.id}
-                data-testid={`session-item-${session.id}`}
-                onClick={() => onSelect(session.id)}
-                className={`w-full text-left p-3 border-b border-border hover:bg-background transition-colors flex items-start gap-3 group
-                  ${isSelected ? 'bg-background border-l-2 border-l-accent' : 'border-l-2 border-l-transparent'}
-                `}
-              >
-                <div className="mt-1 shrink-0">
-                  <StatusIcon />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className={`font-medium truncate text-sm mb-1 ${isSelected ? 'text-accent' : 'text-text-primary'}`}>
-                    {session.title || 'Untitled Session'}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${dotColor}`} />
-                    <span className="text-xs text-text-secondary truncate shrink-0">
-                      {formatRelativeTime(session.updatedAt)}
-                    </span>
-                    {session.agent && (
-                      <span className="px-1.5 py-0.5 rounded bg-surface border border-border text-xs text-text-secondary truncate max-w-[120px]" title={session.agent}>
-                        {session.agent}
-                      </span>
-                    )}
-                    {session.currentAction && (
-                      <span className="text-xs text-text-secondary truncate flex-1 min-w-0" title={session.currentAction}>
-                        {session.currentAction}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
-            );
-          })
-        )}
-      </div>
-    </div>
+             return (
+               <button
+                 type="button"
+                 key={session.id}
+                 data-testid={`session-item-${session.id}`}
+                 onClick={() => onSelect(session.id)}
+                 className={`w-full text-left p-3 border-b border-border hover:bg-background transition-colors flex items-start gap-3 group
+                   ${isSelected ? 'bg-background border-l-2 border-l-accent' : 'border-l-2 border-l-transparent'}
+                 `}
+               >
+                 <div className="mt-1 shrink-0">
+                   <StatusIcon />
+                 </div>
+                 <div className="flex-1 min-w-0">
+                   <h3 className={`font-medium truncate text-sm mb-1 ${isSelected ? 'text-accent' : 'text-text-primary'}`}>
+                     {session.title || 'Untitled Session'}
+                   </h3>
+                   <div className="flex items-center gap-2">
+                     <div className={`w-2 h-2 rounded-full ${dotColor}`} />
+                     <span className="text-xs text-text-secondary truncate shrink-0">
+                       {formatRelativeTime(session.updatedAt)}
+                     </span>
+                     {selectedProjectId === null && (
+                       <span 
+                         className="flex items-center gap-1 text-xs text-text-secondary truncate max-w-[80px]" 
+                         title={session.directory || session.projectID}
+                       >
+                         <Folder className="w-3 h-3 shrink-0" />
+                         <span className="truncate">{getProjectName(session.projectID)}</span>
+                       </span>
+                     )}
+                     {session.agent && (
+                       <span className="px-1.5 py-0.5 rounded bg-surface border border-border text-xs text-text-secondary truncate max-w-[120px]" title={session.agent}>
+                         {session.agent}
+                       </span>
+                     )}
+                     {session.currentAction && (
+                       <span className="text-xs text-text-secondary truncate flex-1 min-w-0" title={session.currentAction}>
+                         {session.currentAction}
+                       </span>
+                     )}
+                   </div>
+                 </div>
+               </button>
+             );
+           })
+         )}
+       </div>
+     </div>
   );
 };
