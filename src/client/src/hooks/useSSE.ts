@@ -40,6 +40,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const currentSessionIdRef = useRef<string | null | undefined>(sessionId);
+  const lastEventTimeRef = useRef<number>(Date.now());
 
   const pollingState = usePolling({
     enabled: enabled && isUsingFallback,
@@ -109,6 +110,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     eventSourceRef.current = es;
 
     const handleSSEEvent = () => {
+      lastEventTimeRef.current = Date.now();
+      
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
@@ -141,7 +144,21 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
       setIsUsingFallback(true);
     };
 
+    const livenessCheckInterval = setInterval(() => {
+      const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
+      if (timeSinceLastEvent > 45000) {
+        es.close();
+        eventSourceRef.current = null;
+        setSseState(prev => ({
+          ...prev,
+          error: new Error('SSE Connection Stale'),
+        }));
+        setIsUsingFallback(true);
+      }
+    }, 10000);
+
     return () => {
+      clearInterval(livenessCheckInterval);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
