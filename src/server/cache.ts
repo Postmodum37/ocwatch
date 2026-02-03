@@ -4,6 +4,7 @@
  */
 
 import type { SessionMetadata, MessageMeta } from "../shared/types";
+import { CACHE_TTL_MS } from "../shared/constants";
 import { listSessions } from "./storage/sessionParser";
 import { listMessages } from "./storage/messageParser";
 import { getStoragePath } from "./storage/sessionParser";
@@ -24,7 +25,6 @@ export class Cache {
   private sessionCache: Map<string, CacheEntry<SessionMetadata[]>> = new Map();
   private messageCache: Map<string, CacheEntry<MessageMeta[]>> = new Map();
   private isDirty: boolean = true;
-  private readonly TTL_MS = 2000; // 2 seconds
   private storagePath: string;
 
   constructor(storagePath?: string) {
@@ -56,9 +56,9 @@ export class Cache {
   /**
    * Check if a cache entry is expired (TTL exceeded)
    */
-  private isExpired(entry: CacheEntry<any>): boolean {
-    return Date.now() - entry.timestamp > this.TTL_MS;
-  }
+   private isExpired<T>(entry: CacheEntry<T>): boolean {
+     return Date.now() - entry.timestamp > CACHE_TTL_MS;
+   }
 
   /**
    * Get all sessions for a project

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, memo } from 'react';
 import { Activity, Check, Loader2, Circle } from 'lucide-react';
 import type { ActivitySession, SessionStatus, ToolCallSummary } from '@shared/types';
 import { EmptyState } from './EmptyState';
@@ -63,35 +63,35 @@ function buildSessionTree(sessions: ActivitySession[]): SessionNode[] {
   return roots;
 }
 
-const StatusIndicator: React.FC<{ status: SessionStatus }> = ({ status }) => {
-  switch (status) {
-    case 'working':
-      return (
-        <span className="flex items-center justify-center w-4 h-4" data-testid="status-working">
-          <Loader2 className="w-3 h-3 text-accent animate-spin" />
-        </span>
-      );
-    case 'idle':
-      return (
-        <span className="flex items-center justify-center w-4 h-4" data-testid="status-idle">
-          <Circle className="w-3 h-3 text-success animate-pulse" />
-        </span>
-      );
-    case 'waiting':
-      return (
-        <span className="flex items-center justify-center w-4 h-4" data-testid="status-waiting">
-          <Circle className="w-3 h-3 text-gray-500" />
-        </span>
-      );
-    case 'completed':
-    default:
-      return (
-        <span className="flex items-center justify-center w-4 h-4" data-testid="status-completed">
-          <Check className="w-3 h-3 text-green-500" />
-        </span>
-      );
-  }
-};
+const StatusIndicator = memo<{ status: SessionStatus }>(function StatusIndicator({ status }) {
+   switch (status) {
+     case 'working':
+       return (
+         <span className="flex items-center justify-center w-4 h-4" data-testid="status-working">
+           <Loader2 className="w-3 h-3 text-accent animate-spin" />
+         </span>
+       );
+     case 'idle':
+       return (
+         <span className="flex items-center justify-center w-4 h-4" data-testid="status-idle">
+           <Circle className="w-3 h-3 text-success animate-pulse" />
+         </span>
+       );
+     case 'waiting':
+       return (
+         <span className="flex items-center justify-center w-4 h-4" data-testid="status-waiting">
+           <Circle className="w-3 h-3 text-gray-500" />
+         </span>
+       );
+     case 'completed':
+     default:
+       return (
+         <span className="flex items-center justify-center w-4 h-4" data-testid="status-completed">
+           <Check className="w-3 h-3 text-green-500" />
+         </span>
+       );
+   }
+});
 
 function extractPrimaryArg(input: object, maxLength: number = 60): string | null {
   const typedInput = input as { filePath?: string; command?: string; pattern?: string; query?: string; url?: string };
@@ -113,89 +113,89 @@ function getFullToolDisplayText(toolCalls?: ToolCallSummary[]): { toolName: stri
   return { toolName, toolArg };
 }
 
-const SessionRow: React.FC<{ node: SessionNode; depth: number; isLast: boolean }> = ({ node, depth, isLast }) => {
-  const { session, children } = node;
-  const status: SessionStatus = session.status || 'completed';
-  
-  let currentActionText = session.currentAction;
-  if (!currentActionText) {
-    if (session.workingChildCount && session.workingChildCount > 0) {
-      currentActionText = `waiting on ${session.workingChildCount} agents`;
-    } else if (status === 'working') {
-      currentActionText = 'Thinking...';
-    } else if (status === 'waiting') {
-      currentActionText = 'Waiting for input';
-    }
-  }
+const SessionRow = memo<{ node: SessionNode; depth: number; isLast: boolean }>(function SessionRow({ node, depth, isLast }) {
+   const { session, children } = node;
+   const status: SessionStatus = session.status || 'completed';
+   
+   let currentActionText = session.currentAction;
+   if (!currentActionText) {
+     if (session.workingChildCount && session.workingChildCount > 0) {
+       currentActionText = `waiting on ${session.workingChildCount} agents`;
+     } else if (status === 'working') {
+       currentActionText = 'Thinking...';
+     } else if (status === 'waiting') {
+       currentActionText = 'Waiting for input';
+     }
+   }
 
-  const truncatedAction = currentActionText && currentActionText.length > 80 
-    ? currentActionText.slice(0, 77) + '...' 
-    : currentActionText;
+   const truncatedAction = currentActionText && currentActionText.length > 80 
+     ? currentActionText.slice(0, 77) + '...' 
+     : currentActionText;
 
-  const toolInfo = getFullToolDisplayText(session.toolCalls);
-  
-  return (
-    <div className="flex flex-col">
-      <div 
-        className={`flex items-center gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2 ${status === 'completed' ? 'opacity-60' : ''}`}
-        style={{ marginLeft: `${depth * 20}px` }}
-        data-testid={`session-row-${session.id}`}
-      >
-        {depth > 0 && (
-          <div className="flex items-center text-border select-none shrink-0">
-            <span className="text-xs">{isLast ? '└' : '├'}</span>
-            <span className="text-xs">─</span>
-          </div>
-        )}
-        
-        <StatusIndicator status={status} />
-        
-        <AgentBadge agent={session.agent} status={status} />
-        
-        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-          <span className="text-text-secondary text-xs truncate" data-testid="current-action">
-            {truncatedAction}
-          </span>
-          
-          {toolInfo && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono" data-testid="tool-info">
-              <span className="text-gray-400">{toolInfo.toolName}</span>
-              {toolInfo.toolArg && (
-                <span className="text-gray-500 truncate">{toolInfo.toolArg}</span>
-              )}
-            </div>
-          )}
-        </div>
+   const toolInfo = getFullToolDisplayText(session.toolCalls);
+   
+   return (
+     <div className="flex flex-col">
+       <div 
+         className={`flex items-center gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2 ${status === 'completed' ? 'opacity-60' : ''}`}
+         style={{ marginLeft: `${depth * 20}px` }}
+         data-testid={`session-row-${session.id}`}
+       >
+         {depth > 0 && (
+           <div className="flex items-center text-border select-none shrink-0">
+             <span className="text-xs">{isLast ? '└' : '├'}</span>
+             <span className="text-xs">─</span>
+           </div>
+         )}
+         
+         <StatusIndicator status={status} />
+         
+         <AgentBadge agent={session.agent} status={status} />
+         
+         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+           <span className="text-text-secondary text-xs truncate" data-testid="current-action">
+             {truncatedAction}
+           </span>
+           
+           {toolInfo && (
+             <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono" data-testid="tool-info">
+               <span className="text-gray-400">{toolInfo.toolName}</span>
+               {toolInfo.toolArg && (
+                 <span className="text-gray-500 truncate">{toolInfo.toolArg}</span>
+               )}
+             </div>
+           )}
+         </div>
 
-        <div className="flex flex-col items-end shrink-0 text-xs">
-          {(session.providerID || session.modelID) && (
-            <span className="text-gray-500 truncate max-w-[180px]">
-              {session.providerID}/{session.modelID}
-            </span>
-          )}
-          <div className="flex items-center gap-1 text-gray-600">
-            <span>{formatRelativeTime(session.updatedAt)}</span>
-            {session.tokens !== undefined && (
-              <>
-                <span>·</span>
-                <span>{session.tokens.toLocaleString()} tokens</span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+         <div className="flex flex-col items-end shrink-0 text-xs">
+           {(session.providerID || session.modelID) && (
+             <span className="text-gray-500 truncate max-w-[180px]">
+               {session.providerID}/{session.modelID}
+             </span>
+           )}
+           <div className="flex items-center gap-1 text-gray-600">
+             <span>{formatRelativeTime(session.updatedAt)}</span>
+             {session.tokens !== undefined && (
+               <>
+                 <span>·</span>
+                 <span>{session.tokens.toLocaleString()} tokens</span>
+               </>
+             )}
+           </div>
+         </div>
+       </div>
 
-      {children.map((child, idx) => (
-        <SessionRow 
-          key={child.session.id} 
-          node={child} 
-          depth={depth + 1} 
-          isLast={idx === children.length - 1}
-        />
-      ))}
-    </div>
-  );
-};
+       {children.map((child, idx) => (
+         <SessionRow 
+           key={child.session.id} 
+           node={child} 
+           depth={depth + 1} 
+           isLast={idx === children.length - 1}
+         />
+       ))}
+     </div>
+   );
+});
 
 export const LiveActivity: React.FC<LiveActivityProps> = ({ sessions, loading }) => {
   const containerRef = useRef<HTMLDivElement>(null);

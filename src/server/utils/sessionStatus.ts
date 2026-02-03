@@ -3,9 +3,11 @@
  * Determines session status based on message timestamps and tool call state
  */
 
-import type { MessageMeta, PartMeta, SessionStatus } from "../../shared/types";
+import type { MessageMeta, SessionStatus } from "../../shared/types";
+import { isPendingToolCall } from "../storage/partParser";
 
 export type { SessionStatus };
+export { isPendingToolCall };
 
 // Thresholds in milliseconds
 const WORKING_THRESHOLD = 30 * 1000; // 30 seconds
@@ -86,12 +88,7 @@ export function getSessionStatus(
   }
 }
 
-/**
- * Check if a part represents a pending tool call
- */
-export function isPendingToolCall(part: PartMeta): boolean {
-  return part.type === "tool" && part.state === "pending";
-}
+
 
 /**
  * Get status from timestamp directly (for simpler cases)

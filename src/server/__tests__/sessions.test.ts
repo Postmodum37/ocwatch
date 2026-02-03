@@ -48,8 +48,17 @@ describe("Session API Endpoints", () => {
   });
 
   describe("GET /api/sessions/:id", () => {
+    test("returns 400 for invalid session ID format", async () => {
+      const res = await app.request("/api/sessions/invalid-format");
+      expect(res.status).toBe(400);
+
+      const data = (await res.json()) as any;
+      expect(data).toHaveProperty("error");
+      expect(data.error).toBe("VALIDATION_ERROR");
+    });
+
     test("returns 404 for non-existent session", async () => {
-      const res = await app.request("/api/sessions/nonexistent-id");
+      const res = await app.request("/api/sessions/ses_nonexistent123");
       expect(res.status).toBe(404);
 
       const data = (await res.json()) as any;
@@ -76,7 +85,7 @@ describe("Session API Endpoints", () => {
 
   describe("GET /api/sessions/:id/messages", () => {
     test("returns 404 for non-existent session", async () => {
-      const res = await app.request("/api/sessions/nonexistent-id/messages");
+      const res = await app.request("/api/sessions/ses_nonexistent123/messages");
       expect(res.status).toBe(404);
 
       const data = (await res.json()) as any;
@@ -132,7 +141,7 @@ describe("Session API Endpoints", () => {
 
   describe("GET /api/sessions/:id/tree", () => {
     test("returns 404 for non-existent session", async () => {
-      const res = await app.request("/api/sessions/nonexistent-id/tree");
+      const res = await app.request("/api/sessions/ses_nonexistent123/tree");
       expect(res.status).toBe(404);
 
       const data = (await res.json()) as any;

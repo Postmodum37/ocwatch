@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { spawn, type Subprocess } from 'bun';
+import { DEFAULT_PORT } from '../shared/constants';
 
 describe('Integration Tests', () => {
   let serverProcess: Subprocess | null = null;
-  const SERVER_PORT = 50234;
+  const SERVER_PORT = DEFAULT_PORT;
   const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 
   beforeAll(async () => {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, memo } from 'react';
 import { Activity, ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
 import type { ActivityItem } from '@shared/types';
 import { ActivityRow } from './ActivityRow';
@@ -9,7 +9,7 @@ interface ActivityStreamProps {
   totalTokens?: number;
 }
 
-export const ActivityStream: React.FC<ActivityStreamProps> = ({ items, totalTokens = 0 }) => {
+export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream({ items, totalTokens = 0 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const prevAgentsRef = useRef<string>('');
@@ -145,8 +145,6 @@ export const ActivityStream: React.FC<ActivityStreamProps> = ({ items, totalToke
           </div>
         </>
       )}
-    </div>
-  );
-};
-
-export default ActivityStream;
+     </div>
+   );
+});

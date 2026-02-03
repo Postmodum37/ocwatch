@@ -1,5 +1,6 @@
 
 import { LayoutDashboard, AlertCircle, WifiOff } from 'lucide-react'
+import { DEFAULT_PORT } from '@shared/constants'
 import { ActivityStream } from './components/ActivityStream'
 import { SessionList } from './components/SessionList'
 import { LiveActivity } from './components/LiveActivity'
@@ -33,9 +34,9 @@ function AppContent() {
         <div className="flex flex-col items-center gap-4 max-w-md text-center">
           <AlertCircle className="w-12 h-12 text-error" />
           <h2 className="text-xl font-semibold">Connection Lost</h2>
-          <p className="text-text-secondary">
-            Failed to connect to OCWatch backend. Make sure the server is running on port 50234.
-          </p>
+           <p className="text-text-secondary">
+             Failed to connect to OCWatch backend. Make sure the server is running on port {DEFAULT_PORT}.
+           </p>
           <p className="text-sm text-text-secondary font-mono bg-surface px-3 py-2 rounded border border-border">
             {error.message}
           </p>

@@ -1,0 +1,7 @@
+# Bun configuration for OCWatch
+# https://bun.sh/docs/runtime/bunfig
+
+[test]
+# Exclude compiled JS files in dist/ from test discovery
+# This prevents false failures from picking up client build artifacts
+preload = ["./src/shared/__tests__/setup.test.ts"]

@@ -293,65 +293,60 @@ export interface ProjectInfo {
 }
 
 /**
- * RingBuffer is a generic circular buffer with fixed capacity
- * Automatically drops oldest items when capacity is exceeded
+ * TreeNode represents a node in the session/agent tree visualization
+ * Used for React Flow tree rendering
  */
-export class RingBuffer<T> {
-  private buffer: T[] = [];
-  private capacity: number;
-  private head: number = 0;
-
-  constructor(capacity: number = 1000) {
-    this.capacity = Math.max(1, capacity);
-  }
-
-  /**
-   * Add an item to the buffer
-   * If buffer is full, drops the oldest item
-   */
-  push(item: T): void {
-    if (this.buffer.length < this.capacity) {
-      this.buffer.push(item);
-    } else {
-      this.buffer[this.head] = item;
-      this.head = (this.head + 1) % this.capacity;
-    }
-  }
-
-  /**
-   * Get all items in order (oldest to newest)
-   */
-  getAll(): T[] {
-    if (this.buffer.length < this.capacity) {
-      return [...this.buffer];
-    }
-    // Reconstruct in order when buffer is full
-    return [
-      ...this.buffer.slice(this.head),
-      ...this.buffer.slice(0, this.head),
-    ];
-  }
-
-  /**
-   * Get the last n items (newest first)
-   */
-  getLatest(n: number): T[] {
-    const all = this.getAll();
-    return all.slice(Math.max(0, all.length - n)).reverse();
-  }
-
-  /**
-   * Clear all items
-   */
-  clear(): void {
-    this.buffer = [];
-    this.head = 0;
-  }
-
-  /**
-   * Get current number of items
-   */
-  get size(): number {
-    return this.buffer.length;
-  }
+export interface TreeNode {
+  id: string;
+  data: {
+    title: string;
+    agent?: string;
+    model?: string;
+    isActive: boolean;
+  };
 }
+
+/**
+ * TreeEdge represents a connection between nodes in the tree
+ */
+export interface TreeEdge {
+  source: string;
+  target: string;
+}
+
+/**
+ * SessionTree represents the complete tree structure for React Flow
+ * Contains nodes and edges for visualization
+ */
+export interface SessionTree {
+  nodes: TreeNode[];
+  edges: TreeEdge[];
+}
+
+/**
+ * AgentPhase represents a continuous period of agent activity
+ * Groups consecutive messages from the same agent
+ */
+export interface AgentPhase {
+  agent: string;
+  startTime: Date;
+  endTime: Date;
+  tokens: number;
+  messageCount: number;
+}
+
+/**
+ * PollResponse is the response from the /api/poll endpoint
+ * Contains current session state, plan progress, and activity data
+ */
+export interface PollResponse {
+  sessions: SessionMetadata[];
+  activeSession: SessionMetadata | null;
+  planProgress: PlanProgress | null;
+  messages: MessageMeta[];
+  activitySessions: ActivitySession[];
+  sessionStats?: SessionStats;
+  lastUpdate: number;
+}
+
+export { RingBuffer } from '../utils/RingBuffer';

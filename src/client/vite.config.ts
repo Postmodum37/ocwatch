@@ -2,6 +2,7 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { API_BASE_URL } from '../shared/constants'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -21,7 +22,7 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:50234',
+        target: API_BASE_URL,
         changeOrigin: true,
       },
     },

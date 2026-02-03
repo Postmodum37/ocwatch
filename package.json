@@ -13,7 +13,8 @@
     "build": "cd src/client && bun run build"
   },
   "dependencies": {
-    "hono": "^4.11.7"
+    "hono": "^4.11.7",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bun": "latest",

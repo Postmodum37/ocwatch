@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { usePolling } from '../usePolling';
 import type { PollResponse } from '../usePolling';
@@ -16,12 +16,14 @@ const mockPollResponse: PollResponse = {
   ],
   activeSession: null,
   planProgress: null,
+  messages: [],
+  activitySessions: [],
   lastUpdate: Date.now(),
 };
 
 describe('usePolling', () => {
   beforeEach(() => {
-    global.fetch = vi.fn();
+    global.fetch = vi.fn() as any;
   });
 
   afterEach(() => {
@@ -69,7 +71,9 @@ describe('usePolling', () => {
       { timeout: 1000 }
     );
 
-    await new Promise(resolve => setTimeout(resolve, 250));
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 250));
+    });
 
     expect(global.fetch).toHaveBeenCalledTimes(3);
   });
@@ -100,7 +104,9 @@ describe('usePolling', () => {
       { timeout: 1000 }
     );
 
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 150));
+    });
 
     await waitFor(
       () => {
@@ -139,7 +145,9 @@ describe('usePolling', () => {
 
     const firstData = result.current.data;
 
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 150));
+    });
 
     expect(result.current.data).toBe(firstData);
     expect(result.current.error).toBeNull();
@@ -210,7 +218,9 @@ describe('usePolling', () => {
 
     unmount();
 
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
@@ -225,7 +235,9 @@ describe('usePolling', () => {
 
     renderHook(() => usePolling({ interval: 100, enabled: false }));
 
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    });
 
     expect(global.fetch).not.toHaveBeenCalled();
   });

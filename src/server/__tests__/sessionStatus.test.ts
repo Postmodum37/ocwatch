@@ -85,6 +85,7 @@ describe("isPendingToolCall", () => {
       sessionID: "ses_test",
       messageID: "msg_test",
       type: "tool",
+      tool: "bash",
       state: "pending",
     };
     expect(isPendingToolCall(part)).toBe(true);
@@ -96,6 +97,7 @@ describe("isPendingToolCall", () => {
       sessionID: "ses_test",
       messageID: "msg_test",
       type: "tool",
+      tool: "bash",
       state: "completed",
     };
     expect(isPendingToolCall(part)).toBe(false);

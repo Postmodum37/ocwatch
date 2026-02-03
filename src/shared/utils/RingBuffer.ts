@@ -6,6 +6,8 @@
  * Ported from Go implementation: internal/state/state.go:50-90
  */
 
+import { RINGBUFFER_CAPACITY } from "../constants";
+
 export class RingBuffer<T> {
   private buffer: T[] = [];
   private capacity: number;
@@ -13,9 +15,9 @@ export class RingBuffer<T> {
 
   /**
    * Create a new RingBuffer with specified capacity
-   * @param capacity Maximum number of items to store (default: 1000)
+   * @param capacity Maximum number of items to store (default: RINGBUFFER_CAPACITY)
    */
-  constructor(capacity: number = 1000) {
+  constructor(capacity: number = RINGBUFFER_CAPACITY) {
     this.capacity = Math.max(1, capacity);
   }
 
