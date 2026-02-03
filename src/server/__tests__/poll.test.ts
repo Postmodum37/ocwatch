@@ -111,15 +111,17 @@ describe("GET /api/poll", () => {
     }
   });
 
-  it("should return lastUpdate as current timestamp", async () => {
+  it("should return lastUpdate as recent timestamp", async () => {
     const beforeRequest = Date.now();
     const req = new Request("http://localhost:50234/api/poll");
     const res = await app.fetch(req);
     const afterRequest = Date.now();
     const data = await res.json();
 
-    expect(data.lastUpdate).toBeGreaterThanOrEqual(beforeRequest);
-    expect(data.lastUpdate).toBeLessThanOrEqual(afterRequest + 1000); // Allow 1s buffer
+    // Allow for 2s cache TTL - cached response may have older lastUpdate
+    const cacheTTL = 2000;
+    expect(data.lastUpdate).toBeGreaterThanOrEqual(beforeRequest - cacheTTL);
+    expect(data.lastUpdate).toBeLessThanOrEqual(afterRequest + 1000);
   });
 
   it("should handle If-None-Match header case-insensitively", async () => {
