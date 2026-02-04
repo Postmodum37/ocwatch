@@ -166,4 +166,18 @@ describe('useSSE - Liveness Detection', () => {
     const heartbeatHandlers = eventListeners['heartbeat'] || [];
     expect(heartbeatHandlers.length).toBeGreaterThan(0);
   });
+
+  it('should close EventSource and fallback after 45s timeout with no events', () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const startTime = Date.now();
+    
+    renderHook(() => useSSE({ enabled: true }));
+    
+    vi.setSystemTime(startTime + 46000);
+    vi.advanceTimersByTime(46000);
+    
+    expect(mockEventSource.close).toHaveBeenCalled();
+    
+    vi.useRealTimers();
+  });
 });

@@ -645,7 +645,7 @@ describe("formatCurrentAction", () => {
        },
      };
 
-     expect(formatCurrentAction(part)).toBe("Updated 1 todos: Single task");
+     expect(formatCurrentAction(part)).toBe("Updated 1 todo: Single task");
    });
 
    test("handles todowrite with long content truncated at 30 chars", () => {
@@ -662,7 +662,7 @@ describe("formatCurrentAction", () => {
        },
      };
 
-     expect(formatCurrentAction(part)).toBe("Updated 1 todos: A very long todo item that exc");
+     expect(formatCurrentAction(part)).toBe("Updated 1 todo: A very long todo item that exc");
    });
 
    test("handles todowrite with two todos no ellipsis", () => {

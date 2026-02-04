@@ -132,6 +132,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     es.addEventListener('session-update', handleSSEEvent);
     es.addEventListener('message-update', handleSSEEvent);
     es.addEventListener('plan-update', handleSSEEvent);
+    // Heartbeat keeps connection alive but intentionally does NOT reset liveness timer
+    // Only meaningful events (session/message/plan updates) should prevent stale detection
     es.addEventListener('heartbeat', () => {});
 
     es.onerror = () => {
