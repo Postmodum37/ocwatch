@@ -1,12 +1,15 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { compress } from "hono/compress";
 import { serveStatic } from "hono/bun";
 import { errorHandler, notFoundHandler } from "./middleware/error";
 import { registerRoutes } from "./routes";
 import { parseArgs, printHelp, openBrowser } from "./cli";
+import { getGlobalWatcher, closeAllSSEConnections } from "./routes/sse";
 
 const app = new Hono();
 
+app.use("*", compress());
 app.use("*", errorHandler);
 
 app.use(
@@ -39,6 +42,16 @@ export default {
   port,
   fetch: app.fetch,
 };
+
+function shutdown() {
+  console.log("\n🛑 Shutting down gracefully...");
+  try { getGlobalWatcher().stop(); } catch {}
+  try { closeAllSSEConnections(); } catch {}
+  process.exit(0);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
 console.log(`🚀 OCWatch API server running on ${url}`);
 if (flags.noBrowser) {

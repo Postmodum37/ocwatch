@@ -51,6 +51,18 @@ export class Watcher extends EventEmitter {
       );
       this.watchers.push(messageWatcher);
 
+      const partDir = join(this.storagePath, "opencode", "storage", "part");
+      try {
+        const partWatcher = watch(
+          partDir,
+          { recursive: false },
+          this.handleChange.bind(this)
+        );
+        this.watchers.push(partWatcher);
+      } catch {
+        // part directory may not exist yet
+      }
+
       this.emit("started");
     } catch (error) {
       this.emit("error", error);
