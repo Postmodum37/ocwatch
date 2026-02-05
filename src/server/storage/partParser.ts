@@ -322,7 +322,7 @@ export function getSessionActivityState(parts: PartMeta[]): SessionActivityState
       reasoningPreview = text.length > 40 ? text.slice(0, 37) + "..." : text;
     }
 
-    if (part.type === "patch" && part.patchFiles) {
+    if (part.type === "patch" && part.patchFiles && !part.completedAt) {
       patchFilesCount += part.patchFiles.length;
     }
 
