@@ -121,22 +121,15 @@ export async function listSessions(
 
   try {
     const entries = await readdir(sessionDir);
-    const sessions: SessionMetadata[] = [];
+    const results = await Promise.all(
+      entries
+        .filter((entry) => entry.endsWith(".json"))
+        .map((entry) => getSession(projectID, entry.slice(0, -5), storagePath))
+    );
 
-    for (const entry of entries) {
-      if (!entry.endsWith(".json")) {
-        continue;
-      }
-
-      const sessionID = entry.slice(0, -5); // Remove .json extension
-      const session = await getSession(projectID, sessionID, storagePath);
-
-      if (session) {
-        sessions.push(session);
-      }
-    }
-
-    return sessions;
+    return results.filter(
+      (session): session is SessionMetadata => session !== null
+    );
   } catch (error) {
     // Graceful handling: return empty array if directory doesn't exist
     return [];
@@ -179,12 +172,9 @@ export async function listAllSessions(
   storagePath?: string
 ): Promise<SessionMetadata[]> {
   const projectIDs = await listProjects(storagePath);
-  const allSessions: SessionMetadata[] = [];
+  const allResults = await Promise.all(
+    projectIDs.map((projectID) => listSessions(projectID, storagePath))
+  );
 
-  for (const projectID of projectIDs) {
-    const sessions = await listSessions(projectID, storagePath);
-    allSessions.push(...sessions);
-  }
-
-  return allSessions;
+  return allResults.flat();
 }
