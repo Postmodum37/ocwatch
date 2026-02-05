@@ -109,9 +109,23 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     const es = new EventSource(sseUrl);
     eventSourceRef.current = es;
 
-    const handleSSEEvent = () => {
+    const handleSSEEvent = (event: MessageEvent) => {
       lastEventTimeRef.current = Date.now();
-      
+
+      try {
+        const parsed = JSON.parse(event.data);
+        if (parsed.pollData && currentSessionIdRef.current === sessionId) {
+          setSseState(prev => ({
+            ...prev,
+            data: parsed.pollData,
+            loading: false,
+            lastUpdate: Date.now(),
+            error: null,
+          }));
+          return;
+        }
+      } catch {}
+
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
@@ -131,6 +145,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
 
     es.addEventListener('session-update', handleSSEEvent);
     es.addEventListener('message-update', handleSSEEvent);
+    es.addEventListener('part-update', handleSSEEvent);
     es.addEventListener('plan-update', handleSSEEvent);
     // Heartbeat keeps connection alive but intentionally does NOT reset liveness timer
     // Only meaningful events (session/message/plan updates) should prevent stale detection
