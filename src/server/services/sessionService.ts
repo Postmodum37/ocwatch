@@ -16,7 +16,8 @@ import {
   getToolCallsForSession, 
   generateActivityMessage
 } from "../storage/partParser";
-import { getSessionStatus, getStatusFromTimestamp, deriveActivityType } from "../utils/sessionStatus";
+import { getSessionStatus, getStatusFromTimestamp } from "../utils/sessionStatus";
+import { deriveActivityType } from "../storage/partParser";
 
 export function isAssistantFinished(messages: MessageMeta[]): boolean {
   const assistantMessages = messages.filter(m => m.role === "assistant");
@@ -129,13 +130,15 @@ export async function buildSessionTree(
     }
 
     const children = allSessions.filter((s) => s.parentID === sessionID);
-    for (const child of children) {
-      edges.push({
-        source: sessionID,
-        target: child.id,
-      });
-      await processSession(child.id, depth + 1);
-    }
+    await Promise.all(
+      children.map((child) => {
+        edges.push({
+          source: sessionID,
+          target: child.id,
+        });
+        return processSession(child.id, depth + 1);
+      })
+    );
   }
 
   await processSession(rootSessionID, 0);
@@ -177,24 +180,27 @@ export async function getSessionHierarchy(
     const parts = await getPartsForSession(rootSessionId);
     const activityState = getSessionActivityState(parts);
     
-    let workingChildCount = 0;
-    for (const child of childSessions) {
-      const childMessages = await listMessages(child.id);
-      const childParts = await getPartsForSession(child.id);
-      const childActivityState = getSessionActivityState(childParts);
-      const childLastAssistantFinished = isAssistantFinished(childMessages);
-      const childStatus = getSessionStatus(
-        childMessages,
-        childActivityState.hasPendingToolCall,
-        childActivityState.lastToolCompletedAt || undefined,
-        undefined,
-        childLastAssistantFinished,
-        true
-      );
-      if (childStatus === "working") {
-        workingChildCount++;
-      }
-    }
+    const childStatuses = await Promise.all(
+      childSessions.map(async (child) => {
+        const [childMessages, childParts] = await Promise.all([
+          listMessages(child.id),
+          getPartsForSession(child.id),
+        ]);
+        const childActivityState = getSessionActivityState(childParts);
+        const childLastAssistantFinished = isAssistantFinished(childMessages);
+        return getSessionStatus(
+          childMessages,
+          childActivityState.hasPendingToolCall,
+          childActivityState.lastToolCompletedAt || undefined,
+          undefined,
+          childLastAssistantFinished,
+          true
+        );
+      })
+    );
+    const workingChildCount = childStatuses.filter(
+      (status) => status === "working"
+    ).length;
 
     const rootLastAssistantFinished = isAssistantFinished(rootMessages);
     const status = getSessionStatus(
@@ -255,24 +261,27 @@ export async function getSessionHierarchy(
         child.createdAt >= phase.startTime && child.createdAt < nextPhaseStart
       );
 
-      let workingChildCount = 0;
-      for (const child of phaseChildren) {
-        const childMessages = await listMessages(child.id);
-        const childParts = await getPartsForSession(child.id);
-        const childActivityState = getSessionActivityState(childParts);
-        const childLastAssistantFinished = isAssistantFinished(childMessages);
-        const childStatus = getSessionStatus(
-          childMessages,
-          childActivityState.hasPendingToolCall,
-          childActivityState.lastToolCompletedAt || undefined,
-          undefined,
-          childLastAssistantFinished,
-          true
-        );
-        if (childStatus === "working") {
-          workingChildCount++;
-        }
-      }
+      const childStatuses = await Promise.all(
+        phaseChildren.map(async (child) => {
+          const [childMessages, childParts] = await Promise.all([
+            listMessages(child.id),
+            getPartsForSession(child.id),
+          ]);
+          const childActivityState = getSessionActivityState(childParts);
+          const childLastAssistantFinished = isAssistantFinished(childMessages);
+          return getSessionStatus(
+            childMessages,
+            childActivityState.hasPendingToolCall,
+            childActivityState.lastToolCompletedAt || undefined,
+            undefined,
+            childLastAssistantFinished,
+            true
+          );
+        })
+      );
+      const workingChildCount = childStatuses.filter(
+        (status) => status === "working"
+      ).length;
 
       const phaseLastAssistantFinished = isAssistantFinished(phaseMessages);
       const isLastPhase = i === phases.length - 1;
@@ -348,25 +357,27 @@ export async function processChildSession(
   const activityState = getSessionActivityState(parts);
   
   const childSessions = allSessions.filter((s) => s.parentID === sessionId);
-  let workingChildCount = 0;
-  
-  for (const child of childSessions) {
-    const childMessages = await listMessages(child.id);
-    const childParts = await getPartsForSession(child.id);
-    const childActivityState = getSessionActivityState(childParts);
-    const childLastAssistantFinished = isAssistantFinished(childMessages);
-    const childStatus = getSessionStatus(
-      childMessages,
-      childActivityState.hasPendingToolCall,
-      childActivityState.lastToolCompletedAt || undefined,
-      undefined,
-      childLastAssistantFinished,
-      true
-    );
-    if (childStatus === "working") {
-      workingChildCount++;
-    }
-  }
+  const childStatuses = await Promise.all(
+    childSessions.map(async (child) => {
+      const [childMessages, childParts] = await Promise.all([
+        listMessages(child.id),
+        getPartsForSession(child.id),
+      ]);
+      const childActivityState = getSessionActivityState(childParts);
+      const childLastAssistantFinished = isAssistantFinished(childMessages);
+      return getSessionStatus(
+        childMessages,
+        childActivityState.hasPendingToolCall,
+        childActivityState.lastToolCompletedAt || undefined,
+        undefined,
+        childLastAssistantFinished,
+        true
+      );
+    })
+  );
+  const workingChildCount = childStatuses.filter(
+    (status) => status === "working"
+  ).length;
 
   const lastAssistantFinished = isAssistantFinished(messages);
   const status = getSessionStatus(
@@ -408,7 +419,9 @@ export async function processChildSession(
     updatedAt: session.updatedAt,
   });
 
-  for (const child of childSessions) {
-    await processChildSession(child.id, session.id, allSessions, result, processed, depth + 1);
-  }
+  await Promise.all(
+    childSessions.map((child) =>
+      processChildSession(child.id, session.id, allSessions, result, processed, depth + 1)
+    )
+  );
 }
