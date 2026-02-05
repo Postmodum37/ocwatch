@@ -9,6 +9,7 @@ import { SessionStats } from './components/SessionStats'
 import { AppProvider, useAppContext } from './store/AppContext'
 import { SessionListSkeleton } from './components/LoadingSkeleton'
 import { synthesizeActivityItems } from '@shared/types'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 function AppContent() {
   const { 
@@ -25,6 +26,12 @@ function AppContent() {
     error,
     isReconnecting
   } = useAppContext();
+
+  useKeyboardShortcuts({
+    sessions,
+    selectedId: selectedSessionId,
+    onSelect: setSelectedSessionId,
+  });
 
   const activityItems = synthesizeActivityItems(activitySessions)
 

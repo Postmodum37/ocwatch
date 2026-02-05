@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Loader2, Check, Circle, Folder, ChevronDown, Inbox, Clock } from 'lucide-react';
 import type { SessionMetadata, ProjectInfo, SessionStatus, SessionActivityType } from '@shared/types';
+import { formatRelativeTimeVerbose } from '@shared/utils/formatTime';
 import { EmptyState } from './EmptyState';
 
 interface SessionListProps {
@@ -11,17 +12,6 @@ interface SessionListProps {
   selectedProjectId?: string | null;
   onProjectSelect?: (id: string | null) => void;
 }
-
-const formatRelativeTime = (date: Date | string) => {
-  const d = new Date(date);
-  const now = new Date();
-  const diffInSeconds = Math.max(0, Math.floor((now.getTime() - d.getTime()) / 1000));
-
-  if (diffInSeconds < 60) return 'just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  return `${Math.floor(diffInSeconds / 86400)}d ago`;
-};
 
 const SessionStatusIcon: React.FC<{ status: SessionStatus; activityType?: SessionActivityType }> = ({ status, activityType }) => {
   if (status === 'working') {
@@ -123,7 +113,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                 >
                   <span className="truncate">{project.directory.split('/').pop()}</span>
                   <span className="text-xs text-text-secondary ml-2 shrink-0">
-                    {formatRelativeTime(project.lastActivityAt)}
+                    {formatRelativeTimeVerbose(project.lastActivityAt)}
                   </span>
                 </button>
               ))}
@@ -132,8 +122,14 @@ export const SessionList: React.FC<SessionListProps> = ({
         </div>
         <h2 className="text-text-primary font-semibold text-lg">Sessions</h2>
       </div>
-       <div className="flex-1 overflow-y-auto">
-         {sortedSessions.length === 0 ? (
+        <div 
+          className="flex-1 overflow-y-auto" 
+          role="listbox" 
+          aria-label="Sessions"
+          tabIndex={0}
+          aria-activedescendant={selectedId || undefined}
+        >
+          {sortedSessions.length === 0 ? (
            <EmptyState
              icon={Inbox}
              title="No Sessions"
@@ -155,17 +151,19 @@ export const SessionList: React.FC<SessionListProps> = ({
                 else if (status === 'completed') borderClass = 'border-l-transparent';
              }
 
-             return (
-               <button
-                 type="button"
-                 key={session.id}
-                 data-testid={`session-item-${session.id}`}
-                 onClick={() => onSelect(session.id)}
-                 className={`w-full text-left p-3 border-b border-border hover:bg-background transition-colors flex flex-col gap-1 group border-l-2
-                   ${borderClass}
-                   ${isSelected ? 'bg-background' : ''}
-                 `}
-               >
+              return (
+                <button
+                  type="button"
+                  key={session.id}
+                  data-testid={`session-item-${session.id}`}
+                  onClick={() => onSelect(session.id)}
+                  role="option"
+                  aria-selected={isSelected}
+                  className={`w-full text-left p-3 border-b border-border hover:bg-background transition-colors flex flex-col gap-1 group border-l-2
+                    ${borderClass}
+                    ${isSelected ? 'bg-background' : ''}
+                  `}
+                >
                  <div className="flex items-center gap-2 w-full">
                    <div className="shrink-0 mt-0.5">
                      <SessionStatusIcon status={status} activityType={activityType} />
@@ -174,7 +172,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                      {session.title || 'Untitled Session'}
                    </h3>
                    <span className="text-xs text-text-secondary shrink-0">
-                     {formatRelativeTime(session.updatedAt)}
+                     {formatRelativeTimeVerbose(session.updatedAt)}
                    </span>
                  </div>
 
