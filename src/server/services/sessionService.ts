@@ -210,9 +210,10 @@ export async function getSessionHierarchy(
       activityState,
       rootLastAssistantFinished,
       false,
+      status,
       pendingParts[0]
     );
-    const activityType = deriveActivityType(activityState, rootLastAssistantFinished, false);
+    const activityType = deriveActivityType(activityState, rootLastAssistantFinished, false, status);
 
     const toolCalls = await getToolCallsForSession(rootSessionId, messageAgent);
 
@@ -382,9 +383,10 @@ export async function processChildSession(
     activityState,
     lastAssistantFinished,
     true,
+    status,
     pendingParts[0]
   );
-  const activityType = deriveActivityType(activityState, lastAssistantFinished, true);
+  const activityType = deriveActivityType(activityState, lastAssistantFinished, true, status);
 
   const toolCalls = await getToolCallsForSession(sessionId, messageAgent);
 

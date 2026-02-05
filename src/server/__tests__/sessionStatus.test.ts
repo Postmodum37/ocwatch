@@ -213,9 +213,19 @@ describe("getSessionStatus - tool completion and waiting logic", () => {
       expect(getSessionStatus(messages, true, undefined, undefined, true)).toBe("working");
     });
 
-    test("finished status returns waiting even for old messages", () => {
-      const messages = [createMessage(120)]; // 2 min ago (would be idle)
+    test("finished status returns waiting for recent sessions (< 5 min)", () => {
+      const messages = [createMessage(120)]; // 2 min ago (within 5 min threshold)
       expect(getSessionStatus(messages, false, undefined, undefined, true)).toBe("waiting");
+    });
+
+    test("finished status returns completed for OLD sessions (>= 5 min)", () => {
+      const messages = [createMessage(600)]; // 10 min ago (exceeds 5 min threshold)
+      expect(getSessionStatus(messages, false, undefined, undefined, true)).toBe("completed");
+    });
+
+    test("finished status returns completed for very old sessions (hours ago)", () => {
+      const messages = [createMessage(3600)]; // 1 hour ago
+      expect(getSessionStatus(messages, false, undefined, undefined, true)).toBe("completed");
     });
 
     test("returns time-based when not finished", () => {

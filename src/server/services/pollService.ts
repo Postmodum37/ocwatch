@@ -3,7 +3,7 @@ import type { PollResponse, SessionMetadata, MessageMeta, PlanProgress, Activity
 import { listAllSessions, checkStorageExists } from "../storage/sessionParser";
 import { listMessages, getFirstAssistantMessage } from "../storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "../storage/boulderParser";
-import { getPartsForSession, getSessionActivityState, isPendingToolCall, generateActivityMessage } from "../storage/partParser";
+import { getPartsForSession, getSessionActivityState, isPendingToolCall, generateActivityMessage, deriveActivityType } from "../storage/partParser";
 import { getSessionStatus } from "../utils/sessionStatus";
 import { isAssistantFinished, getSessionHierarchy } from "./sessionService";
 import { aggregateSessionStats } from "./statsService";
@@ -104,8 +104,11 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
         activityState,
         lastAssistantFinished,
         false,
+        status,
         pendingParts[0]
       );
+      
+      const activityType = deriveActivityType(activityState, lastAssistantFinished, false, status);
       
       return {
         ...session,
@@ -113,6 +116,7 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
         modelID: firstAssistantMsg?.modelID || null,
         providerID: firstAssistantMsg?.providerID || null,
         status,
+        activityType,
         currentAction,
       };
     })

@@ -12,6 +12,10 @@ vi.mock('lucide-react', () => ({
   Check: () => <div data-testid="icon-check" />,
   Loader2: () => <div data-testid="icon-loader" />,
   Circle: () => <div data-testid="icon-circle" />,
+  Clock: () => <div data-testid="icon-clock" />,
+  Sparkles: () => <div data-testid="icon-sparkles" />,
+  FileEdit: () => <div data-testid="icon-file-edit" />,
+  Terminal: () => <div data-testid="icon-terminal" />,
 }));
 
 describe('LiveActivity', () => {
@@ -154,7 +158,7 @@ describe('LiveActivity', () => {
     expect(agentBadges[1]).toHaveTextContent('explore');
   });
 
-  it('displays waiting status with hollow circle', () => {
+  it('displays waiting status with clock icon', () => {
     const waitingSession: ActivitySession[] = [
       {
         id: 'waiting-1',
@@ -170,7 +174,7 @@ describe('LiveActivity', () => {
     
     const statusIndicator = screen.getByTestId('status-waiting');
     expect(statusIndicator).toBeInTheDocument();
-    expect(screen.getByTestId('icon-circle')).toBeInTheDocument();
+    expect(screen.getByTestId('icon-clock')).toBeInTheDocument();
   });
 
    it('displays "waiting on N agents" when workingChildCount > 0', () => {
@@ -188,7 +192,7 @@ describe('LiveActivity', () => {
 
      render(<LiveActivity sessions={waitingOnChildrenSession} loading={false} />);
      
-     expect(screen.getByText('waiting on 3 agents')).toBeInTheDocument();
+      expect(screen.getByText('Waiting on 3 agents')).toBeInTheDocument();
    });
 
    it('displays currentAction text instead of "Thinking..."', () => {
@@ -262,7 +266,7 @@ describe('LiveActivity', () => {
     });
 
     describe('SessionRow compact layout', () => {
-      it('truncates task summary longer than 80 characters', () => {
+      it('displays full action text without truncation', () => {
         const longActionSession: ActivitySession[] = [{
           id: 'long-action',
           title: 'Test',
@@ -275,7 +279,7 @@ describe('LiveActivity', () => {
         render(<LiveActivity sessions={longActionSession} loading={false} />);
         
         const actionText = screen.getByTestId('current-action');
-        expect(actionText.textContent).toContain('This is a very long action text that should be truncated at approximately eig...');
+        expect(actionText.textContent).toBe('This is a very long action text that should be truncated at approximately eighty characters total');
       });
 
       it('shows tool name with primary argument on separate line when toolCalls exist', () => {

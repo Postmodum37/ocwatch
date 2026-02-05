@@ -15,6 +15,7 @@ export interface SessionMetadata {
   modelID?: string | null;
   providerID?: string | null;
   status?: SessionStatus;
+  activityType?: SessionActivityType;
   currentAction?: string | null;
   createdAt: Date;
   updatedAt: Date;

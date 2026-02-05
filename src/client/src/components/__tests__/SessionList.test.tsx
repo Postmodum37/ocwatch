@@ -47,6 +47,16 @@ const mockSessions: SessionMetadata[] = [
     createdAt: new Date(),
     updatedAt: new Date(),
   },
+  {
+    id: '6',
+    projectID: 'p1',
+    directory: '/tmp/p1',
+    title: 'Waiting User Session',
+    status: 'waiting',
+    activityType: 'waiting-user',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
 ];
 
 const mockProjects: ProjectInfo[] = [
@@ -216,5 +226,39 @@ describe('SessionList', () => {
   it('renders current action text when available', () => {
     render(<SessionList sessions={mockSessions} selectedId={null} onSelect={() => {}} />);
     expect(screen.getByText('Processing data...')).toBeDefined();
+  });
+
+  it('renders waiting-user status with Clock icon', () => {
+    render(<SessionList sessions={mockSessions} selectedId={null} onSelect={() => {}} />);
+    expect(screen.getByTestId('session-status-waiting-user')).toBeDefined();
+  });
+
+  it('differentiates waiting-user from regular waiting status', () => {
+    render(<SessionList sessions={mockSessions} selectedId={null} onSelect={() => {}} />);
+    const waitingIcon = screen.getByTestId('session-status-waiting');
+    const waitingUserIcon = screen.getByTestId('session-status-waiting-user');
+    expect(waitingIcon).toBeDefined();
+    expect(waitingUserIcon).toBeDefined();
+    expect(waitingIcon).not.toBe(waitingUserIcon);
+  });
+
+  it('uses stable sort with id as secondary key', () => {
+    const sameTimestamp = new Date();
+    const sessionsWithSameTime: SessionMetadata[] = [
+      { id: 'z', projectID: 'p1', directory: '/tmp', title: 'Z Session', createdAt: sameTimestamp, updatedAt: sameTimestamp },
+      { id: 'a', projectID: 'p1', directory: '/tmp', title: 'A Session', createdAt: sameTimestamp, updatedAt: sameTimestamp },
+      { id: 'm', projectID: 'p1', directory: '/tmp', title: 'M Session', createdAt: sameTimestamp, updatedAt: sameTimestamp },
+    ];
+    render(<SessionList sessions={sessionsWithSameTime} selectedId={null} onSelect={() => {}} />);
+    const items = screen.getAllByTestId(/session-item-/);
+    expect(items[0].getAttribute('data-testid')).toBe('session-item-a');
+    expect(items[1].getAttribute('data-testid')).toBe('session-item-m');
+    expect(items[2].getAttribute('data-testid')).toBe('session-item-z');
+  });
+
+  it('applies warning border color for waiting-user status', () => {
+    render(<SessionList sessions={mockSessions} selectedId={null} onSelect={() => {}} />);
+    const waitingUserItem = screen.getByTestId('session-item-6');
+    expect(waitingUserItem.className).toContain('border-l-warning');
   });
 });

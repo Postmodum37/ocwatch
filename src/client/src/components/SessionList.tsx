@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Loader2, Check, Circle, Folder, ChevronDown, Inbox } from 'lucide-react';
-import type { SessionMetadata, ProjectInfo, SessionStatus } from '@shared/types';
+import { Loader2, Check, Circle, Folder, ChevronDown, Inbox, Clock } from 'lucide-react';
+import type { SessionMetadata, ProjectInfo, SessionStatus, SessionActivityType } from '@shared/types';
 import { EmptyState } from './EmptyState';
 
 interface SessionListProps {
@@ -23,6 +23,25 @@ const formatRelativeTime = (date: Date | string) => {
   return `${Math.floor(diffInSeconds / 86400)}d ago`;
 };
 
+const SessionStatusIcon: React.FC<{ status: SessionStatus; activityType?: SessionActivityType }> = ({ status, activityType }) => {
+  if (status === 'working') {
+    return <Loader2 className="w-4 h-4 text-accent animate-spin" data-testid="session-status-working" />;
+  }
+  
+  if (status === 'idle') {
+    return <Circle className="w-4 h-4 text-success animate-pulse" data-testid="session-status-idle" />;
+  }
+
+  if (status === 'waiting') {
+    if (activityType === 'waiting-user') {
+      return <Clock className="w-4 h-4 text-warning" data-testid="session-status-waiting-user" />;
+    }
+    return <Circle className="w-4 h-4 text-text-secondary" data-testid="session-status-waiting" />;
+  }
+
+  return <Check className="w-4 h-4 text-text-secondary" data-testid="session-status-completed" />;
+};
+
 export const SessionList: React.FC<SessionListProps> = ({ 
   sessions, 
   selectedId, 
@@ -36,6 +55,12 @@ export const SessionList: React.FC<SessionListProps> = ({
   const filteredSessions = selectedProjectId
     ? sessions.filter(s => s.projectID === selectedProjectId)
     : sessions;
+
+  const sortedSessions = [...filteredSessions].sort((a, b) => {
+    const timeDiff = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return a.id.localeCompare(b.id);
+  });
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
   const projectName = selectedProject?.directory.split('/').pop() || 'All Projects';
@@ -108,32 +133,27 @@ export const SessionList: React.FC<SessionListProps> = ({
         <h2 className="text-text-primary font-semibold text-lg">Sessions</h2>
       </div>
        <div className="flex-1 overflow-y-auto">
-         {filteredSessions.length === 0 ? (
+         {sortedSessions.length === 0 ? (
            <EmptyState
              icon={Inbox}
              title="No Sessions"
              description={selectedProjectId ? "No sessions found in this project" : "No active sessions in the last 24 hours"}
            />
          ) : (
-           filteredSessions.map((session) => {
+           sortedSessions.map((session) => {
              const isSelected = session.id === selectedId;
              const status: SessionStatus = session.status || 'completed';
+             const activityType = session.activityType;
 
-               const StatusIcon = () => {
-               switch (status) {
-                 case 'working':
-                   return <Loader2 className="w-4 h-4 text-accent animate-spin" data-testid="session-status-working" />;
-                 case 'idle':
-                   return <Circle className="w-4 h-4 text-success animate-pulse" data-testid="session-status-idle" />;
-                 case 'waiting':
-                   return <Circle className="w-4 h-4 text-text-secondary" data-testid="session-status-waiting" />;
-                 case 'completed':
-                 default:
-                   return <Check className="w-4 h-4 text-text-secondary" data-testid="session-status-completed" />;
-               }
-             };
-
-             const dotColor = status === 'working' ? 'bg-accent' : status === 'idle' ? 'bg-success' : 'bg-text-secondary';
+             let borderClass = 'border-l-transparent';
+             if (isSelected) {
+               borderClass = 'border-l-accent';
+             } else {
+                if (status === 'working') borderClass = 'border-l-accent';
+                else if (status === 'idle') borderClass = 'border-l-success';
+                else if (status === 'waiting' && activityType === 'waiting-user') borderClass = 'border-l-warning';
+                else if (status === 'completed') borderClass = 'border-l-transparent';
+             }
 
              return (
                <button
@@ -141,42 +161,42 @@ export const SessionList: React.FC<SessionListProps> = ({
                  key={session.id}
                  data-testid={`session-item-${session.id}`}
                  onClick={() => onSelect(session.id)}
-                 className={`w-full text-left p-3 border-b border-border hover:bg-background transition-colors flex items-start gap-3 group
-                   ${isSelected ? 'bg-background border-l-2 border-l-accent' : 'border-l-2 border-l-transparent'}
+                 className={`w-full text-left p-3 border-b border-border hover:bg-background transition-colors flex flex-col gap-1 group border-l-2
+                   ${borderClass}
+                   ${isSelected ? 'bg-background' : ''}
                  `}
                >
-                 <div className="mt-1 shrink-0">
-                   <StatusIcon />
-                 </div>
-                 <div className="flex-1 min-w-0">
-                   <h3 className={`font-medium truncate text-sm mb-1 ${isSelected ? 'text-accent' : 'text-text-primary'}`}>
+                 <div className="flex items-center gap-2 w-full">
+                   <div className="shrink-0 mt-0.5">
+                     <SessionStatusIcon status={status} activityType={activityType} />
+                   </div>
+                   <h3 className={`font-medium truncate text-sm flex-1 ${isSelected ? 'text-accent' : 'text-text-primary'}`}>
                      {session.title || 'Untitled Session'}
                    </h3>
-                   <div className="flex items-center gap-2">
-                     <div className={`w-2 h-2 rounded-full ${dotColor}`} />
-                     <span className="text-xs text-text-secondary truncate shrink-0">
-                       {formatRelativeTime(session.updatedAt)}
+                   <span className="text-xs text-text-secondary shrink-0">
+                     {formatRelativeTime(session.updatedAt)}
+                   </span>
+                 </div>
+
+                 <div className="flex items-center gap-2 pl-6 w-full min-w-0">
+                   <span className="text-xs text-text-secondary truncate flex-1 min-w-0" title={session.currentAction || ''}>
+                     {session.currentAction || 'No active task'}
+                   </span>
+                   
+                   {session.agent && (
+                     <span className="px-1.5 py-0.5 rounded text-[10px] bg-surface border border-border text-text-secondary shrink-0">
+                       {session.agent}
                      </span>
-                     {selectedProjectId === null && (
-                       <span 
-                         className="flex items-center gap-1 text-xs text-text-secondary truncate max-w-[80px]" 
-                         title={session.directory || session.projectID}
-                       >
-                         <Folder className="w-3 h-3 shrink-0" />
-                         <span className="truncate">{getProjectName(session.projectID)}</span>
-                       </span>
-                     )}
-                     {session.agent && (
-                       <span className="px-1.5 py-0.5 rounded bg-surface border border-border text-xs text-text-secondary truncate max-w-[120px]" title={session.agent}>
-                         {session.agent}
-                       </span>
-                     )}
-                     {session.currentAction && (
-                       <span className="text-xs text-text-secondary truncate flex-1 min-w-0" title={session.currentAction}>
-                         {session.currentAction}
-                       </span>
-                     )}
-                   </div>
+                   )}
+                   
+                   {selectedProjectId === null && (
+                     <span 
+                       className="text-[10px] text-text-secondary bg-surface border border-border px-1.5 py-0.5 rounded truncate max-w-[80px] shrink-0" 
+                       title={session.directory || session.projectID}
+                     >
+                       {getProjectName(session.projectID)}
+                     </span>
+                   )}
                  </div>
                </button>
              );

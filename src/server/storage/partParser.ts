@@ -344,12 +344,49 @@ export function getSessionActivityState(parts: PartMeta[]): SessionActivityState
   };
 }
 
+import type { SessionActivityType, SessionStatus } from "../../shared/types";
+
+export function deriveActivityType(
+  activityState: SessionActivityState,
+  lastAssistantFinished: boolean,
+  isSubagent: boolean,
+  status: SessionStatus
+): SessionActivityType {
+  if (status === "completed") {
+    return "idle";
+  }
+  if (lastAssistantFinished && !isSubagent && status === "waiting") {
+    return "waiting-user";
+  }
+  if (activityState.pendingCount > 0) {
+    return "tool";
+  }
+  if (activityState.isReasoning) {
+    return "reasoning";
+  }
+  if (activityState.patchFilesCount > 0) {
+    return "patch";
+  }
+  if (activityState.stepFinishReason === "tool-calls") {
+    return "waiting-tools";
+  }
+  return "idle";
+}
+
 export function generateActivityMessage(
   activityState: SessionActivityState,
   lastAssistantFinished: boolean,
   isSubagent: boolean,
+  status: SessionStatus,
   pendingPart?: PartMeta
 ): string | null {
+  if (status === "completed") {
+    return null;
+  }
+  if (lastAssistantFinished && !isSubagent && status === "waiting") {
+    return "Waiting for user input";
+  }
+
   if (activityState.pendingCount > 1) {
     const toolNames = activityState.activeToolNames.slice(0, 3).join(", ");
     const firstToolAction = pendingPart ? formatCurrentAction(pendingPart) : null;
@@ -373,10 +410,6 @@ export function generateActivityMessage(
 
   if (activityState.stepFinishReason === "tool-calls") {
     return "Waiting for tool results";
-  }
-
-  if (lastAssistantFinished && !isSubagent) {
-    return "Waiting for user input";
   }
 
   return null;

@@ -171,10 +171,6 @@ const SessionRow = memo<{ node: SessionNode; depth: number; isLast: boolean }>(f
      }
    }
 
-   const truncatedAction = currentActionText && currentActionText.length > 80 
-     ? currentActionText.slice(0, 77) + '...' 
-     : currentActionText;
-
    const toolInfo = getFullToolDisplayText(session.toolCalls);
    
    return (
@@ -202,9 +198,9 @@ const SessionRow = memo<{ node: SessionNode; depth: number; isLast: boolean }>(f
          <AgentBadge agent={session.agent} status={status} />
          
          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-           <span className="text-text-secondary text-xs truncate" data-testid="current-action">
-             {truncatedAction}
-           </span>
+            <span className="text-text-secondary text-xs" data-testid="current-action">
+              {currentActionText}
+            </span>
            
            {toolInfo && !session.activityType?.startsWith('waiting') && (
              <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono" data-testid="tool-info">
