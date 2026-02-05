@@ -122,26 +122,13 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
     })
   );
 
-  let activeSession: SessionMetadata | null = null;
-  for (const session of rootSessions) {
-    const messages = await getCachedMessages(session.id);
-    const parts = await getPartsForSession(session.id);
-    const activityState = getSessionActivityState(parts);
-    const lastAssistantFinished = isAssistantFinished(messages);
-    
-    const status = getSessionStatus(
-      messages,
-      activityState.hasPendingToolCall,
-      activityState.lastToolCompletedAt || undefined,
-      undefined,
-      lastAssistantFinished
-    );
-
-    if (status === "working" || status === "idle") {
-      activeSession = session;
-      break;
-    }
-  }
+   let activeSession: SessionMetadata | null = null;
+   const activeEnriched = sessionsWithAgent.find(
+     s => s.status === "working" || s.status === "idle"
+   );
+   if (activeEnriched) {
+     activeSession = rootSessions.find(s => s.id === activeEnriched.id) ?? null;
+   }
 
   let planProgress: PlanProgress | null = null;
   try {

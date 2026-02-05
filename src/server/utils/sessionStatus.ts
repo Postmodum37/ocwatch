@@ -3,8 +3,8 @@
  * Determines session status based on message timestamps and tool call state
  */
 
-import type { MessageMeta, SessionStatus, SessionActivityType } from "../../shared/types";
-import { isPendingToolCall, type SessionActivityState } from "../storage/partParser";
+import type { MessageMeta, SessionStatus } from "../../shared/types";
+import { isPendingToolCall } from "../storage/partParser";
 
 export type { SessionStatus };
 export { isPendingToolCall };
@@ -94,35 +94,4 @@ export function getStatusFromTimestamp(
   }
 }
 
-export function deriveActivityType(
-  activityState: SessionActivityState,
-  lastAssistantFinished: boolean,
-  isSubagent: boolean,
-  status: SessionStatus
-): SessionActivityType {
-  if (status === "completed") {
-    return "idle";
-  }
 
-  if (activityState.pendingCount > 0) {
-    return "tool";
-  }
-
-  if (activityState.isReasoning) {
-    return "reasoning";
-  }
-
-  if (activityState.patchFilesCount > 0) {
-    return "patch";
-  }
-
-  if (activityState.stepFinishReason === "tool-calls") {
-    return "waiting-tools";
-  }
-
-  if (lastAssistantFinished && !isSubagent && status === "waiting") {
-    return "waiting-user";
-  }
-
-  return "idle";
-}
