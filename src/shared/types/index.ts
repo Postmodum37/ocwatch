@@ -42,6 +42,8 @@ export interface MessageMeta {
  * ActivitySession represents a session in the live activity view
  * Includes agent info and hierarchy
  */
+export type SessionActivityType = "tool" | "reasoning" | "patch" | "waiting-tools" | "waiting-user" | "idle";
+
 export interface ActivitySession {
   id: string;
   title: string;
@@ -52,6 +54,9 @@ export interface ActivitySession {
   tokens?: number;
   status?: SessionStatus;
   currentAction?: string | null;
+  activityType?: SessionActivityType;
+  pendingToolCount?: number;
+  patchFilesCount?: number;
   lastToolCompletedAt?: Date;
   workingChildCount?: number;
   toolCalls?: ToolCallSummary[];
@@ -83,6 +88,10 @@ export interface PartMeta {
   title?: string;
   startedAt?: Date;
   completedAt?: Date;
+  stepSnapshot?: string;
+  stepFinishReason?: "stop" | "tool-calls";
+  reasoningText?: string;
+  patchFiles?: string[];
 }
 
 /**

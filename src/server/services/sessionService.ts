@@ -2,7 +2,6 @@ import type {
   SessionMetadata, 
   MessageMeta, 
   ActivitySession, 
-  SessionStatus, 
   TreeNode, 
   TreeEdge, 
   SessionTree, 
@@ -12,12 +11,12 @@ import { MAX_RECURSION_DEPTH } from "../../shared/constants";
 import { listMessages } from "../storage/messageParser";
 import { 
   getPartsForSession, 
-  getSessionToolState, 
+  getSessionActivityState,
   isPendingToolCall, 
   getToolCallsForSession, 
-  formatCurrentAction 
+  generateActivityMessage
 } from "../storage/partParser";
-import { getSessionStatus, getStatusFromTimestamp } from "../utils/sessionStatus";
+import { getSessionStatus, getStatusFromTimestamp, deriveActivityType } from "../utils/sessionStatus";
 
 export function isAssistantFinished(messages: MessageMeta[]): boolean {
   const assistantMessages = messages.filter(m => m.role === "assistant");
@@ -176,18 +175,18 @@ export async function getSessionHierarchy(
       .reduce((sum, m) => sum + (m.tokens || 0), 0);
 
     const parts = await getPartsForSession(rootSessionId);
-    const toolState = getSessionToolState(parts);
+    const activityState = getSessionActivityState(parts);
     
     let workingChildCount = 0;
     for (const child of childSessions) {
       const childMessages = await listMessages(child.id);
       const childParts = await getPartsForSession(child.id);
-      const childToolState = getSessionToolState(childParts);
+      const childActivityState = getSessionActivityState(childParts);
       const childLastAssistantFinished = isAssistantFinished(childMessages);
       const childStatus = getSessionStatus(
         childMessages,
-        childToolState.hasPendingToolCall,
-        childToolState.lastToolCompletedAt || undefined,
+        childActivityState.hasPendingToolCall,
+        childActivityState.lastToolCompletedAt || undefined,
         undefined,
         childLastAssistantFinished,
         true
@@ -200,19 +199,20 @@ export async function getSessionHierarchy(
     const rootLastAssistantFinished = isAssistantFinished(rootMessages);
     const status = getSessionStatus(
       rootMessages,
-      toolState.hasPendingToolCall,
-      toolState.lastToolCompletedAt || undefined,
+      activityState.hasPendingToolCall,
+      activityState.lastToolCompletedAt || undefined,
       workingChildCount,
       rootLastAssistantFinished
     );
 
-    let currentAction: string | null = null;
-    if (status === "working") {
-      const pendingParts = parts.filter(p => isPendingToolCall(p));
-      if (pendingParts.length > 0) {
-        currentAction = formatCurrentAction(pendingParts[0]);
-      }
-    }
+    const pendingParts = parts.filter(p => isPendingToolCall(p));
+    const currentAction = generateActivityMessage(
+      activityState,
+      rootLastAssistantFinished,
+      false,
+      pendingParts[0]
+    );
+    const activityType = deriveActivityType(activityState, rootLastAssistantFinished, false);
 
     const toolCalls = await getToolCallsForSession(rootSessionId, messageAgent);
 
@@ -226,6 +226,9 @@ export async function getSessionHierarchy(
       tokens: totalTokens > 0 ? totalTokens : undefined,
       status,
       currentAction,
+      activityType,
+      pendingToolCount: activityState.pendingCount > 0 ? activityState.pendingCount : undefined,
+      patchFilesCount: activityState.patchFilesCount > 0 ? activityState.patchFilesCount : undefined,
       toolCalls,
       createdAt: rootSession.createdAt,
       updatedAt: rootSession.updatedAt,
@@ -255,12 +258,12 @@ export async function getSessionHierarchy(
       for (const child of phaseChildren) {
         const childMessages = await listMessages(child.id);
         const childParts = await getPartsForSession(child.id);
-        const childToolState = getSessionToolState(childParts);
+        const childActivityState = getSessionActivityState(childParts);
         const childLastAssistantFinished = isAssistantFinished(childMessages);
         const childStatus = getSessionStatus(
           childMessages,
-          childToolState.hasPendingToolCall,
-          childToolState.lastToolCompletedAt || undefined,
+          childActivityState.hasPendingToolCall,
+          childActivityState.lastToolCompletedAt || undefined,
           undefined,
           childLastAssistantFinished,
           true
@@ -291,6 +294,7 @@ export async function getSessionHierarchy(
         tokens: phase.tokens > 0 ? phase.tokens : undefined,
         status,
         currentAction: null,
+        activityType: "idle",
         toolCalls,
         createdAt: phase.startTime,
         updatedAt: phase.endTime,
@@ -340,7 +344,7 @@ export async function processChildSession(
   }
 
   const parts = await getPartsForSession(sessionId);
-  const toolState = getSessionToolState(parts);
+  const activityState = getSessionActivityState(parts);
   
   const childSessions = allSessions.filter((s) => s.parentID === sessionId);
   let workingChildCount = 0;
@@ -348,12 +352,12 @@ export async function processChildSession(
   for (const child of childSessions) {
     const childMessages = await listMessages(child.id);
     const childParts = await getPartsForSession(child.id);
-    const childToolState = getSessionToolState(childParts);
+    const childActivityState = getSessionActivityState(childParts);
     const childLastAssistantFinished = isAssistantFinished(childMessages);
     const childStatus = getSessionStatus(
       childMessages,
-      childToolState.hasPendingToolCall,
-      childToolState.lastToolCompletedAt || undefined,
+      childActivityState.hasPendingToolCall,
+      childActivityState.lastToolCompletedAt || undefined,
       undefined,
       childLastAssistantFinished,
       true
@@ -366,20 +370,21 @@ export async function processChildSession(
   const lastAssistantFinished = isAssistantFinished(messages);
   const status = getSessionStatus(
     messages,
-    toolState.hasPendingToolCall,
-    toolState.lastToolCompletedAt || undefined,
+    activityState.hasPendingToolCall,
+    activityState.lastToolCompletedAt || undefined,
     workingChildCount,
     lastAssistantFinished,
     true
   );
 
-  let currentAction: string | null = null;
-  if (status === "working") {
-    const pendingParts = parts.filter(p => isPendingToolCall(p));
-    if (pendingParts.length > 0) {
-      currentAction = formatCurrentAction(pendingParts[0]);
-    }
-  }
+  const pendingParts = parts.filter(p => isPendingToolCall(p));
+  const currentAction = generateActivityMessage(
+    activityState,
+    lastAssistantFinished,
+    true,
+    pendingParts[0]
+  );
+  const activityType = deriveActivityType(activityState, lastAssistantFinished, true);
 
   const toolCalls = await getToolCallsForSession(sessionId, messageAgent);
 
@@ -393,6 +398,9 @@ export async function processChildSession(
     tokens: totalTokens > 0 ? totalTokens : undefined,
     status,
     currentAction,
+    activityType,
+    pendingToolCount: activityState.pendingCount > 0 ? activityState.pendingCount : undefined,
+    patchFilesCount: activityState.patchFilesCount > 0 ? activityState.patchFilesCount : undefined,
     toolCalls,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,

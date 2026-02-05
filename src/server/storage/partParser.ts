@@ -36,6 +36,9 @@ interface PartJSON {
     start: number;
     end?: number;
   };
+  snapshot?: string;
+  reason?: string;
+  files?: string[];
 }
 
 /**
@@ -95,6 +98,10 @@ export async function parsePart(filePath: string): Promise<PartMeta | null> {
       title,
       startedAt,
       completedAt,
+      stepSnapshot: json.snapshot,
+      stepFinishReason: json.reason === "stop" || json.reason === "tool-calls" ? json.reason : undefined,
+      reasoningText: json.type === "reasoning" ? json.text : undefined,
+      patchFiles: json.files,
     };
   } catch (error) {
     return null;
@@ -266,6 +273,113 @@ export function getSessionToolState(parts: PartMeta[]): SessionToolState {
     completedCount,
     lastToolCompletedAt,
   };
+}
+
+export interface SessionActivityState {
+  hasPendingToolCall: boolean;
+  pendingCount: number;
+  completedCount: number;
+  lastToolCompletedAt: Date | null;
+  isReasoning: boolean;
+  reasoningPreview: string | null;
+  patchFilesCount: number;
+  stepFinishReason: "stop" | "tool-calls" | null;
+  activeToolNames: string[];
+}
+
+export function getSessionActivityState(parts: PartMeta[]): SessionActivityState {
+  let pendingCount = 0;
+  let completedCount = 0;
+  let lastToolCompletedAt: Date | null = null;
+  let isReasoning = false;
+  let reasoningPreview: string | null = null;
+  let patchFilesCount = 0;
+  let stepFinishReason: "stop" | "tool-calls" | null = null;
+  const activeToolNames: string[] = [];
+
+  const sortedParts = [...parts].sort((a, b) => {
+    const timeA = a.startedAt?.getTime() || 0;
+    const timeB = b.startedAt?.getTime() || 0;
+    return timeB - timeA;
+  });
+
+  for (const part of sortedParts) {
+    if (part.type === "tool" && part.tool) {
+      if (isPendingToolCall(part)) {
+        pendingCount++;
+        activeToolNames.push(part.tool.replace(/^mcp_/, ""));
+      } else if (part.state === "completed") {
+        completedCount++;
+        if (part.completedAt && (!lastToolCompletedAt || part.completedAt > lastToolCompletedAt)) {
+          lastToolCompletedAt = part.completedAt;
+        }
+      }
+    }
+
+    if (part.type === "reasoning" && part.reasoningText && !isReasoning) {
+      isReasoning = true;
+      const text = part.reasoningText.trim();
+      reasoningPreview = text.length > 40 ? text.slice(0, 37) + "..." : text;
+    }
+
+    if (part.type === "patch" && part.patchFiles) {
+      patchFilesCount += part.patchFiles.length;
+    }
+
+    if (part.type === "step-finish" && part.stepFinishReason && !stepFinishReason) {
+      stepFinishReason = part.stepFinishReason;
+    }
+  }
+
+  return {
+    hasPendingToolCall: pendingCount > 0,
+    pendingCount,
+    completedCount,
+    lastToolCompletedAt,
+    isReasoning,
+    reasoningPreview,
+    patchFilesCount,
+    stepFinishReason,
+    activeToolNames,
+  };
+}
+
+export function generateActivityMessage(
+  activityState: SessionActivityState,
+  lastAssistantFinished: boolean,
+  isSubagent: boolean,
+  pendingPart?: PartMeta
+): string | null {
+  if (activityState.pendingCount > 1) {
+    const toolNames = activityState.activeToolNames.slice(0, 3).join(", ");
+    const firstToolAction = pendingPart ? formatCurrentAction(pendingPart) : null;
+    if (firstToolAction) {
+      return `Running ${activityState.pendingCount} tools (${firstToolAction})`;
+    }
+    return `Running ${activityState.pendingCount} tools: ${toolNames}${activityState.activeToolNames.length > 3 ? "..." : ""}`;
+  }
+
+  if (activityState.pendingCount === 1 && pendingPart) {
+    return formatCurrentAction(pendingPart);
+  }
+
+  if (activityState.isReasoning && activityState.reasoningPreview) {
+    return `Analyzing: ${activityState.reasoningPreview}`;
+  }
+
+  if (activityState.patchFilesCount > 0) {
+    return `Writing ${activityState.patchFilesCount} file${activityState.patchFilesCount !== 1 ? "s" : ""}...`;
+  }
+
+  if (activityState.stepFinishReason === "tool-calls") {
+    return "Waiting for tool results";
+  }
+
+  if (lastAssistantFinished && !isSubagent) {
+    return "Waiting for user input";
+  }
+
+  return null;
 }
 
 export async function getPartsForSession(

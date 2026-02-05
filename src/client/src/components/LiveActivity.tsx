@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo, memo, useState } from 'react';
-import { Activity, Check, Loader2, Circle } from 'lucide-react';
-import type { ActivitySession, SessionStatus, ToolCallSummary } from '@shared/types';
+import { Activity, Check, Loader2, Circle, Sparkles, FileEdit, Terminal, Clock } from 'lucide-react';
+import type { ActivitySession, SessionStatus, SessionActivityType, ToolCallSummary } from '@shared/types';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { AgentBadge } from './AgentBadge';
@@ -84,7 +84,7 @@ const StatusIndicator = memo<{ status: SessionStatus }>(function StatusIndicator
      case 'waiting':
        return (
          <span className="flex items-center justify-center w-4 h-4" data-testid="status-waiting">
-           <Circle className="w-3 h-3 text-gray-500" />
+           <Clock className="w-3 h-3 text-amber-500" />
          </span>
        );
      case 'completed':
@@ -96,6 +96,49 @@ const StatusIndicator = memo<{ status: SessionStatus }>(function StatusIndicator
        );
    }
 });
+
+const ActivityTypeIndicator = memo<{ activityType?: SessionActivityType; pendingCount?: number; patchCount?: number }>(
+  function ActivityTypeIndicator({ activityType, pendingCount, patchCount }) {
+    if (!activityType || activityType === 'idle') return null;
+    
+    switch (activityType) {
+      case 'reasoning':
+        return (
+          <span className="flex items-center gap-1 text-purple-400" title="Reasoning">
+            <Sparkles className="w-3 h-3" />
+          </span>
+        );
+      case 'patch':
+        return (
+          <span className="flex items-center gap-1 text-orange-400" title={`Writing ${patchCount} files`}>
+            <FileEdit className="w-3 h-3" />
+            {patchCount && patchCount > 1 && <span className="text-[10px]">{patchCount}</span>}
+          </span>
+        );
+      case 'tool':
+        return (
+          <span className="flex items-center gap-1 text-blue-400" title={`Running ${pendingCount} tools`}>
+            <Terminal className="w-3 h-3" />
+            {pendingCount && pendingCount > 1 && <span className="text-[10px]">{pendingCount}</span>}
+          </span>
+        );
+      case 'waiting-tools':
+        return (
+          <span className="flex items-center gap-1 text-amber-400" title="Waiting for tools">
+            <Clock className="w-3 h-3" />
+          </span>
+        );
+      case 'waiting-user':
+        return (
+          <span className="flex items-center gap-1 text-gray-400" title="Waiting for user">
+            <Circle className="w-3 h-3" />
+          </span>
+        );
+      default:
+        return null;
+    }
+  }
+);
 
 function extractPrimaryArg(input: object, maxLength: number = 60): string | null {
   const typedInput = input as { filePath?: string; command?: string; pattern?: string; query?: string; url?: string };
@@ -124,11 +167,7 @@ const SessionRow = memo<{ node: SessionNode; depth: number; isLast: boolean }>(f
    let currentActionText = session.currentAction;
    if (!currentActionText) {
      if (session.workingChildCount && session.workingChildCount > 0) {
-       currentActionText = `waiting on ${session.workingChildCount} agents`;
-     } else if (status === 'working') {
-       currentActionText = 'Thinking...';
-     } else if (status === 'waiting') {
-       currentActionText = 'Waiting for input';
+       currentActionText = `Waiting on ${session.workingChildCount} agent${session.workingChildCount > 1 ? 's' : ''}`;
      }
    }
 
@@ -154,6 +193,12 @@ const SessionRow = memo<{ node: SessionNode; depth: number; isLast: boolean }>(f
          
          <StatusIndicator status={status} />
          
+         <ActivityTypeIndicator 
+           activityType={session.activityType}
+           pendingCount={session.pendingToolCount}
+           patchCount={session.patchFilesCount}
+         />
+         
          <AgentBadge agent={session.agent} status={status} />
          
          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -161,7 +206,7 @@ const SessionRow = memo<{ node: SessionNode; depth: number; isLast: boolean }>(f
              {truncatedAction}
            </span>
            
-           {toolInfo && (
+           {toolInfo && !session.activityType?.startsWith('waiting') && (
              <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono" data-testid="tool-info">
                <span className="text-gray-400">{toolInfo.toolName}</span>
                {toolInfo.toolArg && (

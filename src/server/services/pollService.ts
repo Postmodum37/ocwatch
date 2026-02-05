@@ -3,7 +3,7 @@ import type { PollResponse, SessionMetadata, MessageMeta, PlanProgress, Activity
 import { listAllSessions, checkStorageExists } from "../storage/sessionParser";
 import { listMessages, getFirstAssistantMessage } from "../storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "../storage/boulderParser";
-import { getPartsForSession, getSessionToolState, isPendingToolCall, formatCurrentAction } from "../storage/partParser";
+import { getPartsForSession, getSessionActivityState, isPendingToolCall, generateActivityMessage } from "../storage/partParser";
 import { getSessionStatus } from "../utils/sessionStatus";
 import { isAssistantFinished, getSessionHierarchy } from "./sessionService";
 import { aggregateSessionStats } from "./statsService";
@@ -88,24 +88,24 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
       const firstAssistantMsg = await getFirstAssistantMessage(session.id);
       const messages = await getCachedMessages(session.id);
       const parts = await getPartsForSession(session.id);
-      const toolState = getSessionToolState(parts);
+      const activityState = getSessionActivityState(parts);
       const lastAssistantFinished = isAssistantFinished(messages);
       
       const status = getSessionStatus(
         messages,
-        toolState.hasPendingToolCall,
-        toolState.lastToolCompletedAt || undefined,
+        activityState.hasPendingToolCall,
+        activityState.lastToolCompletedAt || undefined,
         undefined,
         lastAssistantFinished
       );
       
-      let currentAction: string | null = null;
-      if (status === "working") {
-        const pendingParts = parts.filter(p => isPendingToolCall(p));
-        if (pendingParts.length > 0) {
-          currentAction = formatCurrentAction(pendingParts[0]);
-        }
-      }
+      const pendingParts = parts.filter(p => isPendingToolCall(p));
+      const currentAction = generateActivityMessage(
+        activityState,
+        lastAssistantFinished,
+        false,
+        pendingParts[0]
+      );
       
       return {
         ...session,
@@ -122,13 +122,13 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
   for (const session of rootSessions) {
     const messages = await getCachedMessages(session.id);
     const parts = await getPartsForSession(session.id);
-    const toolState = getSessionToolState(parts);
+    const activityState = getSessionActivityState(parts);
     const lastAssistantFinished = isAssistantFinished(messages);
     
     const status = getSessionStatus(
       messages,
-      toolState.hasPendingToolCall,
-      toolState.lastToolCompletedAt || undefined,
+      activityState.hasPendingToolCall,
+      activityState.lastToolCompletedAt || undefined,
       undefined,
       lastAssistantFinished
     );
