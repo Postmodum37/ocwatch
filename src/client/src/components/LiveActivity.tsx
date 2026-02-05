@@ -168,6 +168,8 @@ const SessionRow = memo<{ node: SessionNode; depth: number; isLast: boolean }>(f
    if (!currentActionText) {
      if (session.workingChildCount && session.workingChildCount > 0) {
        currentActionText = `Waiting on ${session.workingChildCount} agent${session.workingChildCount > 1 ? 's' : ''}`;
+     } else if (status === 'completed' && session.parentID && session.title) {
+       currentActionText = session.title;
      }
    }
 

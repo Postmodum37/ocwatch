@@ -323,6 +323,31 @@ describe('LiveActivity', () => {
         expect(row.className).toContain('opacity-60');
       });
 
+      it('shows task title for completed subagent sessions', () => {
+        const completedSubagent: ActivitySession[] = [
+          {
+            id: 'parent-1',
+            title: 'Parent session',
+            agent: 'prometheus',
+            status: 'working',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            id: 'child-1',
+            title: 'Explore codebase for auth patterns',
+            agent: 'explore',
+            parentID: 'parent-1',
+            status: 'completed',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }
+        ];
+        render(<LiveActivity sessions={completedSubagent} loading={false} />);
+        
+        expect(screen.getByText('Explore codebase for auth patterns')).toBeInTheDocument();
+      });
+
       it('formats time without "ago" suffix', () => {
         const session: ActivitySession[] = [{
           id: 'time-test',
