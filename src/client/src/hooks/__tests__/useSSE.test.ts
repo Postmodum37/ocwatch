@@ -14,7 +14,7 @@ describe('useSSE - Liveness Detection', () => {
     eventListeners = {};
 
     mockEventSource = {
-      addEventListener: vi.fn((event: string, handler: any) => {
+      addEventListener: vi.fn((event: string, handler: (event?: unknown) => void) => {
         if (!eventListeners[event]) {
           eventListeners[event] = [];
         }
@@ -22,7 +22,7 @@ describe('useSSE - Liveness Detection', () => {
       }),
       close: vi.fn(),
       removeEventListener: vi.fn(),
-      onerror: null as any,
+      onerror: null as ((event: Event) => void) | null,
     };
 
     class MockEventSource {
@@ -33,7 +33,7 @@ describe('useSSE - Liveness Detection', () => {
     }
 
     const EventSourceSpy = vi.fn(MockEventSource);
-    global.EventSource = EventSourceSpy as any;
+    global.EventSource = EventSourceSpy as unknown as typeof EventSource;
 
     global.fetch = vi.fn(() =>
       Promise.resolve({
@@ -45,7 +45,7 @@ describe('useSSE - Liveness Detection', () => {
           sessionStats: null,
         }),
       })
-    ) as any;
+    ) as unknown as typeof fetch;
 
     setIntervalSpy = vi.spyOn(global, 'setInterval');
     clearIntervalSpy = vi.spyOn(global, 'clearInterval');

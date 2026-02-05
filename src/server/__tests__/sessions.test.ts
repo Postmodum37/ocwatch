@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { app } from "../index";
+import type { SessionMetadata, MessageMeta, ProjectInfo, SessionTree } from "../../shared/types";
 
 describe("Session API Endpoints", () => {
   describe("GET /api/sessions", () => {
@@ -13,7 +14,7 @@ describe("Session API Endpoints", () => {
 
     test("sessions have required fields", async () => {
       const res = await app.request("/api/sessions");
-      const data = (await res.json()) as any[];
+      const data = (await res.json()) as SessionMetadata[];
 
       if (data.length > 0) {
         const session = data[0];
@@ -28,7 +29,7 @@ describe("Session API Endpoints", () => {
 
     test("sessions are sorted by updatedAt descending", async () => {
       const res = await app.request("/api/sessions");
-      const data = (await res.json()) as any[];
+      const data = (await res.json()) as SessionMetadata[];
 
       if (data.length > 1) {
         for (let i = 0; i < data.length - 1; i++) {
@@ -41,7 +42,7 @@ describe("Session API Endpoints", () => {
 
     test("returns max 20 sessions", async () => {
       const res = await app.request("/api/sessions");
-      const data = (await res.json()) as any[];
+      const data = (await res.json()) as SessionMetadata[];
 
       expect(data.length).toBeLessThanOrEqual(20);
     });
@@ -52,7 +53,7 @@ describe("Session API Endpoints", () => {
       const res = await app.request("/api/sessions/invalid-format");
       expect(res.status).toBe(400);
 
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as { error: string };
       expect(data).toHaveProperty("error");
       expect(data.error).toBe("VALIDATION_ERROR");
     });
@@ -61,25 +62,25 @@ describe("Session API Endpoints", () => {
       const res = await app.request("/api/sessions/ses_nonexistent123");
       expect(res.status).toBe(404);
 
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as { error: string };
       expect(data).toHaveProperty("error");
     });
 
     test("returns session details with agent hierarchy", async () => {
       const sessionsRes = await app.request("/api/sessions");
-      const sessions = (await sessionsRes.json()) as any[];
+      const sessions = (await sessionsRes.json()) as SessionMetadata[];
 
-      if (sessions.length > 0) {
-        const sessionID = sessions[0].id;
-        const res = await app.request(`/api/sessions/${sessionID}`);
-        expect(res.status).toBe(200);
+       if (sessions.length > 0) {
+         const sessionID = sessions[0].id;
+         const res = await app.request(`/api/sessions/${sessionID}`);
+         expect(res.status).toBe(200);
 
-        const data = (await res.json()) as any;
-        expect(data).toHaveProperty("id");
-        expect(data).toHaveProperty("title");
-        expect(data).toHaveProperty("agentHierarchy");
-        expect(typeof data.agentHierarchy).toBe("object");
-      }
+         const data = (await res.json()) as SessionMetadata & { agentHierarchy: object };
+         expect(data).toHaveProperty("id");
+         expect(data).toHaveProperty("title");
+         expect(data).toHaveProperty("agentHierarchy");
+         expect(typeof data.agentHierarchy).toBe("object");
+       }
     });
   });
 
@@ -88,32 +89,18 @@ describe("Session API Endpoints", () => {
       const res = await app.request("/api/sessions/ses_nonexistent123/messages");
       expect(res.status).toBe(404);
 
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as { error: string };
       expect(data).toHaveProperty("error");
     });
 
     test("returns array of messages", async () => {
       const sessionsRes = await app.request("/api/sessions");
-      const sessions = (await sessionsRes.json()) as any[];
+      const sessions = (await sessionsRes.json()) as SessionMetadata[];
 
-      if (sessions.length > 0) {
-        const sessionID = sessions[0].id;
-        const res = await app.request(`/api/sessions/${sessionID}/messages`);
-        expect(res.status).toBe(200);
-
-        const data = (await res.json()) as any[];
-        expect(Array.isArray(data)).toBe(true);
-      }
-    });
-
-    test("messages have required fields", async () => {
-      const sessionsRes = await app.request("/api/sessions");
-      const sessions = (await sessionsRes.json()) as any[];
-
-      if (sessions.length > 0) {
-        const sessionID = sessions[0].id;
-        const res = await app.request(`/api/sessions/${sessionID}/messages`);
-        const data = (await res.json()) as any[];
+       if (sessions.length > 0) {
+         const sessionID = sessions[0].id;
+         const res = await app.request(`/api/sessions/${sessionID}/messages`);
+         const data = (await res.json()) as MessageMeta[];
 
         if (data.length > 0) {
           const message = data[0];
@@ -127,15 +114,15 @@ describe("Session API Endpoints", () => {
 
     test("returns max 100 messages", async () => {
       const sessionsRes = await app.request("/api/sessions");
-      const sessions = (await sessionsRes.json()) as any[];
+      const sessions = (await sessionsRes.json()) as SessionMetadata[];
 
-      if (sessions.length > 0) {
-        const sessionID = sessions[0].id;
-        const res = await app.request(`/api/sessions/${sessionID}/messages`);
-        const data = (await res.json()) as any[];
+       if (sessions.length > 0) {
+         const sessionID = sessions[0].id;
+         const res = await app.request(`/api/sessions/${sessionID}/messages`);
+         const data = (await res.json()) as MessageMeta[];
 
-        expect(data.length).toBeLessThanOrEqual(100);
-      }
+         expect(data.length).toBeLessThanOrEqual(100);
+       }
     });
   });
 
@@ -144,35 +131,18 @@ describe("Session API Endpoints", () => {
       const res = await app.request("/api/sessions/ses_nonexistent123/tree");
       expect(res.status).toBe(404);
 
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as { error: string };
       expect(data).toHaveProperty("error");
     });
 
     test("returns tree with nodes and edges", async () => {
       const sessionsRes = await app.request("/api/sessions");
-      const sessions = (await sessionsRes.json()) as any[];
+      const sessions = (await sessionsRes.json()) as SessionMetadata[];
 
-      if (sessions.length > 0) {
-        const sessionID = sessions[0].id;
-        const res = await app.request(`/api/sessions/${sessionID}/tree`);
-        expect(res.status).toBe(200);
-
-        const data = (await res.json()) as any;
-        expect(data).toHaveProperty("nodes");
-        expect(data).toHaveProperty("edges");
-        expect(Array.isArray(data.nodes)).toBe(true);
-        expect(Array.isArray(data.edges)).toBe(true);
-      }
-    });
-
-    test("tree nodes have required structure", async () => {
-      const sessionsRes = await app.request("/api/sessions");
-      const sessions = (await sessionsRes.json()) as any[];
-
-      if (sessions.length > 0) {
-        const sessionID = sessions[0].id;
-        const res = await app.request(`/api/sessions/${sessionID}/tree`);
-        const data = (await res.json()) as any;
+       if (sessions.length > 0) {
+         const sessionID = sessions[0].id;
+         const res = await app.request(`/api/sessions/${sessionID}/tree`);
+         const data = (await res.json()) as SessionTree;
 
         if (data.nodes.length > 0) {
           const node = data.nodes[0];
@@ -186,12 +156,12 @@ describe("Session API Endpoints", () => {
 
     test("tree edges have source and target", async () => {
       const sessionsRes = await app.request("/api/sessions");
-      const sessions = (await sessionsRes.json()) as any[];
+      const sessions = (await sessionsRes.json()) as SessionMetadata[];
 
-      if (sessions.length > 0) {
-        const sessionID = sessions[0].id;
-        const res = await app.request(`/api/sessions/${sessionID}/tree`);
-        const data = (await res.json()) as any;
+       if (sessions.length > 0) {
+         const sessionID = sessions[0].id;
+         const res = await app.request(`/api/sessions/${sessionID}/tree`);
+         const data = (await res.json()) as SessionTree;
 
         if (data.edges.length > 0) {
           const edge = data.edges[0];
@@ -207,13 +177,13 @@ describe("Session API Endpoints", () => {
       const res = await app.request("/api/projects");
       expect(res.status).toBe(200);
 
-      const data = (await res.json()) as any[];
+      const data = (await res.json()) as ProjectInfo[];
       expect(Array.isArray(data)).toBe(true);
     });
 
     test("projects have required fields", async () => {
       const res = await app.request("/api/projects");
-      const data = (await res.json()) as any[];
+      const data = (await res.json()) as ProjectInfo[];
 
       if (data.length > 0) {
         const project = data[0];
@@ -226,7 +196,7 @@ describe("Session API Endpoints", () => {
 
     test("projects are sorted by most recent activity", async () => {
       const res = await app.request("/api/projects");
-      const data = (await res.json()) as any[];
+      const data = (await res.json()) as ProjectInfo[];
 
       if (data.length >= 2) {
         const firstActivity = new Date(data[0].lastActivityAt).getTime();

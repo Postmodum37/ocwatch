@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useMemo, memo, useState } from 'react';
 import { Activity, Check, Loader2, Circle, Sparkles, FileEdit, Terminal, Clock } from 'lucide-react';
 import type { ActivitySession, SessionStatus, SessionActivityType, ToolCallSummary } from '@shared/types';
+import { formatRelativeTime } from '@shared/utils/formatTime';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { AgentBadge } from './AgentBadge';
@@ -8,21 +9,6 @@ import { AgentBadge } from './AgentBadge';
 interface LiveActivityProps {
   sessions: ActivitySession[];
   loading: boolean;
-}
-
-function formatRelativeTime(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const now = Date.now();
-  const diff = now - d.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(minutes / 60);
-  
-  if (minutes < 1) return '<1m';
-  if (minutes < 60) return `${minutes}m`;
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return d.toLocaleDateString();
 }
 
 interface SessionNode {
@@ -71,30 +57,32 @@ const StatusIndicator = memo<{ status: SessionStatus }>(function StatusIndicator
             className="flex items-center justify-center w-4 h-4 rounded-full animate-badge-glow" 
             style={{ '--badge-color': 'rgba(88, 166, 255, 0.5)' } as React.CSSProperties}
             data-testid="status-working"
+            role="img"
+            aria-label="Working"
           >
             <Loader2 className="w-3 h-3 text-accent animate-spin" />
           </span>
         );
-     case 'idle':
-       return (
-         <span className="flex items-center justify-center w-4 h-4" data-testid="status-idle">
-           <Circle className="w-3 h-3 text-success animate-pulse" />
-         </span>
-       );
-     case 'waiting':
-       return (
-         <span className="flex items-center justify-center w-4 h-4" data-testid="status-waiting">
-           <Clock className="w-3 h-3 text-amber-500" />
-         </span>
-       );
-     case 'completed':
-     default:
-       return (
-         <span className="flex items-center justify-center w-4 h-4" data-testid="status-completed">
-           <Check className="w-3 h-3 text-green-500" />
-         </span>
-       );
-   }
+      case 'idle':
+        return (
+          <span className="flex items-center justify-center w-4 h-4" data-testid="status-idle" role="img" aria-label="Idle">
+            <Circle className="w-3 h-3 text-success animate-pulse" />
+          </span>
+        );
+      case 'waiting':
+        return (
+          <span className="flex items-center justify-center w-4 h-4" data-testid="status-waiting" role="img" aria-label="Waiting">
+            <Clock className="w-3 h-3 text-amber-500" />
+          </span>
+        );
+      case 'completed':
+      default:
+        return (
+          <span className="flex items-center justify-center w-4 h-4" data-testid="status-completed" role="img" aria-label="Completed">
+            <Check className="w-3 h-3 text-green-500" />
+          </span>
+        );
+    }
 });
 
 const ActivityTypeIndicator = memo<{ activityType?: SessionActivityType; pendingCount?: number; patchCount?: number }>(

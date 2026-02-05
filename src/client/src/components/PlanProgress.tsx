@@ -47,7 +47,7 @@ export function PlanProgress({ plan, planName }: PlanProgressProps) {
         </span>
       </div>
 
-      <div className="w-full bg-background rounded-full h-2">
+      <div className="w-full bg-background rounded-full h-2" role="progressbar" aria-valuenow={plan.completed} aria-valuemax={plan.total} aria-label="Plan progress">
         <div 
           className="bg-accent h-2 rounded-full transition-all duration-500 ease-in-out"
           style={{ width: `${plan.progress}%` }}

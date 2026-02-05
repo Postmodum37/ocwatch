@@ -134,13 +134,15 @@ export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream(
                Clear
              </button>
            )}
-           <button 
-             type="button"
-             onClick={handleToggleCollapse}
-             className="text-text-secondary hover:text-white transition-colors"
-           >
-             {isCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-           </button>
+            <button 
+              type="button"
+              onClick={handleToggleCollapse}
+              className="text-text-secondary hover:text-white transition-colors"
+              aria-expanded={!isCollapsed}
+              aria-label="Toggle activity stream"
+            >
+              {isCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
          </div>
        </div>
 
@@ -187,11 +189,13 @@ export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream(
             </div>
           )}
 
-           <div 
-             ref={scrollRef}
-             onScroll={handleScroll}
-             className="flex-1 overflow-y-auto min-h-0 bg-[#0d1117] relative"
-           >
+            <div 
+              ref={scrollRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto min-h-0 bg-[#0d1117] relative"
+              aria-live="polite"
+              role="log"
+            >
               {filteredItems.length === 0 ? (
                 <div className="p-4 space-y-3">
                   {[...Array(5)].map((_, i) => (

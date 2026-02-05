@@ -22,8 +22,11 @@ const mockPollResponse: PollResponse = {
 };
 
 describe('usePolling', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
-    global.fetch = vi.fn() as any;
+    fetchMock = vi.fn<typeof fetch>();
+    global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -31,7 +34,7 @@ describe('usePolling', () => {
   });
 
   it('fetches data immediately on mount', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       status: 200,
       headers: new Headers({ 'ETag': '"test-etag"' }),
@@ -55,7 +58,7 @@ describe('usePolling', () => {
   });
 
   it('polls at specified interval', async () => {
-    (global.fetch as any).mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       headers: new Headers({ 'ETag': '"test-etag"' }),
@@ -81,7 +84,7 @@ describe('usePolling', () => {
   it('sends If-None-Match header with ETag on subsequent requests', async () => {
     const testETag = '"test-etag-123"';
 
-    (global.fetch as any)
+    fetchMock
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -115,14 +118,14 @@ describe('usePolling', () => {
       { timeout: 1000 }
     );
 
-    const secondCall = (global.fetch as any).mock.calls[1];
+    const secondCall = fetchMock.mock.calls[1];
     expect(secondCall[1].headers['If-None-Match']).toBe(testETag);
   });
 
   it('handles 304 Not Modified response', async () => {
     const testETag = '"test-etag-304"';
 
-    (global.fetch as any)
+    fetchMock
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -164,7 +167,7 @@ describe('usePolling', () => {
   });
 
   it('handles fetch errors', async () => {
-    (global.fetch as any).mockRejectedValue(new Error('Network error'));
+    fetchMock.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => usePolling({ interval: 2000, maxRetries: 0 }));
 
@@ -180,7 +183,7 @@ describe('usePolling', () => {
   });
 
   it('handles HTTP error responses', async () => {
-    (global.fetch as any).mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: false,
       status: 500,
       statusText: 'Internal Server Error',
@@ -200,7 +203,7 @@ describe('usePolling', () => {
   });
 
   it('cleans up interval on unmount', async () => {
-    (global.fetch as any).mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       headers: new Headers({ 'ETag': '"test-etag"' }),
@@ -226,7 +229,7 @@ describe('usePolling', () => {
   });
 
   it('respects enabled option', async () => {
-    (global.fetch as any).mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       headers: new Headers({ 'ETag': '"test-etag"' }),
@@ -245,7 +248,7 @@ describe('usePolling', () => {
   it('uses custom API URL', async () => {
     const customUrl = '/custom/api/endpoint';
 
-    (global.fetch as any).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       status: 200,
       headers: new Headers({ 'ETag': '"test-etag"' }),

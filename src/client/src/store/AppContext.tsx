@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useSSE } from '../hooks/useSSE';
 import type { SessionMetadata, PlanProgress, ProjectInfo, MessageMeta, ActivitySession, SessionStats } from '@shared/types';
@@ -75,7 +75,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     }
   }, [selectedProjectId]);
 
-  const value: AppContextValue = {
+  const value = useMemo<AppContextValue>(() => ({
     sessions: data?.sessions || [],
     activeSession: data?.activeSession || null,
     planProgress: data?.planProgress || null,
@@ -93,7 +93,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     setSelectedSessionId,
     setSelectedProjectId,
     setAgentFilter,
-  };
+  }), [data, selectedSessionId, projects, selectedProjectId, loading, error, lastUpdate, isReconnecting, agentFilter]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

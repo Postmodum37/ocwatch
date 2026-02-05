@@ -95,4 +95,51 @@ describe('Integration Tests', () => {
     const html = await response.text();
     expect(html.toLowerCase()).toContain('<!doctype html>');
   });
+
+  it('GET /api/poll returns ETag and supports 304', async () => {
+    const res1 = await fetch(`${SERVER_URL}/api/poll`);
+    expect(res1.status).toBe(200);
+    const etag = res1.headers.get('ETag');
+    expect(etag).toBeTruthy();
+
+    const res2 = await fetch(`${SERVER_URL}/api/poll`, {
+      headers: { 'If-None-Match': etag! },
+    });
+    expect(res2.status).toBe(304);
+  });
+
+  it('GET /api/sse returns event-stream content type', async () => {
+    const res = await fetch(`${SERVER_URL}/api/sse`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+    await res.body?.cancel();
+  });
+
+  it('GET /api/poll returns complete response shape', async () => {
+    const res = await fetch(`${SERVER_URL}/api/poll`);
+    expect(res.status).toBe(200);
+    const data = await res.json() as Record<string, unknown>;
+    expect(data).toHaveProperty('sessions');
+    expect(data).toHaveProperty('activeSession');
+    expect(data).toHaveProperty('planProgress');
+    expect(data).toHaveProperty('messages');
+    expect(data).toHaveProperty('activitySessions');
+    expect(data).toHaveProperty('lastUpdate');
+    expect(Array.isArray(data.sessions)).toBe(true);
+    expect(Array.isArray(data.messages)).toBe(true);
+    expect(Array.isArray(data.activitySessions)).toBe(true);
+    expect(typeof data.lastUpdate).toBe('number');
+  });
+
+  it('GET /api/projects returns array', async () => {
+    const res = await fetch(`${SERVER_URL}/api/projects`);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+  });
+
+  it('GET /api/sessions/invalid-id returns error', async () => {
+    const res = await fetch(`${SERVER_URL}/api/sessions/nonexistent-session-id`);
+    expect([400, 404]).toContain(res.status);
+  });
 });

@@ -67,7 +67,7 @@ describe('useSSE', () => {
 
     MockEventSource = vi.fn();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (global as any).EventSource = function(_url: string) {
+    (global as Record<string, unknown>).EventSource = function(_url: string) {
       MockEventSource(_url);
       return eventSourceInstance;
     };
