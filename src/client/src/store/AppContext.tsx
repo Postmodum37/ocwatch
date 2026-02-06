@@ -44,9 +44,13 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     sessionId: selectedSessionId,
   });
   
-  const { permission: notificationPermission, requestPermission: requestNotificationPermission } = useNotifications(
+  const {
+    permission: notificationPermission,
+    requestPermission: requestNotificationPermission,
+  } = useNotifications(
     data?.sessions || [],
-    isReconnecting
+    isReconnecting,
+    data?.activitySessions || []
   );
   
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);

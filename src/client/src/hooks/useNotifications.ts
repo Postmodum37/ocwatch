@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { SessionMetadata } from '@shared/types';
+import type { ActivitySession, SessionMetadata } from '@shared/types';
 
 export interface UseNotificationsReturn {
   permission: NotificationPermission;
@@ -8,7 +8,7 @@ export interface UseNotificationsReturn {
 }
 
 type SessionSnapshot = {
-  status?: string;
+  id: string;
   activityType?: string;
   parentID?: string;
   agent: string | null;
@@ -16,13 +16,14 @@ type SessionSnapshot = {
 
 export function useNotifications(
   sessions: SessionMetadata[],
-  isReconnecting: boolean
+  isReconnecting: boolean,
+  activitySessions: ActivitySession[] = []
 ): UseNotificationsReturn {
   const [permission, setPermission] = useState<NotificationPermission>(() =>
     typeof Notification === 'undefined' ? 'denied' : Notification.permission
   );
 
-  const prevSessionsRef = useRef<SessionMetadata[] | null>(null);
+  const prevSessionsRef = useRef<SessionSnapshot[] | null>(null);
   const cooldownRef = useRef<Map<string, number>>(new Map());
   const prevReconnectingRef = useRef<boolean>(isReconnecting);
 
@@ -57,41 +58,38 @@ export function useNotifications(
   };
 
   useEffect(() => {
+    const notificationSessions: SessionSnapshot[] = [...sessions, ...activitySessions].map((session) => ({
+      id: session.id,
+      activityType: session.activityType,
+      parentID: session.parentID,
+      agent: session.agent || null,
+    }));
+
     if (prevReconnectingRef.current === true && isReconnecting === false) {
-      prevSessionsRef.current = sessions;
+      prevSessionsRef.current = notificationSessions;
       prevReconnectingRef.current = isReconnecting;
       return;
     }
     prevReconnectingRef.current = isReconnecting;
 
     if (prevSessionsRef.current === null) {
-      prevSessionsRef.current = sessions;
+      prevSessionsRef.current = notificationSessions;
       return;
     }
 
     if (permission !== 'granted') {
-      prevSessionsRef.current = sessions;
+      prevSessionsRef.current = notificationSessions;
       return;
     }
 
     const prevMap = new Map<string, SessionSnapshot>();
     for (const session of prevSessionsRef.current) {
-      prevMap.set(session.id, {
-        status: session.status,
-        activityType: session.activityType,
-        parentID: session.parentID,
-        agent: session.agent || null,
-      });
+      prevMap.set(session.id, session);
     }
 
     const currentMap = new Map<string, SessionSnapshot>();
-    for (const session of sessions) {
-      currentMap.set(session.id, {
-        status: session.status,
-        activityType: session.activityType,
-        parentID: session.parentID,
-        agent: session.agent || null,
-      });
+    for (const session of notificationSessions) {
+      currentMap.set(session.id, session);
     }
 
     const now = Date.now();
@@ -100,15 +98,13 @@ export function useNotifications(
       const prev = prevMap.get(sessionId);
 
       if (!prev) continue;
-      if (current.parentID) continue;
 
       const lastNotification = cooldownRef.current.get(sessionId);
       if (lastNotification && now - lastNotification < 10_000) continue;
 
       if (
         current.activityType === 'waiting-user' &&
-        prev.activityType !== 'waiting-user' &&
-        document.visibilityState !== 'visible'
+        prev.activityType !== 'waiting-user'
       ) {
         new Notification('🔔 Input needed', {
           body: `${current.agent || 'Agent'} is waiting for your response`,
@@ -118,22 +114,10 @@ export function useNotifications(
         cooldownRef.current.set(sessionId, now);
       }
 
-      if (
-        prev.status === 'working' &&
-        current.status === 'completed' &&
-        document.visibilityState !== 'visible'
-      ) {
-        new Notification('✅ Agent completed', {
-          body: `${current.agent || 'Agent'} finished work`,
-          tag: `ocwatch-completed-${sessionId}`,
-          requireInteraction: false,
-        });
-        cooldownRef.current.set(sessionId, now);
-      }
     }
 
-    prevSessionsRef.current = sessions;
-  }, [sessions, isReconnecting, permission]);
+    prevSessionsRef.current = notificationSessions;
+  }, [sessions, activitySessions, isReconnecting, permission]);
 
   return {
     permission,

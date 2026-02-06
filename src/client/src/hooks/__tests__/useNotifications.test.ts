@@ -106,7 +106,7 @@ describe('useNotifications', () => {
     });
   });
 
-  it('transition from working → completed fires notification', () => {
+  it('transition from working → completed does not fire notification', () => {
     const initialSessions = [createSession('s1', { status: 'working' })];
 
     const { rerender } = renderHook(
@@ -125,18 +125,10 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationCalls).toHaveLength(1);
-    expect(notificationCalls[0]).toEqual({
-      title: '✅ Agent completed',
-      options: {
-        body: 'TestAgent finished work',
-        tag: 'ocwatch-completed-s1',
-        requireInteraction: false,
-      },
-    });
+    expect(notificationCalls).toHaveLength(0);
   });
 
-  it('no notification when tab is visible', () => {
+  it('fires notification even when tab is visible', () => {
     Object.defineProperty(document, 'visibilityState', {
       writable: true,
       configurable: true,
@@ -159,10 +151,10 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationCalls).toHaveLength(0);
+    expect(notificationCalls).toHaveLength(1);
   });
 
-  it('no notification for subagent transitions', () => {
+  it('fires notification for subagent transitions when included in activity sessions', () => {
     const initialSessions = [
       createSession('s1', { activityType: 'tool', parentID: 'parent-session' }),
     ];
@@ -186,7 +178,15 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationCalls).toHaveLength(0);
+    expect(notificationCalls).toHaveLength(1);
+    expect(notificationCalls[0]).toEqual({
+      title: '🔔 Input needed',
+      options: {
+        body: 'TestAgent is waiting for your response',
+        tag: 'ocwatch-waiting-s1',
+        requireInteraction: false,
+      },
+    });
   });
 
   it('cooldown prevents rapid-fire', () => {
@@ -297,4 +297,5 @@ describe('useNotifications', () => {
 
     expect(result.current.enabled).toBe(false);
   });
+
 });
