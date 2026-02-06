@@ -14,16 +14,18 @@ import {
   Loader2,
   Circle
 } from 'lucide-react';
-import type { ActivityItem } from '@shared/types';
+import type { ActivityItem, ToolInput } from '@shared/types';
 import { getAgentColor } from '../utils/agentColors';
+import { formatTime } from '../utils/formatters';
+
+interface TypedField {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+}
 
 interface ActivityRowProps {
   item: ActivityItem;
-}
-
-function formatTime(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function getToolIcon(toolName: string) {
@@ -33,6 +35,76 @@ function getToolIcon(toolName: string) {
   if (lower.includes('search') || lower.includes('grep') || lower.includes('glob')) return Search;
   if (lower.includes('fetch') || lower.includes('web')) return Globe;
   return Terminal;
+}
+
+function getTypedFields(toolName: string, input: ToolInput | undefined): TypedField[] {
+  if (!input) return [];
+  
+  const lower = toolName.toLowerCase();
+  const fields: TypedField[] = [];
+
+  // Read tools: show filePath prominently
+  if (lower.includes('read')) {
+    if (input.filePath) {
+      fields.push({ label: 'File', value: input.filePath, icon: <FileText className="w-3 h-3" /> });
+    }
+    return fields;
+  }
+
+  // Write/edit tools: show filePath + operation
+  if (lower.includes('write') || lower.includes('edit') || lower.includes('replace')) {
+    if (input.filePath) {
+      fields.push({ label: 'File', value: input.filePath, icon: <FileEdit className="w-3 h-3" /> });
+    }
+    return fields;
+  }
+
+  // Grep/search tools: show pattern + optional path/include
+  if (lower.includes('grep') || lower.includes('search')) {
+    if (input.pattern) {
+      fields.push({ label: 'Pattern', value: input.pattern });
+    }
+    if ((input as Record<string, unknown>).path) {
+      fields.push({ label: 'Path', value: String((input as Record<string, unknown>).path) });
+    }
+    if ((input as Record<string, unknown>).include) {
+      fields.push({ label: 'Include', value: String((input as Record<string, unknown>).include) });
+    }
+    return fields;
+  }
+
+  // Glob tools: show pattern + optional path
+  if (lower.includes('glob')) {
+    if (input.pattern) {
+      fields.push({ label: 'Pattern', value: input.pattern });
+    }
+    if ((input as Record<string, unknown>).path) {
+      fields.push({ label: 'Path', value: String((input as Record<string, unknown>).path) });
+    }
+    return fields;
+  }
+
+  // Bash tools: show command + description
+  if (lower.includes('bash')) {
+    if (input.command) {
+      fields.push({ label: 'Command', value: input.command });
+    }
+    if ((input as Record<string, unknown>).description) {
+      fields.push({ label: 'Description', value: String((input as Record<string, unknown>).description) });
+    }
+    return fields;
+  }
+
+  // Webfetch tools: show url
+  if (lower.includes('fetch') || lower.includes('web')) {
+    if (input.url) {
+      fields.push({ label: 'URL', value: input.url, icon: <Globe className="w-3 h-3" /> });
+    }
+    return fields;
+  }
+
+  // Default: no typed fields
+  return [];
 }
 
 export const ActivityRow = memo<ActivityRowProps>(function ActivityRow({ item }) {
@@ -73,7 +145,7 @@ export const ActivityRow = memo<ActivityRowProps>(function ActivityRow({ item })
          return (
            <span className="truncate text-text-primary">
              <span className="font-mono text-accent/80 mr-2">{item.toolName}</span>
-             <span className="text-gray-400">{item.summary || JSON.stringify(item.input).slice(0, 50)}</span>
+             <span className="text-gray-400">{item.summary || (item.input ? JSON.stringify(item.input).slice(0, 50) : '')}</span>
            </span>
          );
        case 'agent-spawn':
@@ -86,33 +158,72 @@ export const ActivityRow = memo<ActivityRowProps>(function ActivityRow({ item })
          return (
            <span className="text-gray-400">
              Completed task ({item.status})
-             {item.durationMs && <span className="ml-2 text-xs opacity-60">{Math.round(item.durationMs / 1000)}s</span>}
+             {item.durationMs != null && <span className="ml-2 text-xs opacity-60">{Math.round(item.durationMs / 1000)}s</span>}
            </span>
          );
      }
    };
 
-   const renderDetails = () => {
-     if (item.type === 'tool-call') {
-       return (
-         <div className="mt-2 pl-6 space-y-2">
-           {item.input && (
-             <div className="bg-surface/50 rounded p-2 text-xs font-mono overflow-x-auto text-gray-300">
-               <div className="text-gray-500 mb-1 uppercase text-[10px] tracking-wider">Input</div>
-               <pre>{JSON.stringify(item.input, null, 2)}</pre>
-             </div>
-           )}
-           {item.error && (
-             <div className="bg-red-500/10 border border-red-500/20 rounded p-2 text-xs font-mono text-red-400">
-               <div className="uppercase text-[10px] tracking-wider mb-1">Error</div>
-               {item.error}
-             </div>
-           )}
-         </div>
-       );
-     }
-     return null;
-   };
+    const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
+
+    const renderDetails = () => {
+      if (item.type === 'tool-call') {
+        const typedFields = getTypedFields(item.toolName, item.input as ToolInput | undefined);
+        const hasTypedFields = typedFields.length > 0;
+
+        return (
+          <div className="mt-2 pl-6 space-y-2">
+            {hasTypedFields && (
+              <div className="space-y-1">
+                {typedFields.map((field) => (
+                  <div key={field.label} className="flex items-start gap-2 text-xs">
+                    {field.icon && <span className="text-gray-500 mt-0.5">{field.icon}</span>}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-gray-500 uppercase text-[10px] tracking-wider">{field.label}</div>
+                      <div className="text-gray-300 font-mono break-all">{field.value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {item.input && (
+              <div className="border-t border-border/30 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAdvancedExpanded(!isAdvancedExpanded)}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-400 transition-colors"
+                >
+                  {isAdvancedExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                  <span>Advanced</span>
+                </button>
+                <AnimatePresence>
+                  {isAdvancedExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden mt-1"
+                    >
+                      <div className="bg-surface/50 rounded p-2 text-xs font-mono overflow-x-auto text-gray-300">
+                        <pre>{JSON.stringify(item.input, null, 2)}</pre>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+            {item.error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded p-2 text-xs font-mono text-red-400">
+                <div className="uppercase text-[10px] tracking-wider mb-1">Error</div>
+                {item.error}
+              </div>
+            )}
+          </div>
+        );
+      }
+      return null;
+    };
 
    const isExpandable = item.type === 'tool-call' && (item.input || item.error);
 
@@ -121,6 +232,7 @@ export const ActivityRow = memo<ActivityRowProps>(function ActivityRow({ item })
         <button
           type="button"
           disabled={!isExpandable}
+          aria-expanded={isExpandable ? isExpanded : undefined}
           className={`flex items-center gap-3 p-2 hover:bg-white/[0.02] transition-colors text-left ${isExpandable ? 'cursor-pointer' : ''}`}
           onClick={() => isExpandable && setIsExpanded(!isExpanded)}
           onKeyDown={(e) => {

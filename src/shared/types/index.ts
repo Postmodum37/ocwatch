@@ -126,7 +126,7 @@ export interface ToolCallSummary {
   name: string;
   state: "pending" | "complete" | "error";
   summary: string;
-  input: object;
+  input: ToolInput;
   timestamp: string;
   agentName: string;
 }
@@ -147,7 +147,7 @@ export interface ToolCallActivity {
   toolName: string;
   state: "pending" | "complete" | "error";
   summary?: string;
-  input?: object;
+  input?: ToolInput;
   error?: string;
 }
 
@@ -181,6 +181,39 @@ export type ActivityItem =
   | ToolCallActivity
   | AgentSpawnActivity
   | AgentCompleteActivity;
+
+/**
+ * BurstEntry represents a burst of tool call activity
+ * Groups consecutive tool calls from the same agent with aggregated metrics
+ */
+export interface BurstEntry {
+  id: string;
+  type: "burst";
+  agentName: string;
+  items: ToolCallActivity[];
+  toolBreakdown: Record<string, number>;
+  durationMs: number;
+  firstTimestamp: Date;
+  lastTimestamp: Date;
+  pendingCount: number;
+  errorCount: number;
+}
+
+/**
+ * MilestoneEntry represents a significant event in the activity stream
+ * Can be agent spawn, agent complete, or error tool calls
+ */
+export interface MilestoneEntry {
+  id: string;
+  type: "milestone";
+  item: AgentSpawnActivity | AgentCompleteActivity | ToolCallActivity;
+}
+
+/**
+ * StreamEntry is a union type for activity stream entries
+ * Represents either a burst of tool calls or a milestone event
+ */
+export type StreamEntry = BurstEntry | MilestoneEntry;
 
 export { synthesizeActivityItems } from '../utils/activityUtils';
 

@@ -1,5 +1,5 @@
 
-import { LayoutDashboard, AlertCircle, WifiOff } from 'lucide-react'
+import { LayoutDashboard, AlertCircle, WifiOff, Bell, BellOff } from 'lucide-react'
 import { DEFAULT_PORT } from '@shared/constants'
 import { ActivityStream } from './components/ActivityStream'
 import { SessionList } from './components/SessionList'
@@ -9,7 +9,9 @@ import { SessionStats } from './components/SessionStats'
 import { AppProvider, useAppContext } from './store/AppContext'
 import { SessionListSkeleton } from './components/LoadingSkeleton'
 import { synthesizeActivityItems } from '@shared/types'
+import { groupIntoBursts } from '@shared/utils/burstGrouping'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useMemo } from 'react'
 
 function AppContent() {
   const { 
@@ -24,7 +26,9 @@ function AppContent() {
     setSelectedProjectId,
     loading,
     error,
-    isReconnecting
+    isReconnecting,
+    notificationPermission,
+    requestNotificationPermission,
   } = useAppContext();
 
   useKeyboardShortcuts({
@@ -33,7 +37,10 @@ function AppContent() {
     onSelect: setSelectedSessionId,
   });
 
-  const activityItems = synthesizeActivityItems(activitySessions)
+  const activityEntries = useMemo(
+    () => groupIntoBursts(synthesizeActivityItems(activitySessions)),
+    [activitySessions]
+  )
 
   if (error && !isReconnecting) {
     return (
@@ -99,6 +106,30 @@ function AppContent() {
                 </div>
               )}
               <SessionStats stats={sessionStats} />
+              {notificationPermission === 'default' ? (
+                <button
+                  type="button"
+                  onClick={() => requestNotificationPermission()}
+                  className="p-1.5 rounded-lg border border-border hover:bg-surface transition-colors"
+                  title="Enable notifications"
+                >
+                  <Bell className="w-4 h-4 text-text-secondary" />
+                </button>
+              ) : notificationPermission === 'granted' ? (
+                <span
+                  className="p-1.5 rounded-lg border border-border bg-surface"
+                  title="Notifications enabled"
+                >
+                  <Bell className="w-4 h-4 text-accent" />
+                </span>
+              ) : (
+                <span
+                  className="p-1.5 rounded-lg border border-border opacity-50"
+                  title="Notifications blocked — enable in browser settings"
+                >
+                  <BellOff className="w-4 h-4 text-text-secondary" />
+                </span>
+              )}
             </div>
           </header>
 
@@ -111,7 +142,7 @@ function AppContent() {
         </div>
 
         <ActivityStream 
-            items={activityItems}
+            entries={activityEntries}
         />
       </div>
     </div>

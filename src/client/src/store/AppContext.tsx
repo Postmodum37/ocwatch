@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useSSE } from '../hooks/useSSE';
+import { useNotifications } from '../hooks/useNotifications';
 import type { SessionMetadata, PlanProgress, ProjectInfo, MessageMeta, ActivitySession, SessionStats } from '@shared/types';
 
 interface AppContextValue {
@@ -18,6 +19,8 @@ interface AppContextValue {
   lastUpdate: number;
   isReconnecting: boolean;
   agentFilter: string[];
+  notificationPermission: NotificationPermission;
+  requestNotificationPermission: () => Promise<NotificationPermission>;
   setSelectedSessionId: (id: string | null) => void;
   setSelectedProjectId: (id: string | null) => void;
   setAgentFilter: (agents: string[]) => void;
@@ -40,6 +43,12 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     pollingInterval,
     sessionId: selectedSessionId,
   });
+  
+  const { permission: notificationPermission, requestPermission: requestNotificationPermission } = useNotifications(
+    data?.sessions || [],
+    isReconnecting
+  );
+  
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
 
@@ -75,6 +84,12 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     }
   }, [selectedProjectId]);
 
+  useEffect(() => {
+    const sessions = data?.sessions || [];
+    const hasWaitingUser = sessions.some(s => s.activityType === 'waiting-user');
+    document.title = hasWaitingUser ? '⚡ Input needed — OCWatch' : 'OCWatch';
+  }, [data?.sessions]);
+
   const value = useMemo<AppContextValue>(() => ({
     sessions: data?.sessions || [],
     activeSession: data?.activeSession || null,
@@ -90,10 +105,12 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     lastUpdate,
     isReconnecting,
     agentFilter,
+    notificationPermission,
+    requestNotificationPermission,
     setSelectedSessionId,
     setSelectedProjectId,
     setAgentFilter,
-  }), [data, selectedSessionId, projects, selectedProjectId, loading, error, lastUpdate, isReconnecting, agentFilter]);
+  }), [data, selectedSessionId, projects, selectedProjectId, loading, error, lastUpdate, isReconnecting, agentFilter, notificationPermission, requestNotificationPermission]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
