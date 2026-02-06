@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import {
   getSessionStatus,
+  getSessionStatusInfo,
   getStatusFromTimestamp,
   isPendingToolCall,
 } from "../utils/sessionStatus";
@@ -157,6 +158,13 @@ describe("getSessionStatus - tool completion and waiting logic", () => {
       const messages = [createMessage(120)]; // 2 min ago
       expect(getSessionStatus(messages, false, undefined, 0)).toBe("idle");
     });
+
+    test("marks waiting reason as children", () => {
+      const messages = [createMessage(10)];
+      const statusInfo = getSessionStatusInfo(messages, false, undefined, 1);
+      expect(statusInfo.status).toBe("waiting");
+      expect(statusInfo.waitingReason).toBe("children");
+    });
   });
 
   describe("status precedence", () => {
@@ -231,6 +239,13 @@ describe("getSessionStatus - tool completion and waiting logic", () => {
     test("returns time-based when not finished", () => {
       const messages = [createMessage(10)]; // recent (would be working)
       expect(getSessionStatus(messages, false, undefined, undefined, false)).toBe("working");
+    });
+
+    test("marks waiting reason as user", () => {
+      const messages = [createMessage(10)];
+      const statusInfo = getSessionStatusInfo(messages, false, undefined, undefined, true);
+      expect(statusInfo.status).toBe("waiting");
+      expect(statusInfo.waitingReason).toBe("user");
     });
 
     test("finished=undefined defaults to time-based status", () => {

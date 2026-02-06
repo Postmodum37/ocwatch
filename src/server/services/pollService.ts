@@ -1,13 +1,33 @@
 import { createHash } from "node:crypto";
-import type { PollResponse, SessionMetadata, MessageMeta, PlanProgress, ActivitySession } from "../../shared/types";
+import type { PollResponse, SessionMetadata, MessageMeta, PlanProgress, ActivitySession, PartMeta } from "../../shared/types";
 import { listAllSessions, checkStorageExists } from "../storage/sessionParser";
-import { listMessages, getFirstAssistantMessage } from "../storage/messageParser";
+import { listMessages } from "../storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "../storage/boulderParser";
 import { getPartsForSession, getSessionActivityState, isPendingToolCall, generateActivityMessage, deriveActivityType } from "../storage/partParser";
-import { getSessionStatus } from "../utils/sessionStatus";
+import { getSessionStatusInfo } from "../utils/sessionStatus";
 import { isAssistantFinished, getSessionHierarchy } from "./sessionService";
 import { aggregateSessionStats } from "./statsService";
 import { TWENTY_FOUR_HOURS_MS, MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, POLL_CACHE_TTL_MS } from "../../shared/constants";
+
+function getLatestAssistantMessage(messages: MessageMeta[]): MessageMeta | undefined {
+  return messages
+    .filter((message) => message.role === "assistant")
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+}
+
+function getMostRecentPendingPart(parts: PartMeta[]): PartMeta | undefined {
+  return parts
+    .filter((part) => isPendingToolCall(part))
+    .sort((a, b) => (b.startedAt?.getTime() || 0) - (a.startedAt?.getTime() || 0))[0];
+}
+
+function sessionPriority(session: SessionMetadata): number {
+  if (session.activityType === "waiting-user") return 4;
+  if (session.status === "working") return 3;
+  if (session.status === "waiting") return 2;
+  if (session.status === "idle") return 1;
+  return 0;
+}
 
 export function generateETag(data: PollResponse): string {
    const dataForHash = {
@@ -25,6 +45,7 @@ export function generateETag(data: PollResponse): string {
 
 let pollCache: { data: PollResponse; etag: string; timestamp: number } | null = null;
 let pollInProgress: Promise<PollResponse> | null = null;
+let pollCacheEpoch = 0;
 
 export function getPollCache() {
   return pollCache;
@@ -32,6 +53,15 @@ export function getPollCache() {
 
 export function setPollCache(cache: { data: PollResponse; etag: string; timestamp: number } | null) {
   pollCache = cache;
+}
+
+export function getPollCacheEpoch() {
+  return pollCacheEpoch;
+}
+
+export function invalidatePollCache() {
+  pollCacheEpoch += 1;
+  pollCache = null;
 }
 
 export function getPollInProgress() {
@@ -76,6 +106,8 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
   const rootSessions = limitedSessions.filter(s => !s.parentID);
 
   const messagesCache = new Map<string, MessageMeta[]>();
+  const partsCache = new Map<string, PartMeta[]>();
+
   async function getCachedMessages(id: string): Promise<MessageMeta[]> {
     if (!messagesCache.has(id)) {
       messagesCache.set(id, await listMessages(id));
@@ -83,38 +115,47 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
     return messagesCache.get(id)!;
   }
 
+  async function getCachedParts(id: string): Promise<PartMeta[]> {
+    if (!partsCache.has(id)) {
+      partsCache.set(id, await getPartsForSession(id));
+    }
+    return partsCache.get(id)!;
+  }
+
   const sessionsWithAgent = await Promise.all(
     rootSessions.map(async (session) => {
-      const firstAssistantMsg = await getFirstAssistantMessage(session.id);
       const messages = await getCachedMessages(session.id);
-      const parts = await getPartsForSession(session.id);
+      const latestAssistantMsg = getLatestAssistantMessage(messages);
+      const parts = await getCachedParts(session.id);
       const activityState = getSessionActivityState(parts);
       const lastAssistantFinished = isAssistantFinished(messages);
       
-      const status = getSessionStatus(
+      const statusInfo = getSessionStatusInfo(
         messages,
         activityState.hasPendingToolCall,
         activityState.lastToolCompletedAt || undefined,
         undefined,
         lastAssistantFinished
       );
+      const status = statusInfo.status;
       
-      const pendingParts = parts.filter(p => isPendingToolCall(p));
+      const pendingPart = getMostRecentPendingPart(parts);
       const currentAction = generateActivityMessage(
         activityState,
         lastAssistantFinished,
         false,
         status,
-        pendingParts[0]
+        pendingPart,
+        statusInfo.waitingReason
       );
       
-      const activityType = deriveActivityType(activityState, lastAssistantFinished, false, status);
+      const activityType = deriveActivityType(activityState, lastAssistantFinished, false, status, statusInfo.waitingReason);
       
       return {
         ...session,
-        agent: firstAssistantMsg?.agent || null,
-        modelID: firstAssistantMsg?.modelID || null,
-        providerID: firstAssistantMsg?.providerID || null,
+        agent: latestAssistantMsg?.agent || null,
+        modelID: latestAssistantMsg?.modelID || null,
+        providerID: latestAssistantMsg?.providerID || null,
         status,
         activityType,
         currentAction,
@@ -123,10 +164,16 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
   );
 
    let activeSession: SessionMetadata | null = null;
-   const activeEnriched = sessionsWithAgent.find(
-     s => s.status === "working" || s.status === "idle"
-   );
-   if (activeEnriched) {
+   const activeEnriched = [...sessionsWithAgent].sort((a, b) => {
+     const priorityDiff = sessionPriority(b) - sessionPriority(a);
+     if (priorityDiff !== 0) {
+       return priorityDiff;
+     }
+     return b.updatedAt.getTime() - a.updatedAt.getTime();
+   })[0];
+   if (activeEnriched && sessionPriority(activeEnriched) === 0) {
+     activeSession = null;
+   } else if (activeEnriched) {
      activeSession = rootSessions.find(s => s.id === activeEnriched.id) ?? null;
    }
 

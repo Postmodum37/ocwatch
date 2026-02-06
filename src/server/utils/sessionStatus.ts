@@ -8,6 +8,12 @@ import { isPendingToolCall } from "../storage/partParser";
 
 export type { SessionStatus };
 export { isPendingToolCall };
+export type WaitingReason = "user" | "children";
+
+export interface SessionStatusInfo {
+  status: SessionStatus;
+  waitingReason?: WaitingReason;
+}
 
 // Thresholds in milliseconds
 const WORKING_THRESHOLD = 30 * 1000; // 30 seconds
@@ -22,12 +28,30 @@ export function getSessionStatus(
   lastAssistantFinished?: boolean,
   isSubagent: boolean = false
 ): SessionStatus {
+  return getSessionStatusInfo(
+    messages,
+    hasPendingToolCall,
+    lastToolCompletedAt,
+    workingChildCount,
+    lastAssistantFinished,
+    isSubagent
+  ).status;
+}
+
+export function getSessionStatusInfo(
+  messages: MessageMeta[],
+  hasPendingToolCall: boolean = false,
+  lastToolCompletedAt?: Date,
+  workingChildCount?: number,
+  lastAssistantFinished?: boolean,
+  isSubagent: boolean = false
+): SessionStatusInfo {
   if (hasPendingToolCall) {
-    return "working";
+    return { status: "working" };
   }
 
   if (workingChildCount && workingChildCount > 0) {
-    return "waiting";
+    return { status: "waiting", waitingReason: "children" };
   }
 
   // Calculate time since last message early (needed for multiple checks)
@@ -42,7 +66,10 @@ export function getSessionStatus(
   // Assistant finished turn - only applies for RECENT sessions (< 5 min)
   // Old sessions (>= 5 min) fall through to time-based status instead of showing "waiting"
   if (lastAssistantFinished && timeSinceLastMessage < COMPLETED_THRESHOLD) {
-    return isSubagent ? "completed" : "waiting";
+    if (isSubagent) {
+      return { status: "completed" };
+    }
+    return { status: "waiting", waitingReason: "user" };
   }
 
   // Grace period after tool completion
@@ -50,21 +77,21 @@ export function getSessionStatus(
     const now = Date.now();
     const timeSinceToolCompleted = now - lastToolCompletedAt.getTime();
     if (timeSinceToolCompleted < GRACE_PERIOD) {
-      return "working";
+      return { status: "working" };
     }
   }
 
   // Time-based status from message timestamps
   if (!messages || messages.length === 0) {
-    return "completed";
+    return { status: "completed" };
   }
 
   if (timeSinceLastMessage < WORKING_THRESHOLD) {
-    return "working";
+    return { status: "working" };
   } else if (timeSinceLastMessage < COMPLETED_THRESHOLD) {
-    return "idle";
+    return { status: "idle" };
   } else {
-    return "completed";
+    return { status: "completed" };
   }
 }
 
@@ -93,5 +120,4 @@ export function getStatusFromTimestamp(
     return "completed";
   }
 }
-
 

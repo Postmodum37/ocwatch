@@ -5,7 +5,9 @@ import type {
   TreeNode, 
   TreeEdge, 
   SessionTree, 
-  AgentPhase 
+  AgentPhase,
+  PartMeta,
+  SessionStatus,
 } from "../../shared/types";
 import { MAX_RECURSION_DEPTH } from "../../shared/constants";
 import { listMessages } from "../storage/messageParser";
@@ -16,16 +18,35 @@ import {
   getToolCallsForSession, 
   generateActivityMessage
 } from "../storage/partParser";
-import { getSessionStatus, getStatusFromTimestamp } from "../utils/sessionStatus";
+import { getSessionStatus, getSessionStatusInfo, getStatusFromTimestamp, type SessionStatusInfo } from "../utils/sessionStatus";
 import { deriveActivityType } from "../storage/partParser";
 
 export function isAssistantFinished(messages: MessageMeta[]): boolean {
-  const assistantMessages = messages.filter(m => m.role === "assistant");
-  if (assistantMessages.length === 0) return false;
-  const lastAssistant = assistantMessages.reduce((a, b) => 
-    a.createdAt.getTime() > b.createdAt.getTime() ? a : b
+  if (messages.length === 0) {
+    return false;
+  }
+
+  const lastMessage = messages.reduce((latest, current) =>
+    current.createdAt.getTime() > latest.createdAt.getTime() ? current : latest
   );
-  return lastAssistant.finish === "stop";
+
+  return lastMessage.role === "assistant" && lastMessage.finish === "stop";
+}
+
+function getLatestAssistantMessage(messages: MessageMeta[]): MessageMeta | undefined {
+  return messages
+    .filter((message) => message.role === "assistant")
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+}
+
+function getMostRecentPendingPart(parts: PartMeta[]): PartMeta | undefined {
+  return parts
+    .filter((part) => isPendingToolCall(part))
+    .sort((a, b) => (b.startedAt?.getTime() || 0) - (a.startedAt?.getTime() || 0))[0];
+}
+
+function countBlockingChildren(statuses: SessionStatus[]): number {
+  return statuses.filter((status) => status === "working" || status === "waiting").length;
 }
 
 export function detectAgentPhases(messages: MessageMeta[]): AgentPhase[] {
@@ -169,9 +190,7 @@ export async function getSessionHierarchy(
   }
 
   if (phases.length <= 1) {
-    const firstAssistantMsg = rootMessages
-      .filter((m) => m.role === "assistant")
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+    const latestAssistantMsg = getLatestAssistantMessage(rootMessages);
     
     const totalTokens = rootMessages
       .filter((m) => m.tokens !== undefined)
@@ -198,37 +217,37 @@ export async function getSessionHierarchy(
         );
       })
     );
-    const workingChildCount = childStatuses.filter(
-      (status) => status === "working"
-    ).length;
+    const workingChildCount = countBlockingChildren(childStatuses);
 
     const rootLastAssistantFinished = isAssistantFinished(rootMessages);
-    const status = getSessionStatus(
+    const statusInfo = getSessionStatusInfo(
       rootMessages,
       activityState.hasPendingToolCall,
       activityState.lastToolCompletedAt || undefined,
       workingChildCount,
       rootLastAssistantFinished
     );
+    const status = statusInfo.status;
 
-    const pendingParts = parts.filter(p => isPendingToolCall(p));
+    const pendingPart = getMostRecentPendingPart(parts);
     const currentAction = generateActivityMessage(
       activityState,
       rootLastAssistantFinished,
       false,
       status,
-      pendingParts[0]
+      pendingPart,
+      statusInfo.waitingReason
     );
-    const activityType = deriveActivityType(activityState, rootLastAssistantFinished, false, status);
+    const activityType = deriveActivityType(activityState, rootLastAssistantFinished, false, status, statusInfo.waitingReason);
 
-    const toolCalls = await getToolCallsForSession(rootSessionId, messageAgent);
+    const toolCalls = await getToolCallsForSession(rootSessionId, messageAgent, undefined, parts);
 
     result.push({
       id: rootSession.id,
       title: rootSession.title,
-      agent: firstAssistantMsg?.agent || "unknown",
-      modelID: firstAssistantMsg?.modelID,
-      providerID: firstAssistantMsg?.providerID,
+      agent: latestAssistantMsg?.agent || "unknown",
+      modelID: latestAssistantMsg?.modelID,
+      providerID: latestAssistantMsg?.providerID,
       parentID: rootSession.parentID,
       tokens: totalTokens > 0 ? totalTokens : undefined,
       status,
@@ -246,6 +265,9 @@ export async function getSessionHierarchy(
       await processChildSession(child.id, rootSession.id, allSessions, result, processed, 1);
     }
   } else {
+    const rootParts = await getPartsForSession(rootSessionId);
+    const allToolCalls = await getToolCallsForSession(rootSessionId, messageAgent, undefined, rootParts);
+
     for (let i = 0; i < phases.length; i++) {
       const phase = phases[i];
       const nextPhaseStart = phases[i + 1]?.startTime || new Date(8640000000000000);
@@ -255,7 +277,7 @@ export async function getSessionHierarchy(
         m => m.role === 'assistant' && m.agent === phase.agent &&
              m.createdAt >= phase.startTime && m.createdAt <= phase.endTime
       );
-      const firstPhaseMsg = phaseMessages[0];
+      const latestPhaseMsg = phaseMessages[phaseMessages.length - 1];
 
       const phaseChildren = childSessions.filter(child =>
         child.createdAt >= phase.startTime && child.createdAt < nextPhaseStart
@@ -279,32 +301,61 @@ export async function getSessionHierarchy(
           );
         })
       );
-      const workingChildCount = childStatuses.filter(
-        (status) => status === "working"
-      ).length;
+      const workingChildCount = countBlockingChildren(childStatuses);
 
       const phaseLastAssistantFinished = isAssistantFinished(phaseMessages);
       const isLastPhase = i === phases.length - 1;
-      const status = workingChildCount > 0 
-        ? "waiting" 
-        : (phaseLastAssistantFinished 
-            ? (isLastPhase ? "waiting" : "completed") 
-            : getStatusFromTimestamp(phase.endTime));
+      const phaseMessageIds = new Set(phaseMessages.map((message) => message.id));
+      const phaseParts = rootParts.filter((part) => phaseMessageIds.has(part.messageID));
+      const phaseActivityState = getSessionActivityState(phaseParts);
 
-      const allToolCalls = await getToolCallsForSession(rootSessionId, messageAgent);
+      const statusInfo: SessionStatusInfo = isLastPhase
+        ? getSessionStatusInfo(
+            phaseMessages,
+            phaseActivityState.hasPendingToolCall,
+            phaseActivityState.lastToolCompletedAt || undefined,
+            workingChildCount,
+            phaseLastAssistantFinished
+          )
+        : {
+            status: workingChildCount > 0
+              ? "waiting"
+              : (phaseLastAssistantFinished ? "completed" : getStatusFromTimestamp(phase.endTime)),
+            waitingReason: workingChildCount > 0 ? "children" : undefined,
+          };
+
+      const status = statusInfo.status;
+
+      const pendingPart = isLastPhase ? getMostRecentPendingPart(phaseParts) : undefined;
+      const currentAction = isLastPhase
+        ? generateActivityMessage(
+            phaseActivityState,
+            phaseLastAssistantFinished,
+            false,
+            status,
+            pendingPart,
+            statusInfo.waitingReason
+          )
+        : null;
+      const activityType = isLastPhase
+        ? deriveActivityType(phaseActivityState, phaseLastAssistantFinished, false, status, statusInfo.waitingReason)
+        : "idle";
+
       const toolCalls = allToolCalls.filter(tc => tc.agentName === phase.agent);
 
       result.push({
         id: virtualId,
         title: rootSession.title,
         agent: phase.agent,
-        modelID: firstPhaseMsg?.modelID,
-        providerID: firstPhaseMsg?.providerID,
+        modelID: latestPhaseMsg?.modelID,
+        providerID: latestPhaseMsg?.providerID,
         parentID: undefined,
         tokens: phase.tokens > 0 ? phase.tokens : undefined,
         status,
-        currentAction: null,
-        activityType: "idle",
+        currentAction,
+        activityType,
+        pendingToolCount: isLastPhase && phaseActivityState.pendingCount > 0 ? phaseActivityState.pendingCount : undefined,
+        patchFilesCount: isLastPhase && phaseActivityState.patchFilesCount > 0 ? phaseActivityState.patchFilesCount : undefined,
         toolCalls,
         createdAt: phase.startTime,
         updatedAt: phase.endTime,
@@ -338,9 +389,7 @@ export async function processChildSession(
   if (!session) return;
 
   const messages = await listMessages(sessionId);
-  const firstAssistantMsg = messages
-    .filter((m) => m.role === "assistant")
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+  const latestAssistantMsg = getLatestAssistantMessage(messages);
 
   const totalTokens = messages
     .filter((m) => m.tokens !== undefined)
@@ -375,12 +424,10 @@ export async function processChildSession(
       );
     })
   );
-  const workingChildCount = childStatuses.filter(
-    (status) => status === "working"
-  ).length;
+  const workingChildCount = countBlockingChildren(childStatuses);
 
   const lastAssistantFinished = isAssistantFinished(messages);
-  const status = getSessionStatus(
+  const statusInfo = getSessionStatusInfo(
     messages,
     activityState.hasPendingToolCall,
     activityState.lastToolCompletedAt || undefined,
@@ -388,25 +435,27 @@ export async function processChildSession(
     lastAssistantFinished,
     true
   );
+  const status = statusInfo.status;
 
-  const pendingParts = parts.filter(p => isPendingToolCall(p));
+  const pendingPart = getMostRecentPendingPart(parts);
   const currentAction = generateActivityMessage(
     activityState,
     lastAssistantFinished,
     true,
     status,
-    pendingParts[0]
+    pendingPart,
+    statusInfo.waitingReason
   );
-  const activityType = deriveActivityType(activityState, lastAssistantFinished, true, status);
+  const activityType = deriveActivityType(activityState, lastAssistantFinished, true, status, statusInfo.waitingReason);
 
-  const toolCalls = await getToolCallsForSession(sessionId, messageAgent);
+  const toolCalls = await getToolCallsForSession(sessionId, messageAgent, undefined, parts);
 
   result.push({
     id: session.id,
     title: session.title,
-    agent: firstAssistantMsg?.agent || "unknown",
-    modelID: firstAssistantMsg?.modelID,
-    providerID: firstAssistantMsg?.providerID,
+    agent: latestAssistantMsg?.agent || "unknown",
+    modelID: latestAssistantMsg?.modelID,
+    providerID: latestAssistantMsg?.providerID,
     parentID: parentId,
     tokens: totalTokens > 0 ? totalTokens : undefined,
     status,

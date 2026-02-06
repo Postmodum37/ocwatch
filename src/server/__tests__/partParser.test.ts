@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { formatCurrentAction } from "../storage/partParser";
+import { formatCurrentAction, deriveActivityType, generateActivityMessage } from "../storage/partParser";
 import type { PartMeta } from "../../shared/types";
 
 function createPart(overrides: Partial<PartMeta> = {}): PartMeta {
@@ -120,5 +120,35 @@ describe("formatCurrentAction", () => {
       input: { filePath: "/test.ts" },
     });
     expect(formatCurrentAction(part)).toBe("Writing /test.ts");
+  });
+});
+
+describe("waiting-user derivation", () => {
+  const idleActivityState = {
+    hasPendingToolCall: false,
+    pendingCount: 0,
+    completedCount: 0,
+    lastToolCompletedAt: null,
+    isReasoning: false,
+    reasoningPreview: null,
+    patchFilesCount: 0,
+    stepFinishReason: null,
+    activeToolNames: [],
+  };
+
+  test("uses waitingReason=user for waiting-user activity", () => {
+    const activityType = deriveActivityType(idleActivityState, false, false, "waiting", "user");
+    const message = generateActivityMessage(idleActivityState, false, false, "waiting", undefined, "user");
+
+    expect(activityType).toBe("waiting-user");
+    expect(message).toBe("Waiting for user input");
+  });
+
+  test("does not use waiting-user for waitingReason=children", () => {
+    const activityType = deriveActivityType(idleActivityState, true, false, "waiting", "children");
+    const message = generateActivityMessage(idleActivityState, true, false, "waiting", undefined, "children");
+
+    expect(activityType).toBe("idle");
+    expect(message).toBeNull();
   });
 });

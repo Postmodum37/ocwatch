@@ -2,6 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { app } from "../index";
 import { getGlobalWatcher } from "../routes/sse";
 
+async function readEventChunk(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<string> {
+  const { value } = await reader.read();
+  return new TextDecoder().decode(value);
+}
+
 describe("GET /api/sse", () => {
   let watcher: ReturnType<typeof getGlobalWatcher>;
 
@@ -62,16 +67,20 @@ describe("GET /api/sse", () => {
 
     expect(res.ok).toBe(true);
 
-    watcher.emit("change", {
-      eventType: "change",
-      filename: "session/abc123.json",
-    });
-
     const reader = res.body?.getReader();
     if (reader) {
-      const { value } = await reader.read();
-      const text = new TextDecoder().decode(value);
-      expect(text).toContain("event: connected");
+      const connected = await readEventChunk(reader);
+      expect(connected).toContain("event: connected");
+
+      watcher.emit("change", {
+        eventType: "change",
+        filename: "session/abc123.json",
+      });
+
+      const update = await readEventChunk(reader);
+      expect(update).toContain("event: session-update");
+      expect(update).toContain("session/abc123.json");
+      await reader.cancel();
     }
   });
 
@@ -81,16 +90,20 @@ describe("GET /api/sse", () => {
 
     expect(res.ok).toBe(true);
 
-    watcher.emit("change", {
-      eventType: "change",
-      filename: "message/msg123.json",
-    });
-
     const reader = res.body?.getReader();
     if (reader) {
-      const { value } = await reader.read();
-      const text = new TextDecoder().decode(value);
-      expect(text).toContain("event: connected");
+      const connected = await readEventChunk(reader);
+      expect(connected).toContain("event: connected");
+
+      watcher.emit("change", {
+        eventType: "change",
+        filename: "message/msg123.json",
+      });
+
+      const update = await readEventChunk(reader);
+      expect(update).toContain("event: message-update");
+      expect(update).toContain("message/msg123.json");
+      await reader.cancel();
     }
   });
 
@@ -100,16 +113,20 @@ describe("GET /api/sse", () => {
 
     expect(res.ok).toBe(true);
 
-    watcher.emit("change", {
-      eventType: "change",
-      filename: "boulder.json",
-    });
-
     const reader = res.body?.getReader();
     if (reader) {
-      const { value } = await reader.read();
-      const text = new TextDecoder().decode(value);
-      expect(text).toContain("event: connected");
+      const connected = await readEventChunk(reader);
+      expect(connected).toContain("event: connected");
+
+      watcher.emit("change", {
+        eventType: "change",
+        filename: ".sisyphus/boulder.json",
+      });
+
+      const update = await readEventChunk(reader);
+      expect(update).toContain("event: plan-update");
+      expect(update).toContain("boulder.json");
+      await reader.cancel();
     }
   });
 

@@ -39,6 +39,7 @@ interface PartJSON {
   snapshot?: string;
   reason?: string;
   files?: string[];
+  input?: Record<string, unknown>;
 }
 
 /**
@@ -61,14 +62,12 @@ export async function parsePart(filePath: string): Promise<PartMeta | null> {
       state = json.state.status;
       title = json.state.title;
       if (json.state.input) {
-        input = {
-          filePath: json.state.input.filePath as string | undefined,
-          command: json.state.input.command as string | undefined,
-          pattern: json.state.input.pattern as string | undefined,
-          url: json.state.input.url as string | undefined,
-          query: json.state.input.query as string | undefined,
-        };
+        input = { ...json.state.input };
       }
+    }
+
+    if (!input && json.input) {
+      input = { ...json.input };
     }
 
     // Time can be at top level (json.time) or inside state object (json.state.time) for tool parts
@@ -350,12 +349,13 @@ export function deriveActivityType(
   activityState: SessionActivityState,
   lastAssistantFinished: boolean,
   isSubagent: boolean,
-  status: SessionStatus
+  status: SessionStatus,
+  waitingReason?: "user" | "children"
 ): SessionActivityType {
   if (status === "completed") {
     return "idle";
   }
-  if (lastAssistantFinished && !isSubagent && status === "waiting") {
+  if ((waitingReason === "user" || (!waitingReason && lastAssistantFinished)) && !isSubagent && status === "waiting") {
     return "waiting-user";
   }
   if (activityState.pendingCount > 0) {
@@ -378,12 +378,13 @@ export function generateActivityMessage(
   lastAssistantFinished: boolean,
   isSubagent: boolean,
   status: SessionStatus,
-  pendingPart?: PartMeta
+  pendingPart?: PartMeta,
+  waitingReason?: "user" | "children"
 ): string | null {
   if (status === "completed") {
     return null;
   }
-  if (lastAssistantFinished && !isSubagent && status === "waiting") {
+  if ((waitingReason === "user" || (!waitingReason && lastAssistantFinished)) && !isSubagent && status === "waiting") {
     return "Waiting for user input";
   }
 
@@ -465,9 +466,10 @@ export async function getPartsForSession(
 export async function getToolCallsForSession(
   sessionID: string,
   messageAgent: Map<string, string>,
-  storagePath?: string
+  storagePath?: string,
+  partsOverride?: PartMeta[]
 ): Promise<ToolCallSummary[]> {
-  const parts = await getPartsForSession(sessionID, storagePath);
+  const parts = partsOverride ?? (await getPartsForSession(sessionID, storagePath));
 
   // Filter for tool type parts only
   const toolParts = parts.filter((part) => part.type === "tool" && part.tool);

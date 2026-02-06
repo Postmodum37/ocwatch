@@ -10,6 +10,7 @@ import { getStoragePath } from "./storage/sessionParser";
 
 export interface WatcherOptions {
   storagePath?: string;
+  projectPath?: string;
   debounceMs?: number;
 }
 
@@ -18,11 +19,13 @@ export class Watcher extends EventEmitter {
   private debounceTimer: Timer | null = null;
   private readonly debounceMs: number;
   private readonly storagePath: string;
+  private readonly projectPath: string;
   private isRunning: boolean = false;
 
   constructor(options: WatcherOptions = {}) {
     super();
     this.storagePath = options.storagePath || getStoragePath();
+    this.projectPath = options.projectPath || process.cwd();
     this.debounceMs = options.debounceMs || 100;
   }
 
@@ -63,6 +66,29 @@ export class Watcher extends EventEmitter {
         // part directory may not exist yet
       }
 
+      const boulderDir = join(this.projectPath, ".sisyphus");
+      try {
+        const boulderWatcher = watch(
+          boulderDir,
+          { recursive: true },
+          this.handleChange.bind(this)
+        );
+        this.watchers.push(boulderWatcher);
+      } catch {
+        // boulder directory may not exist yet
+      }
+
+      try {
+        const projectWatcher = watch(
+          this.projectPath,
+          { recursive: true },
+          this.handleProjectChange.bind(this)
+        );
+        this.watchers.push(projectWatcher);
+      } catch {
+        // project watcher may fail on unsupported environments
+      }
+
       this.emit("started");
     } catch (error) {
       this.emit("error", error);
@@ -89,6 +115,22 @@ export class Watcher extends EventEmitter {
     }, this.debounceMs);
   }
 
+  private handleProjectChange(eventType: string, filename: string | null): void {
+    if (!filename) {
+      return;
+    }
+
+    if (!filename.endsWith(".json")) {
+      return;
+    }
+
+    if (!filename.includes(".sisyphus") && !filename.includes("boulder")) {
+      return;
+    }
+
+    this.handleChange(eventType, filename);
+  }
+
   stop(): void {
     if (!this.isRunning) {
       return;
@@ -113,6 +155,6 @@ export class Watcher extends EventEmitter {
   }
 }
 
-export function createWatcher(storagePath?: string): Watcher {
-  return new Watcher({ storagePath });
+export function createWatcher(storagePath?: string, projectPath?: string): Watcher {
+  return new Watcher({ storagePath, projectPath });
 }

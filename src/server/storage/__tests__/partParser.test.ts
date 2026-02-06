@@ -2,6 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  parsePart,
   getPartsForSession,
   getSessionToolState,
   isPendingToolCall,
@@ -243,6 +244,39 @@ describe("getPartsForSession", () => {
   test("returns empty array for session with no messages", async () => {
     const parts = await getPartsForSession("ses_nonexistent", TEST_DIR);
     expect(parts).toEqual([]);
+  });
+
+  test("preserves full tool input payload", async () => {
+    const FULL_INPUT_SESSION_ID = "ses_fullinput";
+    const FULL_INPUT_MESSAGE_ID = "msg_fullinput";
+    const fullInputDir = join(STORAGE_DIR, "part", FULL_INPUT_MESSAGE_ID);
+    await mkdir(fullInputDir, { recursive: true });
+
+    const rawPartPath = join(fullInputDir, "prt_full_input.json");
+    await writeFile(
+      rawPartPath,
+      JSON.stringify({
+        id: "prt_full_input",
+        sessionID: FULL_INPUT_SESSION_ID,
+        messageID: FULL_INPUT_MESSAGE_ID,
+        type: "tool",
+        tool: "task",
+        state: {
+          status: "completed",
+          input: {
+            description: "Investigate issue",
+            subagent_type: "explore",
+            todos: [{ content: "One" }],
+          },
+        },
+      })
+    );
+
+    const parsed = await parsePart(rawPartPath);
+
+    expect(parsed?.input?.description).toBe("Investigate issue");
+    expect(parsed?.input?.subagent_type).toBe("explore");
+    expect(Array.isArray(parsed?.input?.todos)).toBe(true);
   });
 });
 

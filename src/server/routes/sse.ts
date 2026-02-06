@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { Watcher } from "../watcher";
-import { setPollCache } from "../services/pollService";
+import { invalidatePollCache } from "../services/pollService";
 
 let globalWatcher: Watcher | null = null;
 const activeAbortControllers = new Set<AbortController>();
@@ -63,7 +63,7 @@ export function registerSSERoute(app: Hono) {
             eventType = "plan-update";
           }
 
-          setPollCache(null);
+          invalidatePollCache();
           await stream.writeSSE({
             data: JSON.stringify({
               filename: data.filename,

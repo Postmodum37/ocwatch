@@ -4,6 +4,7 @@ import {
   fetchPollData, 
   getPollCache, 
   setPollCache, 
+  getPollCacheEpoch,
   getPollInProgress, 
   setPollInProgress,
   getPollCacheTTL
@@ -50,12 +51,15 @@ export function registerPollRoute(app: Hono) {
     
     let pollData: Awaited<ReturnType<typeof fetchPollData>>;
     if (!sessionId) {
+      const cacheEpochAtStart = getPollCacheEpoch();
       const promise = fetchPollData();
       setPollInProgress(promise);
       try {
         pollData = await promise;
         const etag = generateETag(pollData);
-        setPollCache({ data: pollData, etag, timestamp: Date.now() });
+        if (cacheEpochAtStart === getPollCacheEpoch()) {
+          setPollCache({ data: pollData, etag, timestamp: Date.now() });
+        }
       } finally {
         setPollInProgress(null);
       }
