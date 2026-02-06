@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo, memo, useState } from 'react';
-import { Activity, Check, Loader2, Circle, Sparkles, FileEdit, Terminal, Clock } from 'lucide-react';
+import { Activity, Check, Loader2, Circle, Sparkles, FileEdit, Terminal, Clock, MessageCircleQuestion } from 'lucide-react';
 import type { ActivitySession, SessionStatus, SessionActivityType, ToolCallSummary } from '@shared/types';
 import { formatRelativeTime } from '@shared/utils/formatTime';
 import { EmptyState } from './EmptyState';
@@ -118,8 +118,9 @@ const ActivityTypeIndicator = memo<{ activityType?: SessionActivityType; pending
         );
       case 'waiting-user':
         return (
-          <span className="flex items-center gap-1 text-gray-400" title="Waiting for user">
-            <Circle className="w-3 h-3" />
+          <span className="flex items-center gap-1.5 text-warning animate-waiting-user-icon" title="Waiting for your input">
+            <MessageCircleQuestion className="w-4 h-4" />
+            <span className="text-xs font-medium">Needs input</span>
           </span>
         );
       default:
@@ -153,20 +154,22 @@ const SessionRow = memo<{ node: SessionNode; depth: number; isLast: boolean }>(f
    const status: SessionStatus = session.status || 'completed';
    
    let currentActionText = session.currentAction;
-   if (!currentActionText) {
-     if (session.workingChildCount && session.workingChildCount > 0) {
-       currentActionText = `Waiting on ${session.workingChildCount} agent${session.workingChildCount > 1 ? 's' : ''}`;
-     } else if (status === 'completed' && session.parentID && session.title) {
-       currentActionText = session.title;
-     }
-   }
+    if (session.activityType === 'waiting-user' && (!currentActionText || currentActionText === 'question')) {
+      currentActionText = 'Waiting for your response';
+    } else if (!currentActionText) {
+      if (session.workingChildCount && session.workingChildCount > 0) {
+        currentActionText = `Waiting on ${session.workingChildCount} agent${session.workingChildCount > 1 ? 's' : ''}`;
+      } else if (status === 'completed' && session.parentID && session.title) {
+        currentActionText = session.title;
+      }
+    }
 
    const toolInfo = getFullToolDisplayText(session.toolCalls);
    
    return (
      <div className="flex flex-col">
        <div 
-         className={`flex items-center gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2 ${status === 'completed' ? 'opacity-60' : ''}`}
+         className={`flex items-center gap-2 py-1.5 hover:bg-white/[0.02] rounded px-2 -mx-2 ${status === 'completed' ? 'opacity-60' : ''} ${session.activityType === 'waiting-user' ? 'animate-waiting-user-row' : ''}`}
          style={{ marginLeft: `${depth * 20}px` }}
          data-testid={`session-row-${session.id}`}
        >
@@ -295,13 +298,12 @@ export const LiveActivity: React.FC<LiveActivityProps> = ({ sessions, loading })
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className={`absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 ${isUpdating ? 'animate-ping' : ''}`}></span>
-            <span className={`relative inline-flex rounded-full h-2 w-2 transition-all duration-300 ${isUpdating ? 'bg-green-400 scale-125' : 'bg-green-500'}`}></span>
+        {isUpdating && (
+          <span className="relative flex h-2 w-2" title="Receiving data">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400"></span>
           </span>
-          <span className="text-xs text-text-secondary">Connected</span>
-        </div>
+        )}
       </div>
       
       <div 

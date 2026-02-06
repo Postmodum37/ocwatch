@@ -3,6 +3,20 @@ import { SessionList } from '../SessionList';
 import type { SessionMetadata, ProjectInfo } from '@shared/types';
 import { describe, it, expect, vi } from 'vitest';
 
+vi.mock('../../store/AppContext', () => ({
+  useAppContext: () => ({
+    selectedSessionId: null,
+    activeSession: null,
+    sessions: [],
+    sessionStats: null,
+    planProgress: null,
+    activitySessions: [],
+    lastUpdate: Date.now(),
+    isReconnecting: false,
+    error: null,
+  }),
+}));
+
 const mockSessions: SessionMetadata[] = [
   {
     id: '1',
@@ -256,9 +270,9 @@ describe('SessionList', () => {
     expect(items[2].getAttribute('data-testid')).toBe('session-item-z');
   });
 
-  it('applies warning border color for waiting-user status', () => {
+  it('applies attention animation for waiting-user status', () => {
     render(<SessionList sessions={mockSessions} selectedId={null} onSelect={() => {}} />);
     const waitingUserItem = screen.getByTestId('session-item-6');
-    expect(waitingUserItem.className).toContain('border-l-warning');
+    expect(waitingUserItem.className).toContain('animate-attention');
   });
 });

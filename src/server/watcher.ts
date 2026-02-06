@@ -46,7 +46,7 @@ export class Watcher extends EventEmitter {
 
       const messageWatcher = watch(
         messageDir,
-        { recursive: false },
+        { recursive: true },
         this.handleChange.bind(this)
       );
       this.watchers.push(messageWatcher);
@@ -55,7 +55,7 @@ export class Watcher extends EventEmitter {
       try {
         const partWatcher = watch(
           partDir,
-          { recursive: false },
+          { recursive: true },
           this.handleChange.bind(this)
         );
         this.watchers.push(partWatcher);

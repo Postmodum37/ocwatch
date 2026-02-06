@@ -50,7 +50,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
 
   const etagRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const retryTimeoutRef = useRef<number | null>(null);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentSessionIdRef = useRef<string | null | undefined>(sessionId);
   const failedAttemptsRef = useRef(0);
 

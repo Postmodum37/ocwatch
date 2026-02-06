@@ -1,9 +1,9 @@
 {
-  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/activity-reporting-improvements.md",
-  "started_at": "2026-02-03T23:07:26.955Z",
-  "session_ids": ["ses_3da3d3cb2ffea8bl4nUq65fL7m"],
-  "plan_name": "activity-reporting-improvements",
+  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/activity-stream-redesign.md",
+  "started_at": "2026-02-06T19:48:58.354Z",
+  "session_ids": ["ses_3cb7fdea2ffeZj71WJoeXImdWK"],
+  "plan_name": "activity-stream-redesign",
   "status": "completed",
-  "tasks_completed": 19,
-  "tasks_total": 19
+  "tasks_completed": 8,
+  "tasks_total": 27
 }

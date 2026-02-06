@@ -95,10 +95,10 @@ describe('LiveActivity', () => {
     expect(screen.getByText('89 tokens')).toBeInTheDocument();
   });
 
-  it('shows connected indicator when sessions exist', () => {
+  it('shows Live Activity header when sessions exist', () => {
     render(<LiveActivity sessions={mockSessions} loading={false} />);
 
-    expect(screen.getByText('Connected')).toBeInTheDocument();
+    expect(screen.getByText('Live Activity')).toBeInTheDocument();
   });
 
   it('renders nested sessions with delegation indicator', () => {

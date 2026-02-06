@@ -1,16 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Zap, ChevronDown, Coins, Box } from 'lucide-react';
 import type { SessionStats as SessionStatsType } from '@shared/types';
+import { formatTokens } from '../utils/formatters';
 
 interface SessionStatsProps {
   stats?: SessionStatsType | null;
 }
-
-const formatTokens = (tokens: number): string => {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}k`;
-  return tokens.toString();
-};
 
 export function SessionStats({ stats }: SessionStatsProps) {
   const [isOpen, setIsOpen] = useState(false);

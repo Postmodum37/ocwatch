@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { Loader2, Check, Circle, Folder, ChevronDown, Inbox, Clock } from 'lucide-react';
+import { Loader2, Check, Circle, Folder, ChevronDown, Inbox, MessageCircleQuestion } from 'lucide-react';
 import type { SessionMetadata, ProjectInfo, SessionStatus, SessionActivityType } from '@shared/types';
 import { formatRelativeTimeVerbose } from '@shared/utils/formatTime';
 import { EmptyState } from './EmptyState';
+import { ScopeSnapshot } from './sidebar/ScopeSnapshot';
+import { ActiveAgents } from './sidebar/ActiveAgents';
+import { SidebarPlanProgress } from './sidebar/SidebarPlanProgress';
+import { SystemHealth } from './sidebar/SystemHealth';
 
 interface SessionListProps {
   sessions: SessionMetadata[];
@@ -24,7 +28,7 @@ const SessionStatusIcon: React.FC<{ status: SessionStatus; activityType?: Sessio
 
   if (status === 'waiting') {
     if (activityType === 'waiting-user') {
-      return <Clock className="w-4 h-4 text-warning" data-testid="session-status-waiting-user" />;
+      return <MessageCircleQuestion className="w-4 h-4 text-warning animate-waiting-user-icon" data-testid="session-status-waiting-user" />;
     }
     return <Circle className="w-4 h-4 text-text-secondary" data-testid="session-status-waiting" />;
   }
@@ -123,7 +127,7 @@ export const SessionList: React.FC<SessionListProps> = ({
         <h2 className="text-text-primary font-semibold text-lg">Sessions</h2>
       </div>
         <div 
-          className="flex-1 overflow-y-auto" 
+          className="flex-1 min-h-0 overflow-y-auto" 
           role="listbox" 
           aria-label="Sessions"
           tabIndex={0}
@@ -147,7 +151,7 @@ export const SessionList: React.FC<SessionListProps> = ({
              } else {
                 if (status === 'working') borderClass = 'border-l-accent';
                 else if (status === 'idle') borderClass = 'border-l-success';
-                else if (status === 'waiting' && activityType === 'waiting-user') borderClass = 'border-l-warning';
+                 else if (status === 'waiting' && activityType === 'waiting-user') borderClass = 'border-l-transparent animate-attention';
                 else if (status === 'completed') borderClass = 'border-l-transparent';
              }
 
@@ -177,9 +181,9 @@ export const SessionList: React.FC<SessionListProps> = ({
                  </div>
 
                  <div className="flex items-center gap-2 pl-6 w-full min-w-0">
-                   <span className="text-xs text-text-secondary truncate flex-1 min-w-0" title={session.currentAction || ''}>
-                     {session.currentAction || 'No active task'}
-                   </span>
+                   <span className={`text-xs truncate flex-1 min-w-0 ${activityType === 'waiting-user' ? 'text-warning font-medium' : 'text-text-secondary'}`} title={session.currentAction || ''}>
+                      {activityType === 'waiting-user' && (!session.currentAction || session.currentAction === 'question') ? '⚡ Needs your input' : (session.currentAction || 'No active task')}
+                    </span>
                    
                    {session.agent && (
                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-surface border border-border text-text-secondary shrink-0">
@@ -201,6 +205,16 @@ export const SessionList: React.FC<SessionListProps> = ({
            })
          )}
        </div>
+
+       {/* Sidebar Detail Widgets */}
+       <div className="border-t border-border overflow-y-auto p-3 space-y-3 max-h-[45%] shrink-0">
+         <ScopeSnapshot />
+         <ActiveAgents />
+         <SidebarPlanProgress />
+       </div>
+
+       {/* Pinned System Health Footer */}
+       <SystemHealth />
      </div>
   );
 };

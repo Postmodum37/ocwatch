@@ -109,22 +109,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     const es = new EventSource(sseUrl);
     eventSourceRef.current = es;
 
-    const handleSSEEvent = (event: MessageEvent) => {
+    const handleSSEEvent = (_event: MessageEvent) => {
       lastEventTimeRef.current = Date.now();
-
-      try {
-        const parsed = JSON.parse(event.data);
-        if (parsed.pollData && currentSessionIdRef.current === sessionId) {
-          setSseState(prev => ({
-            ...prev,
-            data: parsed.pollData,
-            loading: false,
-            lastUpdate: Date.now(),
-            error: null,
-          }));
-          return;
-        }
-      } catch {}
 
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
