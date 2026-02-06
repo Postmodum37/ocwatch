@@ -139,7 +139,11 @@ describe("Type Definitions", () => {
         completed: 5,
         total: 10,
         progress: 50,
-        tasks: ["task1", "task2", "task3"],
+        tasks: [
+          { description: "task1", completed: true },
+          { description: "task2", completed: false },
+          { description: "task3", completed: false },
+        ],
       };
 
       expect(progress.completed).toBe(5);

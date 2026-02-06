@@ -368,7 +368,7 @@ Some other content
     expect(result?.completed).toBe(3);
     expect(result?.progress).toBe(60);
     expect(result?.tasks).toHaveLength(5);
-    expect(result?.tasks[0]).toBe("Task 1 completed");
+    expect(result?.tasks[0]).toEqual({ description: "Task 1 completed", completed: true });
   });
 
   test("calculatePlanProgress - empty plan", async () => {

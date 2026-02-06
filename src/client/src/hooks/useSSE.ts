@@ -38,6 +38,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
   });
 
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const currentSessionIdRef = useRef<string | null | undefined>(sessionId);
   const lastEventTimeRef = useRef<number>(Date.now());
@@ -84,15 +85,49 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && enabled) {
+        setSseState(prev => ({ ...prev, isReconnecting: true }));
         setIsUsingFallback(false);
       }
     };
 
+    const handleOnline = () => {
+      if (!enabled) {
+        return;
+      }
+      setSseState(prev => ({ ...prev, isReconnecting: true }));
+      setIsUsingFallback(false);
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
     };
   }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled || !isUsingFallback) {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    const retryDelayMs = Math.min(30000, 2000 * Math.max(1, sseState.failedAttempts));
+    reconnectTimeoutRef.current = setTimeout(() => {
+      setSseState(prev => ({ ...prev, isReconnecting: true }));
+      setIsUsingFallback(false);
+    }, retryDelayMs);
+
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+    };
+  }, [enabled, isUsingFallback, sseState.failedAttempts]);
 
   useEffect(() => {
     if (!enabled || isUsingFallback) {
@@ -143,6 +178,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
       setSseState(prev => ({
         ...prev,
         error: new Error('SSE Connection Failed'),
+        isReconnecting: true,
+        failedAttempts: prev.failedAttempts + 1,
       }));
       setIsUsingFallback(true);
     };
@@ -155,6 +192,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
         setSseState(prev => ({
           ...prev,
           error: new Error('SSE Connection Stale'),
+          isReconnecting: true,
+          failedAttempts: prev.failedAttempts + 1,
         }));
         setIsUsingFallback(true);
       }
@@ -164,6 +203,10 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
       clearInterval(livenessCheckInterval);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
       es.close();
       if (eventSourceRef.current === es) {

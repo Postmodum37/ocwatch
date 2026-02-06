@@ -83,13 +83,13 @@ export async function calculatePlanProgress(
 function parseCheckboxes(content: string): {
   completed: number;
   total: number;
-  tasks: string[];
+  tasks: Array<{ description: string; completed: boolean }>;
 } {
   const checkboxRegex = /-\s+\[([ xX])\]\s*(.+)/g;
   const matches = [...content.matchAll(checkboxRegex)];
 
   let completed = 0;
-  const tasks: string[] = [];
+  const tasks: Array<{ description: string; completed: boolean }> = [];
 
   for (const match of matches) {
     const isChecked = match[1] === "x" || match[1] === "X";
@@ -99,7 +99,10 @@ function parseCheckboxes(content: string): {
       completed++;
     }
 
-    tasks.push(taskText);
+    tasks.push({
+      description: taskText,
+      completed: isChecked,
+    });
   }
 
   return {

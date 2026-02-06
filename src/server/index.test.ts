@@ -19,7 +19,12 @@ function parseArgs(): {
   showHelp: boolean;
 } {
   const args = process.argv.slice(2);
-  const flags = {
+  const flags: {
+    port: number;
+    noBrowser: boolean;
+    projectPath: string | null;
+    showHelp: boolean;
+  } = {
     port: 50234,
     noBrowser: false,
     projectPath: null,

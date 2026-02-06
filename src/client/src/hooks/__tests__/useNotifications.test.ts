@@ -1,14 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useNotifications } from '../useNotifications';
-import type { SessionMetadata } from '@shared/types';
+
+interface SessionMetadata {
+  id: string;
+  projectID: string;
+  directory: string;
+  title: string;
+  agent?: string | null;
+  status?: 'working' | 'idle' | 'completed' | 'waiting';
+  activityType?: 'tool' | 'reasoning' | 'patch' | 'waiting-tools' | 'waiting-user' | 'idle';
+  parentID?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 describe('useNotifications', () => {
-  let notificationConstructor: ReturnType<typeof vi.fn>;
+  let notificationCalls: Array<{ title: string; options?: NotificationOptions }>;
   let originalNotification: typeof Notification;
 
   beforeEach(() => {
-    notificationConstructor = vi.fn();
+    notificationCalls = [];
     
     originalNotification = globalThis.Notification;
     
@@ -20,7 +32,7 @@ describe('useNotifications', () => {
         static requestPermission = vi.fn().mockResolvedValue('granted');
         
         constructor(title: string, options?: NotificationOptions) {
-          notificationConstructor(title, options);
+          notificationCalls.push({ title, options });
         }
       },
     });
@@ -61,7 +73,7 @@ describe('useNotifications', () => {
 
     renderHook(() => useNotifications(sessions, false));
 
-    expect(notificationConstructor).not.toHaveBeenCalled();
+    expect(notificationCalls).toHaveLength(0);
   });
 
   it('transition from working → waiting-user fires notification', () => {
@@ -74,7 +86,7 @@ describe('useNotifications', () => {
       }
     );
 
-    expect(notificationConstructor).not.toHaveBeenCalled();
+    expect(notificationCalls).toHaveLength(0);
 
     act(() => {
       rerender({
@@ -83,10 +95,14 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationConstructor).toHaveBeenCalledWith('🔔 Input needed', {
-      body: 'TestAgent is waiting for your response',
-      tag: 'ocwatch-waiting-s1',
-      requireInteraction: false,
+    expect(notificationCalls).toHaveLength(1);
+    expect(notificationCalls[0]).toEqual({
+      title: '🔔 Input needed',
+      options: {
+        body: 'TestAgent is waiting for your response',
+        tag: 'ocwatch-waiting-s1',
+        requireInteraction: false,
+      },
     });
   });
 
@@ -100,7 +116,7 @@ describe('useNotifications', () => {
       }
     );
 
-    expect(notificationConstructor).not.toHaveBeenCalled();
+    expect(notificationCalls).toHaveLength(0);
 
     act(() => {
       rerender({
@@ -109,10 +125,14 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationConstructor).toHaveBeenCalledWith('✅ Agent completed', {
-      body: 'TestAgent finished work',
-      tag: 'ocwatch-completed-s1',
-      requireInteraction: false,
+    expect(notificationCalls).toHaveLength(1);
+    expect(notificationCalls[0]).toEqual({
+      title: '✅ Agent completed',
+      options: {
+        body: 'TestAgent finished work',
+        tag: 'ocwatch-completed-s1',
+        requireInteraction: false,
+      },
     });
   });
 
@@ -139,7 +159,7 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationConstructor).not.toHaveBeenCalled();
+    expect(notificationCalls).toHaveLength(0);
   });
 
   it('no notification for subagent transitions', () => {
@@ -166,7 +186,7 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationConstructor).not.toHaveBeenCalled();
+    expect(notificationCalls).toHaveLength(0);
   });
 
   it('cooldown prevents rapid-fire', () => {
@@ -186,7 +206,7 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationConstructor).toHaveBeenCalledTimes(1);
+    expect(notificationCalls).toHaveLength(1);
 
     act(() => {
       rerender({
@@ -202,7 +222,7 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationConstructor).toHaveBeenCalledTimes(1);
+    expect(notificationCalls).toHaveLength(1);
   });
 
   it('SSE reconnection resets baseline', () => {
@@ -215,7 +235,7 @@ describe('useNotifications', () => {
       }
     );
 
-    expect(notificationConstructor).not.toHaveBeenCalled();
+    expect(notificationCalls).toHaveLength(0);
 
     act(() => {
       rerender({ sessions: initialSessions, isReconnecting: true });
@@ -239,7 +259,7 @@ describe('useNotifications', () => {
       });
     });
 
-    expect(notificationConstructor).toHaveBeenCalledTimes(1);
+    expect(notificationCalls).toHaveLength(1);
   });
 
   it('requestPermission updates state and calls API', async () => {
