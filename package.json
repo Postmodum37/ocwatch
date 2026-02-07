@@ -4,14 +4,48 @@
   "description": "Real-time web dashboard for monitoring OpenCode agent activity",
   "type": "module",
   "main": "src/server/index.ts",
+  "bin": {
+    "ocwatch": "src/server/index.ts"
+  },
+  "files": [
+    "src/server/**/*.ts",
+    "!src/server/**/*.test.ts",
+    "!src/server/__tests__/",
+    "src/shared/**/*.ts",
+    "!src/shared/**/*.test.ts",
+    "!src/shared/__tests__/",
+    "!src/shared/**/___tests__/",
+    "src/client/dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "bun run dev:server & bun run dev:client",
     "dev:server": "bun --watch src/server/index.ts --no-browser",
     "dev:client": "cd src/client && bun run dev",
-    "start": "bun run src/server/index.ts --no-browser",
+    "start": "bun run src/server/index.ts",
     "test": "(cd src/server && bun test) && bun test src/__tests__/*.test.ts",
-    "build": "cd src/client && bun run build"
+    "build": "cd src/client && bun run build",
+    "prepublishOnly": "cd src/client && bun install && bun run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Postmodum37/ocwatch.git"
+  },
+  "homepage": "https://github.com/Postmodum37/ocwatch#readme",
+  "bugs": {
+    "url": "https://github.com/Postmodum37/ocwatch/issues"
+  },
+  "keywords": [
+    "opencode",
+    "claude-code",
+    "monitor",
+    "dashboard",
+    "agent",
+    "bun"
+  ],
+  "author": "Postmodum37",
+  "license": "MIT",
   "dependencies": {
     "hono": "^4.11.7",
     "zod": "^4.3.6"

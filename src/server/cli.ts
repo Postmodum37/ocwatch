@@ -43,9 +43,9 @@ export function parseArgs(): CLIFlags {
 
 export function printHelp(): void {
   console.log(`
-OCWatch Server - Real-time OpenCode Activity Monitor
+OCWatch - Real-time OpenCode Activity Monitor
 
-Usage: bun run src/server/index.ts [options]
+Usage: ocwatch [options]
 
 Options:
   --port <number>      Server port (default: 50234)
@@ -54,10 +54,10 @@ Options:
   --help, -h           Show this help message
 
 Examples:
-  bun run src/server/index.ts
-  bun run src/server/index.ts --port 50999
-  bun run src/server/index.ts --no-browser
-  bun run src/server/index.ts --project /path/to/project
+  ocwatch
+  ocwatch --port 50999
+  ocwatch --no-browser
+  ocwatch --project /path/to/project
 `);
 }
 

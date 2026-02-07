@@ -1,11 +1,15 @@
+#!/usr/bin/env bun
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { compress } from "hono/compress";
 import { serveStatic } from "hono/bun";
+import { join } from "path";
 import { errorHandler, notFoundHandler } from "./middleware/error";
 import { registerRoutes } from "./routes";
 import { parseArgs, printHelp, openBrowser } from "./cli";
 import { getGlobalWatcher, closeAllSSEConnections } from "./routes/sse";
+
+const clientDistPath = join(import.meta.dir, "..", "client", "dist");
 
 const app = new Hono();
 
@@ -22,9 +26,21 @@ app.use(
 
 registerRoutes(app);
 
-app.use("/*", serveStatic({ root: "./src/client/dist" }));
+app.use("/*", serveStatic({ root: clientDistPath }));
 
-app.notFound(notFoundHandler);
+app.notFound(async (c) => {
+  if (c.req.path.startsWith("/api/")) {
+    return notFoundHandler(c);
+  }
+  const indexPath = join(clientDistPath, "index.html");
+  const file = Bun.file(indexPath);
+  if (await file.exists()) {
+    return new Response(file, {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  }
+  return notFoundHandler(c);
+});
 
 export { app };
 
