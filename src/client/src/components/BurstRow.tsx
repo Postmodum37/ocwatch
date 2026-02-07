@@ -21,6 +21,10 @@ export function BurstRow({ burst }: BurstRowProps) {
   const hasError = burst.errorCount > 0;
   const isPending = burst.pendingCount > 0;
 
+  const latestItem = burst.items[burst.items.length - 1];
+  const primaryText = latestItem?.summary || latestItem?.toolName || 'Unknown Action';
+  const errorMessage = burst.items.findLast(item => item.error)?.error;
+
   return (
     <div className="flex flex-col border-b border-border/50" data-testid="burst-row">
       <button
@@ -38,13 +42,33 @@ export function BurstRow({ burst }: BurstRowProps) {
           style={{ backgroundColor: agentColor }} 
         />
 
-        <div className="flex-1 min-w-0 text-sm flex items-center gap-2">
-          <span className="font-mono text-xs opacity-90" style={{ color: agentColor }}>
-            {burst.agentName}
-          </span>
-          <span className="text-text-secondary text-xs truncate">
-            {breakdown}
-          </span>
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs opacity-80" style={{ color: agentColor }}>
+              {burst.agentName}
+            </span>
+            <span className="text-sm text-text-primary truncate font-medium flex-1 min-w-0">
+              {primaryText}
+            </span>
+            <span className="text-xs text-text-secondary opacity-60 truncate shrink-0 max-w-[200px]">
+              {breakdown}
+            </span>
+          </div>
+          
+          {(hasError || errorMessage) && (
+            <div className="flex items-center gap-2 text-xs">
+              {hasError && (
+                <span className="text-red-400 flex items-center gap-1 font-medium">
+                  {burst.errorCount} error{burst.errorCount > 1 ? 's' : ''}
+                </span>
+              )}
+              {errorMessage && (
+                <span className="text-red-400/80 truncate max-w-[400px]">
+                  {errorMessage.length > 60 ? errorMessage.slice(0, 60) + '...' : errorMessage}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="shrink-0 flex items-center gap-3">

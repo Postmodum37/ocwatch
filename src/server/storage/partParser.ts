@@ -16,6 +16,7 @@ interface PartStateJSON {
   status?: string;
   input?: Record<string, unknown>;
   output?: string;
+  error?: string;
   title?: string;
   time?: {
     start: number;
@@ -70,6 +71,16 @@ export async function parsePart(filePath: string): Promise<PartMeta | null> {
       input = { ...json.input };
     }
 
+    let error: string | undefined;
+    if (state === "error" || state === "failed") {
+      if (typeof json.state === "object" && json.state !== null) {
+        const errorText = json.state.error || json.state.output;
+        if (errorText && typeof errorText === "string") {
+          error = errorText.length > 500 ? errorText.slice(0, 500) : errorText;
+        }
+      }
+    }
+
     // Time can be at top level (json.time) or inside state object (json.state.time) for tool parts
     let timeStart: number | undefined;
     let timeEnd: number | undefined;
@@ -95,6 +106,7 @@ export async function parsePart(filePath: string): Promise<PartMeta | null> {
       state,
       input,
       title,
+      error,
       startedAt,
       completedAt,
       stepSnapshot: json.snapshot,
@@ -502,6 +514,7 @@ export async function getToolCallsForSession(
       state,
       summary,
       input: part.input || {},
+      error: part.error,
       timestamp,
       agentName,
     };

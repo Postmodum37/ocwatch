@@ -1,6 +1,6 @@
 {
   "name": "ocwatch",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Real-time web dashboard for monitoring OpenCode agent activity",
   "type": "module",
   "main": "src/server/index.ts",
@@ -24,7 +24,7 @@
     "dev:server": "bun --watch src/server/index.ts --no-browser",
     "dev:client": "cd src/client && bun run dev",
     "start": "bun run src/server/index.ts",
-    "test": "(cd src/server && bun test) && bun test src/__tests__/*.test.ts",
+    "test": "bun test src/server src/shared && bun test src/__tests__/*.test.ts",
     "build": "cd src/client && bun run build",
     "prepublishOnly": "cd src/client && bun install && bun run build"
   },

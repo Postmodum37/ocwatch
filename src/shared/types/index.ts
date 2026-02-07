@@ -87,6 +87,7 @@ export interface PartMeta {
   state?: string;
   input?: ToolInput;
   title?: string;
+  error?: string;
   startedAt?: Date;
   completedAt?: Date;
   stepSnapshot?: string;
@@ -127,6 +128,7 @@ export interface ToolCallSummary {
   state: "pending" | "complete" | "error";
   summary: string;
   input: ToolInput;
+  error?: string;
   timestamp: string;
   agentName: string;
 }
@@ -201,12 +203,12 @@ export interface BurstEntry {
 
 /**
  * MilestoneEntry represents a significant event in the activity stream
- * Can be agent spawn, agent complete, or error tool calls
+ * (agent spawn or agent complete)
  */
 export interface MilestoneEntry {
   id: string;
   type: "milestone";
-  item: AgentSpawnActivity | AgentCompleteActivity | ToolCallActivity;
+  item: AgentSpawnActivity | AgentCompleteActivity;
 }
 
 /**

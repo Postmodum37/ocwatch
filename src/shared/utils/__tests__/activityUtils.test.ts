@@ -101,4 +101,75 @@ describe("synthesizeActivityItems", () => {
       expect(completeItems[0].durationMs).toBe(expectedDurationMs);
     });
   });
+
+  describe("error field propagation", () => {
+    it("should propagate error field from toolCalls to ToolCallActivity", () => {
+      const sessions: ActivitySession[] = [
+        {
+          id: "session-1",
+          title: "Test Session",
+          agent: "test-agent",
+          status: "working",
+          createdAt: new Date("2025-01-01T10:00:00Z"),
+          updatedAt: new Date("2025-01-01T10:05:00Z"),
+          toolCalls: [
+            {
+              id: "tool-1",
+              name: "mcp_read",
+              state: "error",
+              summary: "Read file",
+              input: { filePath: "/test/missing.ts" },
+              error: "File not found: /test/missing.ts",
+              timestamp: "2025-01-01T10:01:00Z",
+              agentName: "test-agent",
+            },
+          ],
+        },
+      ];
+
+      const items = synthesizeActivityItems(sessions);
+      const toolCallItems = items.filter((item) => item.type === "tool-call");
+
+      expect(toolCallItems).toHaveLength(1);
+      expect(toolCallItems[0].type).toBe("tool-call");
+      if (toolCallItems[0].type === "tool-call") {
+        expect(toolCallItems[0].error).toBe("File not found: /test/missing.ts");
+        expect(toolCallItems[0].state).toBe("error");
+      }
+    });
+
+    it("should not populate error field for successful tool calls", () => {
+      const sessions: ActivitySession[] = [
+        {
+          id: "session-1",
+          title: "Test Session",
+          agent: "test-agent",
+          status: "working",
+          createdAt: new Date("2025-01-01T10:00:00Z"),
+          updatedAt: new Date("2025-01-01T10:05:00Z"),
+          toolCalls: [
+            {
+              id: "tool-1",
+              name: "mcp_read",
+              state: "complete",
+              summary: "Read file",
+              input: { filePath: "/test/file.ts" },
+              timestamp: "2025-01-01T10:01:00Z",
+              agentName: "test-agent",
+            },
+          ],
+        },
+      ];
+
+      const items = synthesizeActivityItems(sessions);
+      const toolCallItems = items.filter((item) => item.type === "tool-call");
+
+      expect(toolCallItems).toHaveLength(1);
+      expect(toolCallItems[0].type).toBe("tool-call");
+      if (toolCallItems[0].type === "tool-call") {
+        expect(toolCallItems[0].error).toBeUndefined();
+        expect(toolCallItems[0].state).toBe("complete");
+      }
+    });
+  });
 });

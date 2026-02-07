@@ -1,9 +1,11 @@
 {
-  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/activity-stream-redesign.md",
-  "started_at": "2026-02-06T19:48:58.354Z",
-  "session_ids": ["ses_3cb7fdea2ffeZj71WJoeXImdWK"],
-  "plan_name": "activity-stream-redesign",
+  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/activity-stream-fix.md",
+  "started_at": "2026-02-07T13:52:25.479Z",
+  "session_ids": [
+    "ses_3c79ff0adffeyReEQZIQYkS39e"
+  ],
+  "plan_name": "activity-stream-fix",
   "status": "completed",
-  "tasks_completed": 8,
-  "tasks_total": 27
+  "tasks_completed": 20,
+  "tasks_total": 20
 }

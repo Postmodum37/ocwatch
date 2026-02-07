@@ -154,7 +154,7 @@ describe('AgentSwimlane', () => {
     expect(screen.getByText('5s')).toBeInTheDocument();
   });
 
-  it('renders error tool call milestones', () => {
+  it('renders error tool calls in bursts', () => {
     const errorToolCall: ActivityItem = {
       id: 'tc-error',
       type: 'tool-call',
@@ -172,8 +172,9 @@ describe('AgentSwimlane', () => {
       mockSpawn('s-1', 'prometheus', 'librarian'),
     ]);
 
-    expect(screen.getByText('exec')).toBeInTheDocument();
-    expect(screen.getByText('Command failed')).toBeInTheDocument();
+    // Error tool call should be grouped in a burst (not a milestone)
+    expect(screen.getByText(/exec ×1/)).toBeInTheDocument();
+    expect(screen.getByTestId('icon-alert-circle')).toBeInTheDocument();
   });
 
   it('applies reduced opacity to completed agent columns', () => {

@@ -21,7 +21,10 @@ export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream(
   
   // Badge state tracking
   const [newItemsCount, setNewItemsCount] = useState(0);
-  const prevEntriesLengthRef = useRef(entries.length);
+  const seenIdsRef = useRef<Set<string> | null>(null);
+  if (seenIdsRef.current === null) {
+    seenIdsRef.current = new Set(entries.map(e => e.id));
+  }
   
   // Scroll position tracking
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -50,19 +53,30 @@ export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream(
 
   // Detect new items and update badge count
   useEffect(() => {
-    if (entries.length > prevEntriesLengthRef.current) {
-      const diff = entries.length - prevEntriesLengthRef.current;
-      setNewItemsCount(prev => prev + diff);
+    const seen = seenIdsRef.current!;
+    let newCount = 0;
+    for (const entry of entries) {
+      if (!seen.has(entry.id)) {
+        seen.add(entry.id);
+        newCount++;
+      }
+    }
+
+    if (seen.size > 2000) {
+      seenIdsRef.current = new Set(entries.map(e => e.id));
+    }
+
+    if (newCount > 0) {
+      setNewItemsCount(prev => prev + newCount);
       
       if (isAtBottom && scrollRef.current) {
-        setTimeout(() => {
+        requestAnimationFrame(() => {
             scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-        }, 0);
+        });
       } else if (!isAtBottom) {
         setShowJumpButton(true);
       }
     }
-    prevEntriesLengthRef.current = entries.length;
   }, [entries, isAtBottom]);
 
   // Handle scroll position tracking
@@ -125,7 +139,7 @@ export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream(
   
   const toolCallCount = entries.reduce((acc, entry) => {
     if (entry.type === 'burst') return acc + entry.items.length;
-    if (entry.type === 'milestone' && entry.item.type === 'tool-call') return acc + 1;
+    if (entry.type === 'milestone') return acc;
     return acc;
   }, 0);
   
@@ -268,13 +282,12 @@ export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream(
                    </div>
                  ) : (
                   <AnimatePresence>
-                    {filteredEntries.map((entry, index) => {
-                      const delay = (index % 10) * 0.05;
+                    {filteredEntries.map((entry) => {
                       return (
                         <motion.div
                           key={entry.id}
                           initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0, transition: { delay } }}
+                          animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 10 }}
                           transition={{ duration: 0.2 }}
                         >

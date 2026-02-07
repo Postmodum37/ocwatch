@@ -754,3 +754,307 @@ describe("formatCurrentAction", () => {
      expect(formatCurrentAction(part)).toBe("Reading todos");
    });
 });
+
+describe("parsePart - error extraction", () => {
+  test("extracts error from state.error for error state", async () => {
+    const ERROR_MESSAGE_ID = "msg_error001";
+    const errorPartDir = join(STORAGE_DIR, "part", ERROR_MESSAGE_ID);
+    await mkdir(errorPartDir, { recursive: true });
+
+    const errorPartPath = join(errorPartDir, "prt_error001.json");
+    await writeFile(
+      errorPartPath,
+      JSON.stringify({
+        id: "prt_error001",
+        sessionID: SESSION_ID,
+        messageID: ERROR_MESSAGE_ID,
+        type: "tool",
+        tool: "mcp_read",
+        state: {
+          status: "error",
+          input: { filePath: "/test/missing.ts" },
+          error: "Error: File not found: /test/missing.ts",
+        },
+        time: { start: 1700000000000, end: 1700000000100 },
+      })
+    );
+
+    const parsed = await parsePart(errorPartPath);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.state).toBe("error");
+    expect(parsed?.error).toBe("Error: File not found: /test/missing.ts");
+  });
+
+  test("extracts error from state.output when state.error is missing", async () => {
+    const ERROR_MESSAGE_ID = "msg_error002";
+    const errorPartDir = join(STORAGE_DIR, "part", ERROR_MESSAGE_ID);
+    await mkdir(errorPartDir, { recursive: true });
+
+    const errorPartPath = join(errorPartDir, "prt_error002.json");
+    await writeFile(
+      errorPartPath,
+      JSON.stringify({
+        id: "prt_error002",
+        sessionID: SESSION_ID,
+        messageID: ERROR_MESSAGE_ID,
+        type: "tool",
+        tool: "mcp_bash",
+        state: {
+          status: "error",
+          input: { command: "invalid-command" },
+          output: "Command failed with exit code 1",
+        },
+        time: { start: 1700000000000, end: 1700000000100 },
+      })
+    );
+
+    const parsed = await parsePart(errorPartPath);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.state).toBe("error");
+    expect(parsed?.error).toBe("Command failed with exit code 1");
+  });
+
+  test("extracts error for failed state", async () => {
+    const ERROR_MESSAGE_ID = "msg_failed001";
+    const errorPartDir = join(STORAGE_DIR, "part", ERROR_MESSAGE_ID);
+    await mkdir(errorPartDir, { recursive: true });
+
+    const errorPartPath = join(errorPartDir, "prt_failed001.json");
+    await writeFile(
+      errorPartPath,
+      JSON.stringify({
+        id: "prt_failed001",
+        sessionID: SESSION_ID,
+        messageID: ERROR_MESSAGE_ID,
+        type: "tool",
+        tool: "mcp_edit",
+        state: {
+          status: "failed",
+          input: { filePath: "/test/file.ts" },
+          error: "Edit operation failed: file locked",
+        },
+        time: { start: 1700000000000, end: 1700000000100 },
+      })
+    );
+
+    const parsed = await parsePart(errorPartPath);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.state).toBe("failed");
+    expect(parsed?.error).toBe("Edit operation failed: file locked");
+  });
+
+  test("truncates error at 500 characters", async () => {
+    const ERROR_MESSAGE_ID = "msg_long_error";
+    const errorPartDir = join(STORAGE_DIR, "part", ERROR_MESSAGE_ID);
+    await mkdir(errorPartDir, { recursive: true });
+
+    const longError = "A".repeat(600);
+    const errorPartPath = join(errorPartDir, "prt_long_error.json");
+    await writeFile(
+      errorPartPath,
+      JSON.stringify({
+        id: "prt_long_error",
+        sessionID: SESSION_ID,
+        messageID: ERROR_MESSAGE_ID,
+        type: "tool",
+        tool: "mcp_bash",
+        state: {
+          status: "error",
+          input: { command: "test" },
+          error: longError,
+        },
+        time: { start: 1700000000000, end: 1700000000100 },
+      })
+    );
+
+    const parsed = await parsePart(errorPartPath);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.error).toBe("A".repeat(500));
+    expect(parsed?.error?.length).toBe(500);
+  });
+
+  test("does not extract error for completed state", async () => {
+    const COMPLETE_MESSAGE_ID = "msg_complete";
+    const completePartDir = join(STORAGE_DIR, "part", COMPLETE_MESSAGE_ID);
+    await mkdir(completePartDir, { recursive: true });
+
+    const completePartPath = join(completePartDir, "prt_complete.json");
+    await writeFile(
+      completePartPath,
+      JSON.stringify({
+        id: "prt_complete",
+        sessionID: SESSION_ID,
+        messageID: COMPLETE_MESSAGE_ID,
+        type: "tool",
+        tool: "mcp_read",
+        state: {
+          status: "completed",
+          input: { filePath: "/test/file.ts" },
+          output: "File content here",
+        },
+        time: { start: 1700000000000, end: 1700000000100 },
+      })
+    );
+
+    const parsed = await parsePart(completePartPath);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.state).toBe("completed");
+    expect(parsed?.error).toBeUndefined();
+  });
+
+  test("does not extract error for pending state", async () => {
+    const PENDING_MESSAGE_ID = "msg_pending";
+    const pendingPartDir = join(STORAGE_DIR, "part", PENDING_MESSAGE_ID);
+    await mkdir(pendingPartDir, { recursive: true });
+
+    const pendingPartPath = join(pendingPartDir, "prt_pending.json");
+    await writeFile(
+      pendingPartPath,
+      JSON.stringify({
+        id: "prt_pending",
+        sessionID: SESSION_ID,
+        messageID: PENDING_MESSAGE_ID,
+        type: "tool",
+        tool: "mcp_bash",
+        state: {
+          status: "pending",
+          input: { command: "ls" },
+        },
+        time: { start: 1700000000000 },
+      })
+    );
+
+    const parsed = await parsePart(pendingPartPath);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.state).toBe("pending");
+    expect(parsed?.error).toBeUndefined();
+  });
+
+  test("prefers state.error over state.output", async () => {
+    const ERROR_MESSAGE_ID = "msg_both_fields";
+    const errorPartDir = join(STORAGE_DIR, "part", ERROR_MESSAGE_ID);
+    await mkdir(errorPartDir, { recursive: true });
+
+    const errorPartPath = join(errorPartDir, "prt_both_fields.json");
+    await writeFile(
+      errorPartPath,
+      JSON.stringify({
+        id: "prt_both_fields",
+        sessionID: SESSION_ID,
+        messageID: ERROR_MESSAGE_ID,
+        type: "tool",
+        tool: "mcp_bash",
+        state: {
+          status: "error",
+          input: { command: "test" },
+          error: "Primary error message",
+          output: "Secondary output message",
+        },
+        time: { start: 1700000000000, end: 1700000000100 },
+      })
+    );
+
+    const parsed = await parsePart(errorPartPath);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.error).toBe("Primary error message");
+  });
+});
+
+describe("getToolCallsForSession - error propagation", () => {
+  test("propagates error field to ToolCallSummary", async () => {
+    const ERROR_SESSION_ID = "ses_error_propagate";
+    const ERROR_MESSAGE_ID = "msg_error_propagate";
+    
+    await mkdir(join(STORAGE_DIR, "message", ERROR_SESSION_ID), { recursive: true });
+    await mkdir(join(STORAGE_DIR, "part", ERROR_MESSAGE_ID), { recursive: true });
+
+    const messageData = {
+      id: ERROR_MESSAGE_ID,
+      sessionID: ERROR_SESSION_ID,
+      role: "assistant",
+      agent: "test-agent",
+      time: { created: 1700000000000 },
+    };
+    await writeFile(
+      join(STORAGE_DIR, "message", ERROR_SESSION_ID, `${ERROR_MESSAGE_ID}.json`),
+      JSON.stringify(messageData)
+    );
+
+    const errorPartData = {
+      id: "prt_error_test",
+      sessionID: ERROR_SESSION_ID,
+      messageID: ERROR_MESSAGE_ID,
+      type: "tool",
+      tool: "mcp_read",
+      state: {
+        status: "error",
+        input: { filePath: "/test/missing.ts" },
+        error: "File not found error",
+      },
+      time: { start: 1700000000000, end: 1700000000100 },
+    };
+    await writeFile(
+      join(STORAGE_DIR, "part", ERROR_MESSAGE_ID, "prt_error_test.json"),
+      JSON.stringify(errorPartData)
+    );
+
+    const messageAgent = new Map([[ERROR_MESSAGE_ID, "test-agent"]]);
+    const result = await getToolCallsForSession(ERROR_SESSION_ID, messageAgent, TEST_DIR);
+
+    expect(result.length).toBe(1);
+    expect(result[0].state).toBe("error");
+    expect(result[0].error).toBe("File not found error");
+  });
+
+  test("does not propagate error for completed tools", async () => {
+    const COMPLETE_SESSION_ID = "ses_complete_no_error";
+    const COMPLETE_MESSAGE_ID = "msg_complete_no_error";
+    
+    await mkdir(join(STORAGE_DIR, "message", COMPLETE_SESSION_ID), { recursive: true });
+    await mkdir(join(STORAGE_DIR, "part", COMPLETE_MESSAGE_ID), { recursive: true });
+
+    const messageData = {
+      id: COMPLETE_MESSAGE_ID,
+      sessionID: COMPLETE_SESSION_ID,
+      role: "assistant",
+      agent: "test-agent",
+      time: { created: 1700000000000 },
+    };
+    await writeFile(
+      join(STORAGE_DIR, "message", COMPLETE_SESSION_ID, `${COMPLETE_MESSAGE_ID}.json`),
+      JSON.stringify(messageData)
+    );
+
+    const completePartData = {
+      id: "prt_complete_test",
+      sessionID: COMPLETE_SESSION_ID,
+      messageID: COMPLETE_MESSAGE_ID,
+      type: "tool",
+      tool: "mcp_read",
+      state: {
+        status: "completed",
+        input: { filePath: "/test/file.ts" },
+        output: "File content",
+      },
+      time: { start: 1700000000000, end: 1700000000100 },
+    };
+    await writeFile(
+      join(STORAGE_DIR, "part", COMPLETE_MESSAGE_ID, "prt_complete_test.json"),
+      JSON.stringify(completePartData)
+    );
+
+    const messageAgent = new Map([[COMPLETE_MESSAGE_ID, "test-agent"]]);
+    const result = await getToolCallsForSession(COMPLETE_SESSION_ID, messageAgent, TEST_DIR);
+
+    expect(result.length).toBe(1);
+    expect(result[0].state).toBe("complete");
+    expect(result[0].error).toBeUndefined();
+  });
+});

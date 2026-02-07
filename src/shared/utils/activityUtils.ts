@@ -37,6 +37,7 @@ export function synthesizeActivityItems(
           state: toolCall.state,
           summary: toolCall.summary,
           input: toolCall.input,
+          error: toolCall.error,
         });
       });
     }

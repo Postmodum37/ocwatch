@@ -1,17 +1,17 @@
 import type {
   ActivityItem,
+  AgentSpawnActivity,
+  AgentCompleteActivity,
   BurstEntry,
   MilestoneEntry,
   StreamEntry,
   ToolCallActivity,
 } from "../types";
 
-function isMilestone(item: ActivityItem): boolean {
-  if (item.type === "agent-spawn" || item.type === "agent-complete") {
-    return true;
-  }
-
-  return item.type === "tool-call" && item.state === "error";
+function isMilestone(
+  item: ActivityItem
+): item is AgentSpawnActivity | AgentCompleteActivity {
+  return item.type === "agent-spawn" || item.type === "agent-complete";
 }
 
 function createBurstEntry(items: ToolCallActivity[]): BurstEntry {

@@ -1,4 +1,4 @@
 [test]
-# Only scan server and shared directories for tests
-# Client tests run via vitest
+# Default: scan server + shared tests (client tests run via vitest)
+# Usage: bun test src/server src/shared
 smol = true

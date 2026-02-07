@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ActivityStream } from '../ActivityStream';
 import type { ActivityItem } from '../../../../shared/types';
@@ -116,7 +117,8 @@ describe('ActivityStream', () => {
     const burstRowButton = screen.getByTestId('burst-row').querySelector('button');
     fireEvent.click(burstRowButton!);
 
-    expect(screen.getByText('Read package.json')).toBeInTheDocument();
+    // Expect summary text and expanded row text
+    expect(screen.getAllByText('Read package.json')).toHaveLength(2);
   });
 
   it('collapsed state shows summary bar with stats', () => {
@@ -150,9 +152,8 @@ describe('ActivityStream', () => {
     };
     renderStream([errorItem]);
 
-    // Error tool calls are rendered as milestones
-    expect(screen.getByTestId('milestone-error')).toBeInTheDocument();
-    expect(screen.getByText('Tool Error: exec')).toBeInTheDocument();
+    expect(screen.getByTestId('burst-row')).toBeInTheDocument();
+    expect(screen.getByText('1 error')).toBeInTheDocument();
     expect(screen.getByText('Command failed with exit code 1')).toBeInTheDocument();
   });
 
@@ -187,7 +188,7 @@ describe('ActivityStream', () => {
     };
     renderStream([pendingItem]);
 
-    expect(screen.getByText(/bash/)).toBeInTheDocument();
+    expect(screen.getAllByText(/bash/)[0]).toBeInTheDocument();
     expect(screen.getByTestId('icon-loader2')).toBeInTheDocument();
   });
 
@@ -277,19 +278,19 @@ describe('ActivityStream', () => {
       expect(screen.getByText(/readFile ×1/)).toBeInTheDocument();
     });
 
-    it('expands burst row to show individual tool calls', () => {
-      const items: ActivityItem[] = [
-        mockToolCallActivity,
-        { ...mockToolCallActivity, id: 'tool-2', summary: 'Read tsconfig.json' },
-      ];
-      renderStream(items);
+  it('expands burst row to show individual tool calls', () => {
+    const items: ActivityItem[] = [
+      mockToolCallActivity,
+      { ...mockToolCallActivity, id: 'tool-2', summary: 'Read tsconfig.json' },
+    ];
+    renderStream(items);
 
-      const burstRowButton = screen.getByTestId('burst-row').querySelector('button');
-      fireEvent.click(burstRowButton!);
+    const burstRowButton = screen.getByTestId('burst-row').querySelector('button');
+    fireEvent.click(burstRowButton!);
 
-      expect(screen.getByText('Read package.json')).toBeInTheDocument();
-      expect(screen.getByText('Read tsconfig.json')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Read package.json')).toBeInTheDocument();
+    expect(screen.getAllByText('Read tsconfig.json')).toHaveLength(2);
+  });
 
     it('shows tool breakdown in burst summary', () => {
       const items: ActivityItem[] = [

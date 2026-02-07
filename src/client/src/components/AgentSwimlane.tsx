@@ -294,32 +294,6 @@ export function AgentSwimlane({ entries }: AgentSwimlaneProps) {
                         );
                       }
 
-                      if (item.type === 'tool-call' && item.state === 'error') {
-                        return (
-                          <motion.div
-                            key={entry.id}
-                            initial={{ opacity: 0, y: -5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.05 }}
-                            className="p-2 text-xs bg-red-500/5 hover:bg-red-500/10 transition-colors border-l-2 border-l-red-500"
-                          >
-                            <div className="flex items-start gap-1.5">
-                              <span className="text-gray-600 font-mono shrink-0 text-[10px]">
-                                {formatTime(item.timestamp)}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-red-300 font-medium truncate">
-                                  {item.toolName}
-                                </div>
-                                <div className="text-red-300/70 text-[10px] truncate">
-                                  {item.error || 'Error'}
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
-                        );
-                      }
-
                       return null;
                     })}
                   </div>

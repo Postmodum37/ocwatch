@@ -120,7 +120,7 @@ describe("groupIntoBursts", () => {
     }
   });
 
-  it("emits error tool calls as milestones and breaks burst", () => {
+  it("keeps error tool calls in bursts", () => {
     const items: ActivityItem[] = [
       toolCall("tc-1", 0, "agent-a"),
       toolCall("tc-2", 1, "agent-a"),
@@ -130,17 +130,13 @@ describe("groupIntoBursts", () => {
 
     const entries = groupIntoBursts(items);
 
-    expect(entries).toHaveLength(2);
+    expect(entries).toHaveLength(1);
     expect(entries[0]?.type).toBe("burst");
-    expect(entries[1]?.type).toBe("milestone");
-    if (entries[0]?.type === "burst" && entries[1]?.type === "milestone") {
-      expect(entries[0].items).toHaveLength(3);
-      expect(entries[0].errorCount).toBe(0);
-      expect(entries[1].item.id).toBe("tc-err");
-      expect(entries[1].item.type).toBe("tool-call");
-      if (entries[1].item.type === "tool-call") {
-        expect(entries[1].item.state).toBe("error");
-      }
+    if (entries[0]?.type === "burst") {
+      expect(entries[0].items).toHaveLength(4);
+      expect(entries[0].errorCount).toBe(1);
+      expect(entries[0].items[3]?.id).toBe("tc-err");
+      expect(entries[0].items[3]?.state).toBe("error");
     }
   });
 
