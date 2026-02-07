@@ -1,23 +1,29 @@
-name: Publish
+name: Publish to npm
 
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # Skip automated version bump commits (pushed by GITHUB_TOKEN, which
-    # doesn't trigger workflows anyway — this is defense-in-depth)
-    if: "!contains(github.event.head_commit.message, '[release]')"
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Sync version from release tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm version --no-git-tag-version "$VERSION"
 
       - name: Install dependencies
         run: |
@@ -27,26 +33,10 @@ jobs:
       - name: Build client
         run: cd src/client && bun run build
 
-      - name: Bump version
-        id: version
-        run: |
-          npm version patch --no-git-tag-version
-          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
       - name: Publish to npm
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-          bun publish --access public
+          bun publish --access public --tolerate-republish
           rm .npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "v${{ steps.version.outputs.version }} [release]"
-          git tag "v${{ steps.version.outputs.version }}"
-          git push
-          git push --tags

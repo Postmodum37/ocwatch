@@ -1,6 +1,6 @@
 # OCWatch
 
-Real-time web dashboard for monitoring [OpenCode](https://github.com/opencode-ai/opencode) / Claude Code agent activity.
+Real-time web dashboard for monitoring [OpenCode](https://github.com/anomalyco/opencode) agent activity — built for use with [oh-my-opencode](https://github.com/code-yeongyu/oh-my-opencode).
 
 ## Install
 
@@ -29,8 +29,8 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 ## What it monitors
 
 - **Sessions** — active and recent agent sessions
-- **Agent hierarchy** — parent/child agent tree
-- **Tool calls** — live tool invocations with metadata
+- **Agent hierarchy** — parent/child agent tree (background agents, specialized agents)
+- **Tool calls** — live tool invocations with metadata (LSP, AST, MCPs)
 - **Plan progress** — task completion from `.sisyphus/boulder.json`
 - **Activity stream** — real-time feed of agent actions
 
@@ -38,7 +38,11 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 
 - [Bun](https://bun.sh) v1.0+
 - macOS
-- OpenCode or Claude Code running (reads from `~/.local/share/opencode/storage/`)
+- [OpenCode](https://github.com/anomalyco/opencode) running (reads from `~/.local/share/opencode/storage/`)
+
+## Disclaimer
+
+This project is not built by the OpenCode team and is not affiliated with or endorsed by [OpenCode](https://opencode.ai) or [oh-my-opencode](https://github.com/code-yeongyu/oh-my-opencode).
 
 ## License
 
