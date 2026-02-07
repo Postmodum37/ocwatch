@@ -319,6 +319,7 @@ export interface PollResponse {
   sessions: SessionMetadata[];
   activeSession: SessionMetadata | null;
   planProgress: PlanProgress | null;
+  planName?: string;
   messages: MessageMeta[];
   activitySessions: ActivitySession[];
   sessionStats?: SessionStats;

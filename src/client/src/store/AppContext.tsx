@@ -8,6 +8,7 @@ interface AppContextValue {
   sessions: SessionMetadata[];
   activeSession: SessionMetadata | null;
   planProgress: PlanProgress | null;
+  planName: string | undefined;
   sessionStats: SessionStats | null;
   messages: MessageMeta[];
   activitySessions: ActivitySession[];
@@ -98,6 +99,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     sessions: data?.sessions || [],
     activeSession: data?.activeSession || null,
     planProgress: data?.planProgress || null,
+    planName: data?.planName,
     sessionStats: data?.sessionStats || null,
     messages: data?.messages || [],
     activitySessions: data?.activitySessions || [],

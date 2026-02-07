@@ -178,11 +178,13 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
    }
 
   let planProgress: PlanProgress | null = null;
+  let planName: string | undefined;
   try {
     const cwd = process.cwd();
     const boulder = await parseBoulder(cwd);
     if (boulder?.activePlan) {
       planProgress = await calculatePlanProgress(boulder.activePlan);
+      planName = boulder.planName || undefined;
     }
   } catch (err) {
     console.debug('Failed to parse boulder.json:', err instanceof Error ? err.message : err);
@@ -212,6 +214,7 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
     sessions: sessionsWithAgent,
     activeSession,
     planProgress,
+    planName,
     messages,
     activitySessions,
     sessionStats,

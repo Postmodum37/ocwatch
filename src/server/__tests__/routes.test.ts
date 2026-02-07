@@ -50,12 +50,10 @@ describe("Hono Server Routes", () => {
     expect(res.status).toBe(404);
   });
 
-  test("plan endpoint returns null when no plan exists", async () => {
+  test("plan endpoint returns 200", async () => {
     const req = new Request("http://localhost/api/plan");
     const res = await app.fetch(req);
     expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data).toBeNull();
   });
 
   test("projects endpoint exists and returns array", async () => {

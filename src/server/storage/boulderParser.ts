@@ -9,13 +9,19 @@ import type { Boulder, PlanProgress } from "../../shared/types";
 
 /**
  * Internal JSON structure from .sisyphus/boulder.json
+ * Note: Sisyphus writes snake_case keys to disk
  */
 interface BoulderJSON {
-  activePlan?: string;
-  sessionIDs: string[];
+  active_plan?: string;
+  session_ids: string[];
   status: string;
-  startedAt: number;
-  planName: string;
+  started_at: string | number;
+  plan_name: string;
+  // Legacy camelCase format (kept for backwards compatibility)
+  activePlan?: string;
+  sessionIDs?: string[];
+  startedAt?: string | number;
+  planName?: string;
 }
 
 /**
@@ -29,17 +35,21 @@ export async function parseBoulder(projectDir: string): Promise<Boulder | null> 
     const content = await readFile(filePath, "utf-8");
     const json: BoulderJSON = JSON.parse(content);
 
-    let activePlan = json.activePlan;
+    let activePlan = json.active_plan ?? json.activePlan;
     if (activePlan && !activePlan.startsWith("/")) {
       activePlan = join(projectDir, activePlan);
     }
 
+    const sessionIDs = json.session_ids ?? json.sessionIDs ?? [];
+    const startedAt = json.started_at ?? json.startedAt;
+    const planName = json.plan_name ?? json.planName ?? "";
+
     return {
       activePlan,
-      sessionIDs: json.sessionIDs,
+      sessionIDs,
       status: json.status,
-      startedAt: new Date(json.startedAt),
-      planName: json.planName,
+      startedAt: startedAt ? new Date(startedAt) : new Date(),
+      planName,
     };
   } catch (error) {
     if (error instanceof SyntaxError) {

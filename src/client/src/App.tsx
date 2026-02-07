@@ -4,7 +4,7 @@ import { DEFAULT_PORT } from '@shared/constants'
 import { ActivityStream } from './components/ActivityStream'
 import { SessionList } from './components/SessionList'
 import { LiveActivity } from './components/LiveActivity'
-import { PlanProgress } from './components/PlanProgress'
+
 import { SessionStats } from './components/SessionStats'
 import { AppProvider, useAppContext } from './store/AppContext'
 import { SessionListSkeleton } from './components/LoadingSkeleton'
@@ -16,7 +16,6 @@ import { useMemo } from 'react'
 function AppContent() {
   const { 
     sessions, 
-    planProgress,
     sessionStats, 
     activitySessions,
     selectedSessionId,  
@@ -100,11 +99,6 @@ function AppContent() {
               )}
             </div>
             <div className="flex items-center gap-4">
-              {planProgress && (
-                <div className="w-64 hidden lg:block">
-                  <PlanProgress plan={planProgress} />
-                </div>
-              )}
               <SessionStats stats={sessionStats} />
               {notificationPermission === 'default' ? (
                 <button

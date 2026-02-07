@@ -339,6 +339,28 @@ describe("boulderParser", () => {
     expect(result?.startedAt).toBeInstanceOf(Date);
   });
 
+  test("parseBoulder - snake_case format (actual Sisyphus output)", async () => {
+    const boulderPath = join(TEST_DIR, ".sisyphus", "boulder.json");
+    const boulderData = {
+      active_plan: ".sisyphus/plans/snake-plan.md",
+      session_ids: [SESSION_ID],
+      status: "completed",
+      started_at: "2026-02-07T13:52:25.479Z",
+      plan_name: "snake-plan",
+    };
+
+    await writeFile(boulderPath, JSON.stringify(boulderData));
+
+    const result = await parseBoulder(TEST_DIR);
+
+    expect(result).not.toBeNull();
+    expect(result?.activePlan).toContain("snake-plan.md");
+    expect(result?.sessionIDs).toEqual([SESSION_ID]);
+    expect(result?.status).toBe("completed");
+    expect(result?.planName).toBe("snake-plan");
+    expect(result?.startedAt).toBeInstanceOf(Date);
+  });
+
   test("parseBoulder - missing file returns null", async () => {
     const result = await parseBoulder("/nonexistent/dir");
     expect(result).toBeNull();
