@@ -1,6 +1,6 @@
 {
   "name": "ocwatch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Real-time web dashboard for monitoring OpenCode agent activity",
   "type": "module",
   "main": "src/server/index.ts",
