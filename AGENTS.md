@@ -146,6 +146,7 @@ cd src/client && bun run lint
 ## NOTES
 
 - **Data flow**: Watcher detects fs change → invalidates poll cache → `/api/poll` or SSE pushes → client updates via `AppContext`
+- **Storage model**: See @docs/opencode-storage-model.md for full entity relationships, JSON schemas, and lifecycle (Session → Message → Part hierarchy)
 - **Storage paths**: `~/.local/share/opencode/storage/{session,message,part}/{projectID|sessionID}/*.json`
 - **Part files**: Two layouts (flat `part/{id}.json` or nested `part/{messageID}/{id}.json`) — parser handles both
 - **Session status**: Computed on-the-fly from message timestamps + pending tool count (not stored)
