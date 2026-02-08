@@ -85,9 +85,8 @@ const ActivityTypeIndicator = memo<{ activityType?: SessionActivityType; pending
         );
       case 'waiting-user':
         return (
-          <span className="flex items-center gap-1.5 text-warning animate-waiting-user-icon" title="Waiting for your input">
-            <MessageCircleQuestion className="w-4 h-4" />
-            <span className="text-xs font-medium">Needs input</span>
+          <span className="flex items-center text-warning" title="Waiting for your input">
+            <MessageCircleQuestion className="w-3.5 h-3.5" />
           </span>
         );
       default:
@@ -145,7 +144,7 @@ export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) 
         relative flex flex-col w-[250px] rounded-md border 
         bg-surface transition-colors duration-200
         ${selected ? 'border-accent ring-1 ring-accent shadow-[0_0_15px_rgba(88,166,255,0.15)]' : 'border-border'}
-        ${session.activityType === 'waiting-user' ? 'animate-waiting-user-row border-warning' : ''}
+        ${session.activityType === 'waiting-user' ? 'border-l-2 border-l-warning' : ''}
         ${status === 'working' ? 'animate-node-pulse' : ''}
       `}
     >
