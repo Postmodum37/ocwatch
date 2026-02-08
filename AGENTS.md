@@ -109,6 +109,18 @@ ocwatch/
 | Manual `bun publish` | CI handles it |
 | `npm publish` | Breaks (nested `.gitignore`) |
 
+## AVAILABLE MCP TOOLS
+
+When working on this project, use external documentation tools for library/API questions:
+
+| Tool | Use For |
+|------|---------|
+| **Context7** | Up-to-date library docs and code examples (Hono, Zod, Vite, React, Tailwind) |
+| **Tavily** | Web search, URL extraction, deep research for best practices |
+| **Ref** | Search public/private documentation, read specific doc pages |
+
+Don't default to just codebase grep — reach for these when dealing with libraries or patterns outside the project.
+
 ## COMMANDS
 
 ```bash
