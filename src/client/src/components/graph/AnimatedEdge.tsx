@@ -2,12 +2,15 @@ import { memo } from 'react';
 import { BaseEdge, type EdgeProps, getBezierPath } from '@xyflow/react';
 
 const ACCENT_COLOR = '#58a6ff';
+const RETURN_COLOR = '#22c55e';
 const BORDER_COLOR = '#30363d';
-const PARTICLE_COUNT = 3;
 const ANIMATION_DURATION = 2; // seconds
+const PARTICLE_OFFSETS = [0, 1, 2] as const;
+
+export type EdgeDirection = 'down' | 'up' | null;
 
 export interface AnimatedEdgeData {
-  active: boolean;
+  direction: EdgeDirection;
   [key: string]: unknown;
 }
 
@@ -32,9 +35,12 @@ function AnimatedEdgeComponent({
     targetPosition,
   });
 
-  const isActive = data?.active === true;
+  const direction = (data as AnimatedEdgeData | undefined)?.direction ?? null;
+  const isActive = direction !== null;
+  const isReverse = direction === 'up';
+  const particleColor = isReverse ? RETURN_COLOR : ACCENT_COLOR;
 
-  const strokeColor = isActive ? `${ACCENT_COLOR}40` : BORDER_COLOR;
+  const strokeColor = isActive ? `${particleColor}40` : BORDER_COLOR;
   
   const edgeStyle = {
     ...style,
@@ -56,17 +62,20 @@ function AnimatedEdgeComponent({
             stroke="none"
           />
           
-          {Array.from({ length: PARTICLE_COUNT }, (_, i) => (
+          {PARTICLE_OFFSETS.map((offset) => (
             <circle
-              key={i}
+              key={`${id}-${direction}-p${offset}`}
               r="3"
-              fill={ACCENT_COLOR}
-              className="edge-particle"
+              fill={particleColor}
+              className={isReverse ? 'edge-particle-return' : 'edge-particle'}
             >
               <animateMotion
                 dur={`${ANIMATION_DURATION}s`}
                 repeatCount="indefinite"
-                begin={`${i * (ANIMATION_DURATION / PARTICLE_COUNT)}s`}
+                begin={`${offset * (ANIMATION_DURATION / PARTICLE_OFFSETS.length)}s`}
+                {...(isReverse
+                  ? { keyPoints: '1;0', keyTimes: '0;1', calcMode: 'linear' }
+                  : {})}
               >
                 <mpath href={`#edge-path-${id}`} />
               </animateMotion>

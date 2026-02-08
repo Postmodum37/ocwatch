@@ -5,4 +5,4 @@ export { useForceLayout } from './useForceLayout';
 export { collide } from './collide';
 export { extractPrimaryArg, getFullToolDisplayText } from './nodeHelpers';
 export type { RectCollisionNode, RectCollideOptions } from './collide';
-export type { AnimatedEdgeData } from './AnimatedEdge';
+export type { AnimatedEdgeData, EdgeDirection } from './AnimatedEdge';

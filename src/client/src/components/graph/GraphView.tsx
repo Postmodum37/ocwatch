@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -17,7 +17,7 @@ import type { ActivitySession } from '@shared/types';
 import { EmptyState } from '../EmptyState';
 import { LoadingSkeleton } from '../LoadingSkeleton';
 import { AgentNode } from './AgentNode';
-import { AnimatedEdge } from './AnimatedEdge';
+import { AnimatedEdge, type EdgeDirection } from './AnimatedEdge';
 import { useForceLayout } from './useForceLayout';
 
 interface GraphViewProps {
@@ -46,9 +46,32 @@ function GraphShell({ children, testId, headerRight }: { children: React.ReactNo
   );
 }
 
+/** Duration (ms) for reverse-flow animation after a child completes */
+const REVERSE_FLOW_DURATION = 3000;
+
 export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  // Track previous statuses to detect working→completed transitions
+  const prevStatusMap = useRef<Map<string, string>>(new Map());
+  const reverseFlowEdges = useRef<Set<string>>(new Set());
+  const reverseFlowTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Force edge re-render when reverse flow expires
+  const triggerEdgeUpdate = useCallback(() => {
+    setEdges((prev) => [...prev]);
+  }, [setEdges]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    const timers = reverseFlowTimers.current;
+    return () => {
+      for (const timer of timers.values()) {
+        clearTimeout(timer);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setNodes((currentNodes) => {
@@ -71,26 +94,61 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
 
     setEdges(() => {
       const sessionMap = new Map(sessions.map((s) => [s.id, s]));
+
+      // Detect child completion transitions: working → completed
+      for (const session of sessions) {
+        if (!session.parentID) continue;
+        const prevStatus = prevStatusMap.current.get(session.id);
+        const currStatus = session.status;
+        const parentSession = sessionMap.get(session.parentID);
+
+        if (
+          prevStatus === 'working' &&
+          currStatus === 'completed' &&
+          parentSession?.status === 'working'
+        ) {
+          reverseFlowEdges.current.add(session.id);
+          // Clear existing timer if any
+          const existing = reverseFlowTimers.current.get(session.id);
+          if (existing) clearTimeout(existing);
+          // Auto-expire reverse flow after duration
+          reverseFlowTimers.current.set(
+            session.id,
+            setTimeout(() => {
+              reverseFlowEdges.current.delete(session.id);
+              reverseFlowTimers.current.delete(session.id);
+              triggerEdgeUpdate();
+            }, REVERSE_FLOW_DURATION),
+          );
+        }
+      }
+      prevStatusMap.current = new Map(sessions.map((s) => [s.id, s.status ?? 'idle']));
+
       const nextEdges: Edge[] = [];
 
       for (const session of sessions) {
         if (!session.parentID || !sessionMap.has(session.parentID)) continue;
 
-        const parentSession = sessionMap.get(session.parentID);
-        const isActive = parentSession?.status === 'working' || session.status === 'working';
+        // Determine edge direction based on child status
+        let direction: EdgeDirection = null;
+        if (session.status === 'working') {
+          direction = 'down'; // Child actively working → delegation flow
+        } else if (reverseFlowEdges.current.has(session.id)) {
+          direction = 'up'; // Child just completed → result return flow
+        }
 
         nextEdges.push({
           id: `${session.parentID}-${session.id}`,
           source: session.parentID,
           target: session.id,
           type: 'animatedEdge',
-          data: { active: isActive },
+          data: { direction },
         });
       }
       
       return nextEdges;
     });
-  }, [sessions, setNodes, setEdges]);
+  }, [sessions, setNodes, setEdges, triggerEdgeUpdate]);
 
   const { onNodeDragStart, onNodeDragStop } = useForceLayout({
     nodes,
