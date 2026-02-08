@@ -1,11 +1,8 @@
 {
-  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/activity-stream-fix.md",
-  "started_at": "2026-02-07T13:52:25.479Z",
+  "active_plan": "/Users/tomas/Workspace/ocwatch/.sisyphus/plans/sidebar-rework.md",
+  "started_at": "2026-02-07T22:57:57Z",
   "session_ids": [
-    "ses_3c79ff0adffeyReEQZIQYkS39e"
+    "ses_3c5af152affebQE8zOEpyg4mev"
   ],
-  "plan_name": "activity-stream-fix",
-  "status": "completed",
-  "tasks_completed": 20,
-  "tasks_total": 20
+  "plan_name": "sidebar-rework"
 }

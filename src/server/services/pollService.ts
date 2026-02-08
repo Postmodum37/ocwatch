@@ -5,6 +5,7 @@ import { listMessages } from "../storage/messageParser";
 import { parseBoulder, calculatePlanProgress } from "../storage/boulderParser";
 import { getPartsForSession, getSessionActivityState, isPendingToolCall, generateActivityMessage, deriveActivityType } from "../storage/partParser";
 import { getSessionStatusInfo } from "../utils/sessionStatus";
+import { resolveProjectDirectory } from "../utils/projectResolver";
 import { isAssistantFinished, getSessionHierarchy } from "./sessionService";
 import { aggregateSessionStats } from "./statsService";
 import { TWENTY_FOUR_HOURS_MS, MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, POLL_CACHE_TTL_MS } from "../../shared/constants";
@@ -43,16 +44,27 @@ export function generateETag(data: PollResponse): string {
    return `"${hash.substring(0, 16)}"`;
 }
 
-let pollCache: { data: PollResponse; etag: string; timestamp: number } | null = null;
-let pollInProgress: Promise<PollResponse> | null = null;
+type PollCacheEntry = { data: PollResponse; etag: string; timestamp: number };
+
+const pollCacheMap = new Map<string, PollCacheEntry>();
+const pollInProgressMap = new Map<string, Promise<PollResponse>>();
 let pollCacheEpoch = 0;
 
-export function getPollCache() {
-  return pollCache;
+function cacheKey(projectId?: string): string {
+  return projectId ?? '';
 }
 
-export function setPollCache(cache: { data: PollResponse; etag: string; timestamp: number } | null) {
-  pollCache = cache;
+export function getPollCache(projectId?: string): PollCacheEntry | null {
+  return pollCacheMap.get(cacheKey(projectId)) ?? null;
+}
+
+export function setPollCache(cache: PollCacheEntry | null, projectId?: string) {
+  const key = cacheKey(projectId);
+  if (cache) {
+    pollCacheMap.set(key, cache);
+  } else {
+    pollCacheMap.delete(key);
+  }
 }
 
 export function getPollCacheEpoch() {
@@ -61,22 +73,27 @@ export function getPollCacheEpoch() {
 
 export function invalidatePollCache() {
   pollCacheEpoch += 1;
-  pollCache = null;
+  pollCacheMap.clear();
 }
 
-export function getPollInProgress() {
-  return pollInProgress;
+export function getPollInProgress(projectId?: string): Promise<PollResponse> | null {
+  return pollInProgressMap.get(cacheKey(projectId)) ?? null;
 }
 
-export function setPollInProgress(promise: Promise<PollResponse> | null) {
-  pollInProgress = promise;
+export function setPollInProgress(promise: Promise<PollResponse> | null, projectId?: string) {
+  const key = cacheKey(projectId);
+  if (promise) {
+    pollInProgressMap.set(key, promise);
+  } else {
+    pollInProgressMap.delete(key);
+  }
 }
 
 export function getPollCacheTTL() {
   return POLL_CACHE_TTL_MS;
 }
 
-export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
+export async function fetchPollData(sessionId?: string, projectId?: string): Promise<PollResponse> {
   const storageExists = await checkStorageExists();
   if (!storageExists) {
     return {
@@ -90,11 +107,18 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
   }
 
   const allSessions = await listAllSessions();
+  let scopedSessions = allSessions;
+  let selectedProjectDirectory: string | null = null;
+
+  if (projectId) {
+    selectedProjectDirectory = await resolveProjectDirectory(projectId, allSessions);
+    scopedSessions = allSessions.filter((session) => session.projectID === projectId);
+  }
 
   const now = Date.now();
   const twentyFourHoursAgo = now - TWENTY_FOUR_HOURS_MS;
 
-  const recentSessions = allSessions.filter(
+  const recentSessions = scopedSessions.filter(
     (s) => s.updatedAt.getTime() >= twentyFourHoursAgo
   );
 
@@ -179,21 +203,28 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
 
   let planProgress: PlanProgress | null = null;
   let planName: string | undefined;
-  try {
-    const cwd = process.cwd();
-    const boulder = await parseBoulder(cwd);
-    if (boulder?.activePlan) {
-      planProgress = await calculatePlanProgress(boulder.activePlan);
-      planName = boulder.planName || undefined;
+  const planDirectory = projectId ? selectedProjectDirectory : process.cwd();
+  if (planDirectory) {
+    try {
+      const boulder = await parseBoulder(planDirectory);
+      if (boulder?.activePlan) {
+        planProgress = await calculatePlanProgress(boulder.activePlan);
+        planName = boulder.planName || undefined;
+      }
+    } catch (err) {
+      console.debug('Failed to parse boulder.json:', err instanceof Error ? err.message : err);
     }
-  } catch (err) {
-    console.debug('Failed to parse boulder.json:', err instanceof Error ? err.message : err);
   }
 
   let messages: MessageMeta[] = [];
   let activitySessions: ActivitySession[] = [];
   let sessionStats = undefined;
-  const targetSessionId = sessionId || activeSession?.id;
+  const scopedSessionIds = new Set(scopedSessions.map((session) => session.id));
+  const requestedSessionId =
+    sessionId && (!projectId || scopedSessionIds.has(sessionId))
+      ? sessionId
+      : undefined;
+  const targetSessionId = requestedSessionId || activeSession?.id;
   if (targetSessionId) {
     const fetchedMessages = await getCachedMessages(targetSessionId);
     const sortedMessages = fetchedMessages.sort(
@@ -201,7 +232,7 @@ export async function fetchPollData(sessionId?: string): Promise<PollResponse> {
     );
     messages = sortedMessages.slice(0, MAX_MESSAGES_LIMIT);
     
-    activitySessions = await getSessionHierarchy(targetSessionId, allSessions);
+    activitySessions = await getSessionHierarchy(targetSessionId, scopedSessions);
     
     for (const session of activitySessions) {
       await getCachedMessages(session.id);

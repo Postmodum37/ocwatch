@@ -27,6 +27,7 @@ interface UsePollingOptions {
   apiUrl?: string;
   maxRetries?: number;
   sessionId?: string | null;
+  projectId?: string | null;
 }
 
 export function usePolling(options: UsePollingOptions = {}): UsePollingState {
@@ -36,9 +37,16 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
     apiUrl = '/api/poll',
     maxRetries = 5,
     sessionId,
+    projectId,
   } = options;
 
-  const pollUrl = sessionId ? `${apiUrl}?sessionId=${sessionId}` : apiUrl;
+  const pollUrl = (() => {
+    const params = new URLSearchParams();
+    if (sessionId) params.set('sessionId', sessionId);
+    if (projectId) params.set('projectId', projectId);
+    const qs = params.toString();
+    return qs ? `${apiUrl}?${qs}` : apiUrl;
+  })();
 
   const [state, setState] = useState<UsePollingState>({
     data: null,
@@ -52,13 +60,19 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
   const etagRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const currentSessionIdRef = useRef<string | null | undefined>(sessionId);
+  const scopeKey = `${sessionId ?? ''}|${projectId ?? ''}`;
+  const currentScopeKeyRef = useRef<string>(scopeKey);
   const failedAttemptsRef = useRef(0);
 
   useEffect(() => {
-    if (currentSessionIdRef.current !== sessionId) {
-      currentSessionIdRef.current = sessionId;
+    if (currentScopeKeyRef.current !== scopeKey) {
+      currentScopeKeyRef.current = scopeKey;
       etagRef.current = null;
+      
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
       
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
@@ -80,10 +94,10 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         failedAttempts: 0,
       }));
     }
-  }, [sessionId]);
+  }, [scopeKey]);
 
   const fetchData = useCallback(async () => {
-    const fetchSessionId = currentSessionIdRef.current;
+    const fetchScopeKey = currentScopeKeyRef.current;
     
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -104,7 +118,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         signal: abortController.signal,
       });
 
-      if (currentSessionIdRef.current !== fetchSessionId) {
+      if (currentScopeKeyRef.current !== fetchScopeKey) {
         return;
       }
 
@@ -131,7 +145,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
 
       const data: PollResponse = await response.json();
 
-      if (currentSessionIdRef.current !== fetchSessionId) {
+      if (currentScopeKeyRef.current !== fetchScopeKey) {
         return;
       }
 
@@ -149,7 +163,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         return;
       }
 
-      if (currentSessionIdRef.current !== fetchSessionId) {
+      if (currentScopeKeyRef.current !== fetchScopeKey) {
         return;
       }
 

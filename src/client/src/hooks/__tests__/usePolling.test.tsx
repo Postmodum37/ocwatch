@@ -21,6 +21,16 @@ const mockPollResponse: PollResponse = {
   lastUpdate: Date.now(),
 };
 
+function createSuccessResponse(data: PollResponse, etag: string): Response {
+  return new Response(JSON.stringify(data), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      ETag: etag,
+    },
+  });
+}
+
 describe('usePolling', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -266,5 +276,145 @@ describe('usePolling', () => {
       },
       { timeout: 1000 }
     );
+  });
+
+  it('includes projectId query parameter when provided', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'ETag': '"test-etag"' }),
+      json: async () => mockPollResponse,
+    });
+
+    renderHook(() => usePolling({ projectId: 'project-alpha' }));
+
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/poll?projectId=project-alpha',
+          expect.any(Object)
+        );
+      },
+      { timeout: 1000 }
+    );
+  });
+
+  it('resets ETag and loading state when projectId scope changes', async () => {
+    const alphaResponse: PollResponse = {
+      ...mockPollResponse,
+      sessions: [{ ...mockPollResponse.sessions[0], projectID: 'project-alpha' }],
+    };
+    const betaResponse: PollResponse = {
+      ...mockPollResponse,
+      sessions: [{ ...mockPollResponse.sessions[0], projectID: 'project-beta' }],
+    };
+
+    let resolveSecondResponse!: (value: Response) => void;
+    const secondResponsePromise = new Promise<Response>((resolve) => {
+      resolveSecondResponse = resolve;
+    });
+
+    fetchMock
+      .mockResolvedValueOnce(createSuccessResponse(alphaResponse, '"alpha-etag"'))
+      .mockImplementationOnce(() => secondResponsePromise);
+
+    const { result, rerender } = renderHook(
+      ({ projectId }) => usePolling({ interval: 2000, projectId }),
+      { initialProps: { projectId: 'project-alpha' } }
+    );
+
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 1000 }
+    );
+
+    rerender({ projectId: 'project-beta' });
+
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 1000 }
+    );
+
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(true);
+      },
+      { timeout: 1000 }
+    );
+
+    const secondCall = fetchMock.mock.calls[1];
+    expect(secondCall[0]).toBe('/api/poll?projectId=project-beta');
+    expect(secondCall[1].headers).not.toHaveProperty('If-None-Match');
+
+    resolveSecondResponse(createSuccessResponse(betaResponse, '"beta-etag"'));
+
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 1000 }
+    );
+    expect(result.current.data?.sessions[0]?.projectID).toBe('project-beta');
+  });
+
+  it('discards stale response from previous projectId scope', async () => {
+    const alphaResponse: PollResponse = {
+      ...mockPollResponse,
+      sessions: [{ ...mockPollResponse.sessions[0], id: 'alpha-session', projectID: 'project-alpha' }],
+    };
+    const betaResponse: PollResponse = {
+      ...mockPollResponse,
+      sessions: [{ ...mockPollResponse.sessions[0], id: 'beta-session', projectID: 'project-beta' }],
+    };
+
+    let resolveAlphaResponse!: (value: Response) => void;
+    const alphaResponsePromise = new Promise<Response>((resolve) => {
+      resolveAlphaResponse = resolve;
+    });
+
+    fetchMock
+      .mockImplementationOnce(() => alphaResponsePromise)
+      .mockResolvedValueOnce(createSuccessResponse(betaResponse, '"beta-etag"'));
+
+    const { result, rerender } = renderHook(
+      ({ projectId }) => usePolling({ interval: 2000, projectId }),
+      { initialProps: { projectId: 'project-alpha' } }
+    );
+
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 1000 }
+    );
+
+    rerender({ projectId: 'project-beta' });
+
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 1000 }
+    );
+
+    await waitFor(
+      () => {
+        expect(result.current.data?.sessions[0]?.id).toBe('beta-session');
+      },
+      { timeout: 1000 }
+    );
+
+    resolveAlphaResponse(createSuccessResponse(alphaResponse, '"alpha-etag"'));
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    expect(result.current.data?.sessions[0]?.id).toBe('beta-session');
+    expect(result.current.data?.sessions[0]?.projectID).toBe('project-beta');
   });
 });

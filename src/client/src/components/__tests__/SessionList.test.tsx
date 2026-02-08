@@ -132,7 +132,7 @@ describe('SessionList', () => {
         selectedId={null} 
         onSelect={() => {}}
         projects={mockProjects}
-        selectedProjectId={null}
+        selectedProjectId="p1"
         onProjectSelect={() => {}}
       />
     );
@@ -146,7 +146,7 @@ describe('SessionList', () => {
         selectedId={null} 
         onSelect={() => {}}
         projects={mockProjects}
-        selectedProjectId={null}
+        selectedProjectId="p1"
         onProjectSelect={() => {}}
       />
     );
@@ -173,23 +173,6 @@ describe('SessionList', () => {
     expect(screen.queryByText('Project 2 Session')).toBeNull();
   });
 
-  it('shows all sessions when no project is selected', () => {
-    render(
-      <SessionList 
-        sessions={mockSessions} 
-        selectedId={null} 
-        onSelect={() => {}}
-        projects={mockProjects}
-        selectedProjectId={null}
-        onProjectSelect={() => {}}
-      />
-    );
-    
-    expect(screen.getByText('Active Session')).toBeDefined();
-    expect(screen.getByText('Idle Session')).toBeDefined();
-    expect(screen.getByText('Project 2 Session')).toBeDefined();
-  });
-
   it('calls onProjectSelect when project option is clicked', () => {
     const onProjectSelect = vi.fn();
     render(
@@ -198,7 +181,7 @@ describe('SessionList', () => {
         selectedId={null} 
         onSelect={() => {}}
         projects={mockProjects}
-        selectedProjectId={null}
+        selectedProjectId="p1"
         onProjectSelect={onProjectSelect}
       />
     );
@@ -206,10 +189,10 @@ describe('SessionList', () => {
     const button = screen.getByTestId('project-dropdown-button');
     fireEvent.click(button);
     
-    const projectOption = screen.getByTestId('project-option-p1');
+    const projectOption = screen.getByTestId('project-option-p2');
     fireEvent.click(projectOption);
     
-    expect(onProjectSelect).toHaveBeenCalledWith('p1');
+    expect(onProjectSelect).toHaveBeenCalledWith('p2');
   });
 
   it('shows last activity time in project dropdown', () => {
@@ -219,7 +202,7 @@ describe('SessionList', () => {
         selectedId={null} 
         onSelect={() => {}}
         projects={mockProjects}
-        selectedProjectId={null}
+        selectedProjectId="p1"
         onProjectSelect={() => {}}
       />
     );
@@ -275,4 +258,45 @@ describe('SessionList', () => {
     const waitingUserItem = screen.getByTestId('session-item-6');
     expect(waitingUserItem.className).toContain('animate-attention');
   });
+
+  it('shows active indicator on selected project option', () => {
+    render(
+      <SessionList 
+        sessions={mockSessions} 
+        selectedId={null} 
+        onSelect={() => {}}
+        projects={mockProjects}
+        selectedProjectId="p1"
+        onProjectSelect={() => {}}
+      />
+    );
+    
+    const button = screen.getByTestId('project-dropdown-button');
+    fireEvent.click(button);
+    
+    const selectedOption = screen.getByTestId('project-option-p1');
+    expect(selectedOption.className).toContain('border-l-accent');
+    expect(selectedOption.className).toContain('bg-accent/10');
+    
+    const unselectedOption = screen.getByTestId('project-option-p2');
+    expect(unselectedOption.className).toContain('border-l-transparent');
+  });
+
+  it('shows directory path as tooltip on dropdown button', () => {
+    render(
+      <SessionList 
+        sessions={mockSessions} 
+        selectedId={null} 
+        onSelect={() => {}}
+        projects={mockProjects}
+        selectedProjectId="p1"
+        onProjectSelect={() => {}}
+      />
+    );
+    
+    const button = screen.getByTestId('project-dropdown-button');
+    expect(button.getAttribute('title')).toBe('/tmp/p1');
+  });
+
+
 });

@@ -1,6 +1,74 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { app } from "../index";
-import type { SessionMetadata, MessageMeta, PlanProgress } from "../../shared/types";
+import { invalidatePollCache } from "../services/pollService";
+import type { SessionMetadata } from "../../shared/types";
+
+const PROJECT_POLL_TEST_DIR = "/tmp/ocwatch-poll-project-test";
+const originalXdgDataHome = process.env.XDG_DATA_HOME;
+
+function restoreXdgDataHome(): void {
+  if (originalXdgDataHome === undefined) {
+    delete process.env.XDG_DATA_HOME;
+    return;
+  }
+
+  process.env.XDG_DATA_HOME = originalXdgDataHome;
+}
+
+async function writeSessionFixture(
+  projectId: string,
+  sessionId: string,
+  directory: string
+): Promise<void> {
+  const sessionDir = join(
+    PROJECT_POLL_TEST_DIR,
+    "opencode",
+    "storage",
+    "session",
+    projectId
+  );
+  await mkdir(sessionDir, { recursive: true });
+
+  await writeFile(
+    join(sessionDir, `${sessionId}.json`),
+    JSON.stringify({
+      id: sessionId,
+      slug: sessionId,
+      projectID: projectId,
+      directory,
+      title: `Session ${sessionId}`,
+      time: {
+        created: Date.now(),
+        updated: Date.now(),
+      },
+    })
+  );
+}
+
+async function writeBoulderFixture(projectDirectory: string, planName: string): Promise<void> {
+  const sisyphusDir = join(projectDirectory, ".sisyphus");
+  const plansDir = join(sisyphusDir, "plans");
+  const planFile = join(plansDir, `${planName}.md`);
+
+  await mkdir(plansDir, { recursive: true });
+  await writeFile(
+    planFile,
+    ["# Test Plan", "", "- [x] Complete fixture setup", "- [ ] Keep testing"].join("\n")
+  );
+
+  await writeFile(
+    join(sisyphusDir, "boulder.json"),
+    JSON.stringify({
+      active_plan: `.sisyphus/plans/${planName}.md`,
+      session_ids: [],
+      status: "in-progress",
+      started_at: new Date().toISOString(),
+      plan_name: planName,
+    })
+  );
+}
 
 describe("GET /api/poll", () => {
   it("should return 200 with poll data on first request", async () => {
@@ -251,5 +319,131 @@ describe("GET /api/poll", () => {
         expect(session.currentAction.length).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe("GET /api/poll project scoping", () => {
+  beforeEach(async () => {
+    await rm(PROJECT_POLL_TEST_DIR, { recursive: true, force: true });
+    await mkdir(PROJECT_POLL_TEST_DIR, { recursive: true });
+    process.env.XDG_DATA_HOME = PROJECT_POLL_TEST_DIR;
+    invalidatePollCache();
+  });
+
+  afterEach(async () => {
+    await rm(PROJECT_POLL_TEST_DIR, { recursive: true, force: true });
+    restoreXdgDataHome();
+    invalidatePollCache();
+  });
+
+  it("should return 400 for invalid projectId format", async () => {
+    const req = new Request("http://localhost:50234/api/poll?projectId=../bad-id");
+    const res = await app.fetch(req);
+
+    expect(res.status).toBe(400);
+
+    const data = await res.json();
+    expect(data).toHaveProperty("error", "VALIDATION_ERROR");
+  });
+
+  it("should scope poll data and boulder lookup to selected project", async () => {
+    const alphaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "alpha-project");
+    const betaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "beta-project");
+    await mkdir(alphaDirectory, { recursive: true });
+    await mkdir(betaDirectory, { recursive: true });
+
+    await writeSessionFixture("project-alpha", "ses_alpha123", alphaDirectory);
+    await writeSessionFixture("project-beta", "ses_beta456", betaDirectory);
+    await writeBoulderFixture(alphaDirectory, "alpha-plan");
+    await writeBoulderFixture(betaDirectory, "beta-plan");
+
+    const req = new Request("http://localhost:50234/api/poll?projectId=project-alpha");
+    const res = await app.fetch(req);
+
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.sessions.length).toBeGreaterThan(0);
+    expect(data.sessions.every((session: SessionMetadata) => session.projectID === "project-alpha")).toBe(true);
+    expect(data.planName).toBe("alpha-plan");
+    expect(data.planProgress).not.toBeNull();
+    expect(data.planProgress.total).toBe(2);
+    expect(data.planProgress.completed).toBe(1);
+  });
+
+  it("should return empty sessions and null plan data for unknown projectId", async () => {
+    const alphaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "alpha-project");
+    await mkdir(alphaDirectory, { recursive: true });
+    await writeSessionFixture("project-alpha", "ses_alpha123", alphaDirectory);
+    await writeBoulderFixture(alphaDirectory, "alpha-plan");
+
+    const req = new Request("http://localhost:50234/api/poll?projectId=project-missing");
+    const res = await app.fetch(req);
+
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.sessions).toEqual([]);
+    expect(data.activeSession).toBeNull();
+    expect(data.planProgress).toBeNull();
+    expect(data.messages).toEqual([]);
+    expect(data.activitySessions).toEqual([]);
+    expect(data.planName).toBeUndefined();
+  });
+
+  it("should reuse scoped cache for repeated requests with the same projectId", async () => {
+    const alphaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "alpha-project");
+    await mkdir(alphaDirectory, { recursive: true });
+
+    await writeSessionFixture("project-alpha", "ses_alpha123", alphaDirectory);
+    await writeBoulderFixture(alphaDirectory, "alpha-plan");
+
+    const firstReq = new Request("http://localhost:50234/api/poll?projectId=project-alpha");
+    const firstRes = await app.fetch(firstReq);
+    const firstEtag = firstRes.headers.get("ETag");
+
+    expect(firstRes.status).toBe(200);
+    expect(firstEtag).toBeTruthy();
+
+    const secondReq = new Request("http://localhost:50234/api/poll?projectId=project-alpha", {
+      headers: {
+        "If-None-Match": firstEtag!,
+      },
+    });
+    const secondRes = await app.fetch(secondReq);
+
+    expect(secondRes.status).toBe(304);
+    expect(secondRes.headers.get("ETag")).toBe(firstEtag);
+  });
+
+  it("should isolate scoped cache entries between different projectIds", async () => {
+    const alphaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "alpha-project");
+    const betaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "beta-project");
+    await mkdir(alphaDirectory, { recursive: true });
+    await mkdir(betaDirectory, { recursive: true });
+
+    await writeSessionFixture("project-alpha", "ses_alpha123", alphaDirectory);
+    await writeSessionFixture("project-beta", "ses_beta456", betaDirectory);
+    await writeBoulderFixture(alphaDirectory, "alpha-plan");
+    await writeBoulderFixture(betaDirectory, "beta-plan");
+
+    const alphaReq = new Request("http://localhost:50234/api/poll?projectId=project-alpha");
+    const alphaRes = await app.fetch(alphaReq);
+    const alphaEtag = alphaRes.headers.get("ETag");
+
+    expect(alphaRes.status).toBe(200);
+    expect(alphaEtag).toBeTruthy();
+
+    const betaReq = new Request("http://localhost:50234/api/poll?projectId=project-beta", {
+      headers: {
+        "If-None-Match": alphaEtag!,
+      },
+    });
+    const betaRes = await app.fetch(betaReq);
+    const betaEtag = betaRes.headers.get("ETag");
+
+    expect(betaRes.status).toBe(200);
+    expect(betaEtag).toBeTruthy();
+    expect(betaEtag).not.toBe(alphaEtag);
   });
 });

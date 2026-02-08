@@ -14,7 +14,7 @@ interface SessionListProps {
   onSelect: (id: string) => void;
   projects?: ProjectInfo[];
   selectedProjectId?: string | null;
-  onProjectSelect?: (id: string | null) => void;
+  onProjectSelect?: (id: string) => void;
 }
 
 const SessionStatusIcon: React.FC<{ status: SessionStatus; activityType?: SessionActivityType }> = ({ status, activityType }) => {
@@ -57,12 +57,8 @@ export const SessionList: React.FC<SessionListProps> = ({
   });
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
-  const projectName = selectedProject?.directory.split('/').pop() || 'All Projects';
+  const projectName = selectedProject?.directory.split('/').pop() || 'Projects';
 
-  const getProjectName = (projectID: string): string => {
-    const project = projects.find(p => p.id === projectID);
-    return project?.directory.split('/').pop() || projectID.slice(0, 8);
-  };
 
   return (
     <div className="w-[280px] h-full bg-surface border-r border-border flex flex-col" data-testid="session-list">
@@ -72,6 +68,7 @@ export const SessionList: React.FC<SessionListProps> = ({
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             data-testid="project-dropdown-button"
+            title={selectedProject?.directory || 'Projects'}
             className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-background border border-border rounded hover:bg-surface transition-colors text-text-primary text-sm"
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -83,23 +80,9 @@ export const SessionList: React.FC<SessionListProps> = ({
 
           {isDropdownOpen && (
             <div 
-              className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded shadow-lg z-10"
+              className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded shadow-lg z-10 max-h-[320px] overflow-y-auto"
               data-testid="project-dropdown-menu"
             >
-              <button
-                type="button"
-                onClick={() => {
-                  onProjectSelect(null);
-                  setIsDropdownOpen(false);
-                }}
-                className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                  selectedProjectId === null
-                    ? 'bg-accent/20 text-accent'
-                    : 'text-text-primary hover:bg-background'
-                }`}
-              >
-                All Projects
-              </button>
               {projects.map(project => (
                 <button
                   type="button"
@@ -109,10 +92,11 @@ export const SessionList: React.FC<SessionListProps> = ({
                     setIsDropdownOpen(false);
                   }}
                   data-testid={`project-option-${project.id}`}
-                  className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between ${
+                  title={project.directory}
+                  className={`w-full text-left pl-3 pr-3 py-2 text-sm transition-colors flex items-center justify-between border-l-2 ${
                     selectedProjectId === project.id
-                      ? 'bg-accent/20 text-accent'
-                      : 'text-text-primary hover:bg-background'
+                      ? 'bg-accent/10 text-accent border-l-accent'
+                      : 'text-text-primary hover:bg-background border-l-transparent'
                   }`}
                 >
                   <span className="truncate">{project.directory.split('/').pop()}</span>
@@ -121,6 +105,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                   </span>
                 </button>
               ))}
+
             </div>
           )}
         </div>
@@ -137,7 +122,7 @@ export const SessionList: React.FC<SessionListProps> = ({
            <EmptyState
              icon={Inbox}
              title="No Sessions"
-             description={selectedProjectId ? "No sessions found in this project" : "No active sessions in the last 24 hours"}
+              description="No sessions found in this project"
            />
          ) : (
            sortedSessions.map((session) => {
@@ -191,14 +176,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                      </span>
                    )}
                    
-                   {selectedProjectId === null && (
-                     <span 
-                       className="text-[10px] text-text-secondary bg-surface border border-border px-1.5 py-0.5 rounded truncate max-w-[80px] shrink-0" 
-                       title={session.directory || session.projectID}
-                     >
-                       {getProjectName(session.projectID)}
-                     </span>
-                   )}
+
                  </div>
                </button>
              );

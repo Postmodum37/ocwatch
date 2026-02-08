@@ -16,6 +16,7 @@ export interface UseSSEOptions {
   apiUrl?: string;
   pollingInterval?: number;
   sessionId?: string | null;
+  projectId?: string | null;
 }
 
 export function useSSE(options: UseSSEOptions = {}): UseSSEState {
@@ -24,6 +25,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     apiUrl = '/api/sse',
     pollingInterval = 2000,
     sessionId,
+    projectId,
   } = options;
 
   const [isUsingFallback, setIsUsingFallback] = useState(false);
@@ -40,7 +42,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const currentSessionIdRef = useRef<string | null | undefined>(sessionId);
+  const scopeKey = `${sessionId ?? ''}|${projectId ?? ''}`;
+  const currentScopeKeyRef = useRef<string>(scopeKey);
   const lastEventTimeRef = useRef<number>(Date.now());
 
   const pollingState = usePolling({
@@ -48,16 +51,21 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     interval: pollingInterval,
     apiUrl: '/api/poll',
     sessionId,
+    projectId,
   });
 
   const fetchData = useCallback(async () => {
-    const pollUrl = sessionId ? `/api/poll?sessionId=${sessionId}` : '/api/poll';
+    const params = new URLSearchParams();
+    if (sessionId) params.set('sessionId', sessionId);
+    if (projectId) params.set('projectId', projectId);
+    const qs = params.toString();
+    const pollUrl = qs ? `/api/poll?${qs}` : '/api/poll';
     try {
       const response = await fetch(pollUrl);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data: PollResponse = await response.json();
       
-      if (currentSessionIdRef.current === sessionId) {
+      if (currentScopeKeyRef.current === scopeKey) {
         setSseState(prev => ({
           ...prev,
           data,
@@ -69,18 +77,18 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     } catch (err) {
       console.error('Failed to fetch data:', err);
     }
-  }, [sessionId]);
+  }, [sessionId, projectId, scopeKey]);
 
   useEffect(() => {
-    if (currentSessionIdRef.current !== sessionId) {
-      currentSessionIdRef.current = sessionId;
+    if (currentScopeKeyRef.current !== scopeKey) {
+      currentScopeKeyRef.current = scopeKey;
       setSseState(prev => ({
         ...prev,
         loading: true,
         data: prev.data ? { ...prev.data, messages: [], activitySessions: [], sessionStats: null } : null,
       }));
     }
-  }, [sessionId]);
+  }, [scopeKey]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -140,7 +148,11 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
 
     fetchData();
 
-    const sseUrl = sessionId ? `${apiUrl}?sessionId=${sessionId}` : apiUrl;
+    const sseParams = new URLSearchParams();
+    if (sessionId) sseParams.set('sessionId', sessionId);
+    if (projectId) sseParams.set('projectId', projectId);
+    const sseQs = sseParams.toString();
+    const sseUrl = sseQs ? `${apiUrl}?${sseQs}` : apiUrl;
     const es = new EventSource(sseUrl);
     eventSourceRef.current = es;
 
@@ -213,7 +225,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
         eventSourceRef.current = null;
       }
     };
-  }, [enabled, isUsingFallback, apiUrl, sessionId, fetchData]);
+  }, [enabled, isUsingFallback, apiUrl, sessionId, projectId, fetchData]);
 
   return isUsingFallback ? pollingState : sseState;
 }

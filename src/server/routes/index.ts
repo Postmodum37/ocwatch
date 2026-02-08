@@ -7,8 +7,16 @@ import { registerPlanRoute } from "./plan";
 import { registerPollRoute } from "./poll";
 import { registerSSERoute } from "./sse";
 
-export function registerRoutes(app: Hono) {
-  registerHealthRoutes(app);
+interface RegisterRoutesOptions {
+  defaultProjectId?: string;
+  defaultProjectIdPromise?: Promise<string | undefined>;
+}
+
+export function registerRoutes(app: Hono, options?: RegisterRoutesOptions) {
+  registerHealthRoutes(app, {
+    defaultProjectId: options?.defaultProjectId,
+    defaultProjectIdPromise: options?.defaultProjectIdPromise,
+  });
   registerSessionRoutes(app);
   registerPartRoutes(app);
   registerProjectRoutes(app);

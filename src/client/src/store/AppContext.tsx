@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useSSE } from '../hooks/useSSE';
 import { useNotifications } from '../hooks/useNotifications';
@@ -23,7 +23,7 @@ interface AppContextValue {
   notificationPermission: NotificationPermission;
   requestNotificationPermission: () => Promise<NotificationPermission>;
   setSelectedSessionId: (id: string | null) => void;
-  setSelectedProjectId: (id: string | null) => void;
+  setSelectedProjectId: (id: string) => void;
   setAgentFilter: (agents: string[]) => void;
 }
 
@@ -39,10 +39,28 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [agentFilter, setAgentFilter] = useState<string[]>([]);
   
+  const [selectedProjectId, setSelectedProjectIdRaw] = useState<string | null>(null);
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
+
+  const userHasSelectedRef = React.useRef(false);
+  const setSelectedProjectId = React.useCallback((id: string) => {
+    userHasSelectedRef.current = true;
+    setSelectedProjectIdRaw(id);
+  }, []);
+
+  const prevProjectIdRef = React.useRef(selectedProjectId);
+  useEffect(() => {
+    if (prevProjectIdRef.current !== selectedProjectId) {
+      prevProjectIdRef.current = selectedProjectId;
+      setSelectedSessionId(null);
+    }
+  }, [selectedProjectId]);
+
   const { data, loading, error, lastUpdate, isReconnecting } = useSSE({
     apiUrl,
     pollingInterval,
     sessionId: selectedSessionId,
+    projectId: selectedProjectId,
   });
   
   const {
@@ -54,39 +72,50 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     data?.activitySessions || []
   );
   
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [projects, setProjects] = useState<ProjectInfo[]>([]);
-
-  // Load projects from API on mount
+  // Load projects + health on mount, auto-select with priority chain
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const baseUrl = apiUrl || '';
-        const response = await fetch(`${baseUrl}/api/projects`);
-        if (response.ok) {
-          const projectsData = await response.json();
-          setProjects(projectsData);
-          
-          const params = new URLSearchParams(window.location.search);
-          const projectParam = params.get('project');
-          if (projectParam) {
-            setSelectedProjectId(projectParam);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch projects:', err);
+    const baseUrl = apiUrl || '';
+    let cancelled = false;
+
+    const init = async () => {
+      const [projectsResult, healthResult] = await Promise.allSettled([
+        fetch(`${baseUrl}/api/projects`).then(r => r.ok ? r.json() : []),
+        fetch(`${baseUrl}/api/health`).then(r => r.ok ? r.json() : {}),
+      ]);
+
+      if (cancelled) return;
+
+      const projectsData: ProjectInfo[] =
+        projectsResult.status === 'fulfilled' ? projectsResult.value : [];
+      const healthData =
+        healthResult.status === 'fulfilled' ? healthResult.value : {};
+
+      setProjects(projectsData);
+
+      if (userHasSelectedRef.current) return;
+
+      const projectIds = new Set(projectsData.map(p => p.id));
+      const urlParam = new URLSearchParams(window.location.search).get('project');
+      const serverDefault: string | undefined = (healthData as Record<string, unknown>).defaultProjectId as string | undefined;
+      const firstProject = projectsData.length > 0 ? projectsData[0].id : null;
+
+      const candidates = [urlParam, serverDefault, firstProject];
+      const resolved = candidates.find(c => c != null && projectIds.has(c)) ?? null;
+      if (resolved) {
+        setSelectedProjectIdRaw(resolved);
       }
     };
 
-    fetchProjects();
+    init();
+    return () => { cancelled = true; };
   }, [apiUrl]);
 
   useEffect(() => {
-    if (selectedProjectId) {
-      const params = new URLSearchParams(window.location.search);
-      params.set('project', selectedProjectId);
-      window.history.replaceState({}, '', `?${params.toString()}`);
-    }
+    if (!selectedProjectId) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set('project', selectedProjectId);
+    const qs = params.toString();
+    window.history.replaceState({}, '', `?${qs}`);
   }, [selectedProjectId]);
 
   useEffect(() => {
@@ -116,7 +145,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     setSelectedSessionId,
     setSelectedProjectId,
     setAgentFilter,
-  }), [data, selectedSessionId, projects, selectedProjectId, loading, error, lastUpdate, isReconnecting, agentFilter, notificationPermission, requestNotificationPermission]);
+  }), [data, selectedSessionId, projects, selectedProjectId, loading, error, lastUpdate, isReconnecting, agentFilter, notificationPermission, requestNotificationPermission, setSelectedProjectId]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
