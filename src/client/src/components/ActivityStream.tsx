@@ -1,57 +1,25 @@
 import { useState, useMemo, useEffect, useRef, memo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Activity, ChevronDown, ChevronUp, Filter, X, LayoutList, Users, Diamond } from 'lucide-react';
-import type { StreamEntry } from '@shared/types';
-import { BurstRow } from './BurstRow';
-import { MilestoneRow } from './MilestoneRow';
-import { AgentSwimlane } from './AgentSwimlane';
+import { AnimatePresence } from 'motion/react';
+import { Activity, ChevronDown, ChevronUp, ArrowDownRight, Check, X } from 'lucide-react';
+import type { AgentSpawnActivity, AgentCompleteActivity } from '@shared/types';
 import { getAgentColor } from '../utils/agentColors';
+import { formatTime } from '../utils/formatters';
 
 interface ActivityStreamProps {
-  entries: StreamEntry[];
-  totalTokens?: number;
+  entries: (AgentSpawnActivity | AgentCompleteActivity)[];
 }
 
-export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream({ entries, totalTokens = 0 }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'stream' | 'agents'>('stream');
-  const [milestonesOnly, setMilestonesOnly] = useState(false);
-  const prevAgentsRef = useRef<string>('');
-  
-  // Badge state tracking
-  const [newItemsCount, setNewItemsCount] = useState(0);
+export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream({ entries }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const seenIdsRef = useRef<Set<string> | null>(null);
   if (seenIdsRef.current === null) {
     seenIdsRef.current = new Set(entries.map(e => e.id));
   }
-  
-  // Scroll position tracking
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const [showJumpButton, setShowJumpButton] = useState(false);
+  const [newItemsCount, setNewItemsCount] = useState(0);
 
-  const agents = useMemo(() => {
-    const agentSet = new Set<string>();
-    entries.forEach(entry => {
-      if (entry.type === 'burst') {
-        agentSet.add(entry.agentName);
-      } else if (entry.type === 'milestone') {
-        agentSet.add(entry.item.agentName);
-      }
-    });
-    return Array.from(agentSet).sort();
-  }, [entries]);
-
-  useEffect(() => {
-    const agentsKey = agents.join(',');
-    if (prevAgentsRef.current !== '' && prevAgentsRef.current !== agentsKey) {
-      setSelectedAgents(new Set());
-    }
-    prevAgentsRef.current = agentsKey;
-  }, [agents]);
-
-  // Detect new items and update badge count
   useEffect(() => {
     const seen = seenIdsRef.current!;
     let newCount = 0;
@@ -67,260 +35,169 @@ export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream(
     }
 
     if (newCount > 0) {
-      setNewItemsCount(prev => prev + newCount);
-      
-      if (isAtBottom && scrollRef.current) {
+      if (isExpanded) {
+        setNewItemsCount(0);
+      } else {
+        setNewItemsCount(prev => prev + newCount);
+      }
+
+      if (autoScroll && scrollRef.current) {
         requestAnimationFrame(() => {
-            scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+          scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
         });
-      } else if (!isAtBottom) {
-        setShowJumpButton(true);
       }
     }
-  }, [entries, isAtBottom]);
+  }, [entries, isExpanded, autoScroll]);
 
-  // Handle scroll position tracking
   const handleScroll = () => {
-    if (scrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      const atBottom = scrollHeight - scrollTop - clientHeight < 50;
-      setIsAtBottom(atBottom);
-      setShowJumpButton(!atBottom && newItemsCount > 0);
-    }
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 50;
+    setAutoScroll(isAtBottom);
   };
 
-  // Scroll to bottom smoothly
   const scrollToBottom = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      setAutoScroll(true);
     }
   };
 
-  // Toggle collapse and clear badge when expanding
-  const handleToggleCollapse = () => {
-    const newCollapsedState = !isCollapsed;
-    setIsCollapsed(newCollapsedState);
-    if (!newCollapsedState) {
+  const handleToggle = () => {
+    const next = !isExpanded;
+    setIsExpanded(next);
+    if (next) {
       setNewItemsCount(0);
     }
   };
 
-  const filteredEntries = useMemo(() => {
-    let result = entries;
-    
-    // Filter by milestones only if toggle is ON
-    if (milestonesOnly) {
-      result = result.filter(entry => entry.type === 'milestone');
-    }
-    
-    // Filter by selected agents
-    if (selectedAgents.size === 0) return result;
-    return result.filter(entry => {
-        const agent = entry.type === 'burst' ? entry.agentName : entry.item.agentName;
-        return selectedAgents.has(agent);
+  const agentCount = useMemo(() => {
+    const agents = new Set<string>();
+    entries.forEach(e => {
+      if (e.type === 'agent-spawn') {
+        agents.add(e.spawnedAgentName);
+        agents.add(e.agentName);
+      } else {
+        agents.add(e.agentName);
+      }
     });
-  }, [entries, selectedAgents, milestonesOnly]);
-
-  const toggleAgent = (agent: string) => {
-    const newSelected = new Set(selectedAgents);
-    if (newSelected.has(agent)) {
-      newSelected.delete(agent);
-    } else {
-      newSelected.add(agent);
-    }
-    setSelectedAgents(newSelected);
-  };
-
-  const clearFilters = () => {
-    setSelectedAgents(new Set());
-  };
-
-  const panelHeight = isCollapsed ? 'h-auto' : 'h-80 max-h-[50vh]';
-  
-  const toolCallCount = entries.reduce((acc, entry) => {
-    if (entry.type === 'burst') return acc + entry.items.length;
-    if (entry.type === 'milestone') return acc;
-    return acc;
-  }, 0);
-  
-  const agentCount = agents.length;
+    return agents.size;
+  }, [entries]);
 
   return (
-    <div 
-      className={`flex flex-col ${panelHeight} bg-surface border-t border-border shadow-lg w-full shrink-0 overflow-hidden`}
-    >
-       <div className="flex flex-col border-b border-border bg-surface shrink-0">
-          <div className="flex items-center justify-between p-3">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-accent" />
-              <h3 className="font-semibold text-sm">Activity Stream</h3>
-              <span className="text-xs text-text-secondary bg-white/5 px-1.5 py-0.5 rounded-full">
-                {filteredEntries.length}
+    <div className="border-t border-border bg-surface flex flex-col shrink-0 overflow-hidden">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="h-10 px-4 flex items-center justify-between w-full hover:bg-white/[0.02] transition-colors"
+        aria-expanded={isExpanded}
+        aria-label="Toggle activity stream"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-text-secondary">
+            <Activity className="w-4 h-4" />
+            <span className="text-sm font-medium">Activity</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="px-1.5 py-0.5 rounded-full bg-white/5 text-xs font-mono text-text-secondary">
+              {entries.length}
+            </span>
+            {newItemsCount > 0 && !isExpanded && (
+              <span className="px-1.5 py-0.5 rounded-full bg-accent/20 text-accent text-xs font-medium animate-pulse">
+                +{newItemsCount} new
               </span>
-              {isCollapsed && newItemsCount > 0 && (
-                <span className="ml-2 bg-accent text-white text-xs px-2 py-0.5 rounded-full font-medium">
-                  {newItemsCount > 9 ? '9+' : newItemsCount}
-                </span>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {selectedAgents.size > 0 && (
-                <button 
-                  type="button"
-                  onClick={clearFilters}
-                  className="text-xs text-text-secondary hover:text-white flex items-center gap-1 transition-colors"
-                  title="Clear filters"
-                >
-                  <X className="w-3 h-3" />
-                  Clear
-                </button>
-              )}
-               <button 
-                 type="button"
-                 onClick={handleToggleCollapse}
-                 className="text-text-secondary hover:text-white transition-colors"
-                 aria-expanded={!isCollapsed}
-                 aria-label="Toggle activity stream"
-               >
-                 {isCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-               </button>
-            </div>
+            )}
           </div>
+        </div>
 
-           {!isCollapsed && (
-             <div className="flex items-center justify-between px-3 gap-4 border-t border-border/50">
-                <div className="flex items-center gap-4">
-                  <button 
-                     type="button"
-                     onClick={() => setActiveTab('stream')}
-                     className={`py-2 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === 'stream' ? 'border-accent text-accent' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
-                  >
-                     <LayoutList className="w-3.5 h-3.5" />
-                     Stream
-                  </button>
-                  <button 
-                     type="button"
-                     onClick={() => setActiveTab('agents')}
-                     className={`py-2 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === 'agents' ? 'border-accent text-accent' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
-                  >
-                     <Users className="w-3.5 h-3.5" />
-                     Agents
-                  </button>
-                </div>
-                {activeTab === 'stream' && (
-                  <button
-                    type="button"
-                    onClick={() => setMilestonesOnly(!milestonesOnly)}
-                    className={`text-text-secondary hover:text-white transition-colors ${milestonesOnly ? 'text-accent' : ''}`}
-                    aria-label="Toggle milestones only"
-                    aria-pressed={milestonesOnly}
-                    title="Milestones only"
-                  >
-                    <Diamond className="w-4 h-4" />
-                  </button>
-                )}
-             </div>
-           )}
-       </div>
-
-      {isCollapsed ? (
-        <button 
-          type="button"
-          className="w-full p-3 bg-surface/50 text-xs text-text-secondary flex justify-between items-center cursor-pointer hover:bg-white/5 transition-colors"
-          onClick={() => { setIsCollapsed(false); setNewItemsCount(0); }}
-        >
-          <div className="flex items-center gap-4">
-            <span>{toolCallCount} calls</span>
-            <span>{agentCount} agents</span>
-            {totalTokens > 0 && <span>{totalTokens.toLocaleString()} tokens</span>}
-          </div>
-          <ChevronDown className="w-3 h-3 opacity-50" />
-        </button>
-      ) : (
-        <>
-          {activeTab === 'stream' && agents.length > 0 && (
-            <div className="p-2 border-b border-border bg-surface/50 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto shrink-0">
-              <div className="flex items-center mr-1">
-                <Filter className="w-3 h-3 text-text-secondary" />
-              </div>
-              {agents.map(agent => (
-                <button
-                  type="button"
-                  key={agent}
-                  onClick={() => toggleAgent(agent)}
-                  aria-pressed={selectedAgents.has(agent)}
-                  className={`
-                    text-[10px] px-2 py-0.5 rounded-full border transition-all
-                    ${selectedAgents.has(agent) 
-                      ? 'bg-opacity-20 border-opacity-50 text-white' 
-                      : 'bg-transparent border-transparent text-text-secondary hover:bg-white/5 hover:text-gray-300'
-                    }
-                  `}
-                  style={{ 
-                    borderColor: selectedAgents.has(agent) ? getAgentColor(agent) : 'transparent',
-                    backgroundColor: selectedAgents.has(agent) ? getAgentColor(agent) : undefined
-                  }}
-                >
-                  {agent}
-                </button>
-              ))}
-            </div>
+        <div className="flex items-center gap-4">
+          {!isExpanded && entries.length > 0 && (
+            <span className="text-xs text-text-secondary">
+              {entries.length} events · {agentCount} agents
+            </span>
           )}
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-text-secondary" />
+          ) : (
+            <ChevronUp className="w-4 h-4 text-text-secondary" />
+          )}
+        </div>
+      </button>
 
-            <div 
+      <AnimatePresence>
+        {isExpanded && (
+          <div className="relative h-48 max-h-[30vh]">
+            <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-y-auto min-h-0 bg-[#0d1117] relative"
-              aria-live="polite"
+              className="h-full overflow-y-auto overflow-x-hidden bg-[#0d1117]"
               role="log"
+              aria-live="polite"
             >
-              {activeTab === 'stream' ? (
-                 filteredEntries.length === 0 ? (
-                   <div className="p-8 text-center text-text-secondary text-sm">
-                      No activity yet
-                   </div>
-                 ) : (
-                  <AnimatePresence>
-                    {filteredEntries.map((entry) => {
-                      return (
-                        <motion.div
-                          key={entry.id}
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          {entry.type === 'burst' ? (
-                            <BurstRow burst={entry} />
-                          ) : (
-                            <MilestoneRow entry={entry} />
+              {entries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-text-secondary opacity-50 p-8 h-full">
+                  <Activity className="w-8 h-8 mb-2" />
+                  <span className="text-sm">No activity yet</span>
+                </div>
+              ) : (
+                entries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center gap-3 px-4 py-2 text-sm border-b border-border/30 hover:bg-white/[0.02] transition-colors"
+                  >
+                    <span className="font-mono text-xs text-gray-600 w-16 shrink-0">
+                      {formatTime(entry.timestamp)}
+                    </span>
+
+                    {entry.type === 'agent-spawn' ? (
+                      <>
+                        <ArrowDownRight className="w-4 h-4 text-accent shrink-0" />
+                        <span className="truncate">
+                          <span className="text-text-secondary">Spawned </span>
+                          <span style={{ color: getAgentColor(entry.spawnedAgentName) }} className="font-medium">
+                            {entry.spawnedAgentName}
+                          </span>
+                          <span className="text-gray-600 text-xs ml-2">from {entry.agentName}</span>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {entry.status === 'completed' ? (
+                          <Check className="w-4 h-4 text-green-500 shrink-0" />
+                        ) : (
+                          <X className="w-4 h-4 text-red-500 shrink-0" />
+                        )}
+                        <span className="truncate">
+                          <span style={{ color: getAgentColor(entry.agentName) }} className="font-medium">
+                            {entry.agentName}
+                          </span>
+                          <span className="text-text-secondary ml-2">completed</span>
+                          {entry.durationMs != null && (
+                            <span className="ml-2 text-xs text-gray-600 font-mono">
+                              {Math.round(entry.durationMs / 1000)}s
+                            </span>
                           )}
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
-                )
-               ) : (
-                 <AgentSwimlane entries={filteredEntries} />
-               )}
-              
-              {showJumpButton && (
-                <motion.button
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.2 }}
-                  onClick={scrollToBottom}
-                  type="button"
-                  className="absolute bottom-4 right-4 bg-accent text-white px-3 py-2 rounded-full shadow-lg flex items-center gap-2 hover:bg-accent/90 transition-colors text-sm font-medium"
-                >
-                  Jump to latest <ChevronDown className="w-4 h-4" />
-                </motion.button>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                ))
               )}
             </div>
-        </>
-      )}
+
+            {!autoScroll && entries.length > 0 && (
+              <button
+                type="button"
+                onClick={scrollToBottom}
+                className="absolute bottom-4 right-4 p-2 rounded-full bg-accent text-white shadow-lg hover:bg-accent/90 transition-colors z-10"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });

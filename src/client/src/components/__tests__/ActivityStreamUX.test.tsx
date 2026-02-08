@@ -1,46 +1,44 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ActivityStream } from '../ActivityStream';
-import type { ActivityItem } from '../../../../shared/types';
-import { groupIntoBursts } from '../../../../shared/utils/burstGrouping';
+import type { AgentSpawnActivity, AgentCompleteActivity } from '../../../../shared/types';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('lucide-react', () => ({
   Activity: () => <div data-testid="icon-activity" />,
   ChevronDown: () => <div data-testid="icon-chevron-down" />,
   ChevronUp: () => <div data-testid="icon-chevron-up" />,
-  Filter: () => <div data-testid="icon-filter" />,
-  X: () => <div data-testid="icon-x" />,
-  Terminal: () => <div data-testid="icon-terminal" />,
-  FileText: () => <div data-testid="icon-file-text" />,
-  FileEdit: () => <div data-testid="icon-file-edit" />,
-  Search: () => <div data-testid="icon-search" />,
-  Globe: () => <div data-testid="icon-globe" />,
   ArrowDownRight: () => <div data-testid="icon-arrow-down-right" />,
   Check: () => <div data-testid="icon-check" />,
-  ChevronRight: () => <div data-testid="icon-chevron-right" />,
-  Loader2: () => <div data-testid="icon-loader2" />,
-  Circle: () => <div data-testid="icon-circle" />,
-  AlertCircle: () => <div data-testid="icon-alert-circle" />,
-  LayoutList: () => <div data-testid="icon-layout-list" />,
-  Users: () => <div data-testid="icon-users" />,
-  Diamond: () => <div data-testid="icon-diamond" />,
+  X: () => <div data-testid="icon-x" />,
 }));
 
-describe('ActivityStream UX - Badge and Jump Button', () => {
-  const mockToolCallActivity: ActivityItem = {
-    id: 'tool-1',
-    type: 'tool-call',
-    timestamp: new Date('2025-02-02T10:00:00Z'),
+type Entry = AgentSpawnActivity | AgentCompleteActivity;
+
+describe('ActivityStream UX', () => {
+  const mockSpawn: AgentSpawnActivity = {
+    id: 'spawn-1',
+    type: 'agent-spawn',
+    timestamp: new Date('2025-02-02T10:01:00Z'),
     agentName: 'prometheus',
-    toolName: 'readFile',
-    state: 'complete',
-    summary: 'Read package.json',
-    input: { filePath: 'package.json' },
+    spawnedAgentName: 'librarian',
   };
 
-  const renderStream = (items: ActivityItem[], props = {}) => {
-    const entries = groupIntoBursts(items);
-    return render(<ActivityStream entries={entries} {...props} />);
+  const mockComplete: AgentCompleteActivity = {
+    id: 'complete-1',
+    type: 'agent-complete',
+    timestamp: new Date('2025-02-02T10:02:00Z'),
+    agentName: 'librarian',
+    status: 'completed',
+    durationMs: 5000,
+  };
+
+  const renderStream = (entries: Entry[]) => {
+    return render(<ActivityStream entries={entries} />);
+  };
+
+  const expandStream = () => {
+    const toggleButton = screen.getByLabelText('Toggle activity stream');
+    fireEvent.click(toggleButton);
   };
 
   beforeEach(() => {
@@ -48,189 +46,143 @@ describe('ActivityStream UX - Badge and Jump Button', () => {
   });
 
   describe('Badge Feature', () => {
-    it('renders without errors when expanded', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+    it('renders count badge with correct number', () => {
+      renderStream([mockSpawn, mockComplete]);
 
-      expect(screen.getByText('Activity Stream')).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+
+    it('renders header when collapsed', () => {
+      renderStream([mockSpawn]);
+
+      expect(screen.getByText('Activity')).toBeInTheDocument();
       expect(screen.getByText('1')).toBeInTheDocument();
     });
 
-    it('renders without errors when collapsed', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+    it('renders header when expanded', () => {
+      renderStream([mockSpawn]);
+      expandStream();
 
-      const collapseButton = screen.getAllByRole('button').find(btn =>
-        btn.querySelector('[data-testid="icon-chevron-down"]')
-      );
-      fireEvent.click(collapseButton!);
-
-      expect(screen.getByText('Activity Stream')).toBeInTheDocument();
+      expect(screen.getByText('Activity')).toBeInTheDocument();
     });
 
-    it('badge element exists in header when collapsed', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
-
-      const collapseButton = screen.getAllByRole('button').find(btn =>
-        btn.querySelector('[data-testid="icon-chevron-down"]')
-      );
-      fireEvent.click(collapseButton!);
-
-      const header = screen.getByText('Activity Stream').closest('div');
-      expect(header).toBeInTheDocument();
-    });
-
-    it('renders correct count in item counter', () => {
-      const items: ActivityItem[] = [
-        mockToolCallActivity,
-        { ...mockToolCallActivity, id: 'tool-2', toolName: 'writeFile', agentName: 'agent2' },
-        { ...mockToolCallActivity, id: 'tool-3', toolName: 'exec', agentName: 'agent3' },
+    it('renders correct count with multiple entries', () => {
+      const entries: Entry[] = [
+        { ...mockSpawn, id: 'spawn-1' },
+        { ...mockSpawn, id: 'spawn-2', spawnedAgentName: 'explore' },
+        { ...mockComplete, id: 'complete-1' },
       ];
-      renderStream(items);
+      renderStream(entries);
 
       expect(screen.getByText('3')).toBeInTheDocument();
     });
   });
 
-  describe('Jump Button Feature', () => {
-    it('does not show jump button when at bottom', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+  describe('Scroll and Jump Button', () => {
+    it('scroll container exists when expanded', () => {
+      renderStream([mockSpawn]);
+      expandStream();
 
-      expect(screen.queryByText('Jump to latest')).not.toBeInTheDocument();
+      const logRegion = screen.getByRole('log');
+      expect(logRegion).toBeInTheDocument();
     });
 
     it('aria-live region exists for screen readers', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+      renderStream([mockSpawn]);
+      expandStream();
 
-      const scrollContainer = screen.getByRole('log');
-      expect(scrollContainer).toHaveAttribute('aria-live', 'polite');
+      const logRegion = screen.getByRole('log');
+      expect(logRegion).toHaveAttribute('aria-live', 'polite');
     });
 
-    it('scroll container has relative positioning for jump button', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+    it('scroll container has overflow-y-auto', () => {
+      renderStream([mockSpawn]);
+      expandStream();
 
-      const scrollContainer = screen.getByRole('log');
-      expect(scrollContainer).toHaveClass('relative');
-    });
-
-    it('scroll container has onScroll handler', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
-
-      const scrollContainer = screen.getByRole('log');
-      expect(scrollContainer).toBeInTheDocument();
-
-      fireEvent.scroll(scrollContainer);
-      expect(scrollContainer).toBeInTheDocument();
-    });
-  });
-
-  describe('Scroll Position Tracking', () => {
-    it('scroll container is properly configured', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-
-      renderStream(items);
-
-      const scrollContainer = screen.getByRole('log');
-      expect(scrollContainer).toBeInTheDocument();
-      expect(scrollContainer).toHaveClass('overflow-y-auto');
-      expect(scrollContainer).toHaveClass('min-h-0');
+      const logRegion = screen.getByRole('log');
+      expect(logRegion).toHaveClass('overflow-y-auto');
     });
 
     it('scroll event fires without errors', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
+      renderStream([mockSpawn]);
+      expandStream();
 
-      renderStream(items);
-
-      const scrollContainer = screen.getByRole('log');
+      const logRegion = screen.getByRole('log');
       expect(() => {
-        fireEvent.scroll(scrollContainer);
+        fireEvent.scroll(logRegion);
       }).not.toThrow();
     });
   });
 
-  describe('Integration Tests', () => {
-    it('collapse and expand buttons work correctly', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+  describe('Collapse/Expand', () => {
+    it('starts collapsed', () => {
+      renderStream([mockSpawn]);
 
-      const collapseButton = screen.getAllByRole('button').find(btn =>
-        btn.querySelector('[data-testid="icon-chevron-down"]')
-      );
-
-      expect(collapseButton).toBeInTheDocument();
-
-      fireEvent.click(collapseButton!);
-      expect(screen.getByText('Activity Stream')).toBeInTheDocument();
-
-      fireEvent.click(collapseButton!);
-      expect(screen.getByText('Activity Stream')).toBeInTheDocument();
+      expect(screen.queryByRole('log')).not.toBeInTheDocument();
     });
 
-    it('component renders with multiple items', () => {
-      const items: ActivityItem[] = Array.from({ length: 5 }, (_, i) => ({
-        ...mockToolCallActivity,
-        id: `tool-${i}`,
-        agentName: `agent-${i}`
-      }));
+    it('toggle expands the stream', () => {
+      renderStream([mockSpawn]);
+      expandStream();
 
-      renderStream(items);
-
-      expect(screen.getByText('Activity Stream')).toBeInTheDocument();
-      expect(screen.getByText('5')).toBeInTheDocument();
+      expect(screen.getByRole('log')).toBeInTheDocument();
     });
 
-    it('component handles empty items', () => {
-      renderStream([]);
+    it('double toggle returns to collapsed', () => {
+      renderStream([mockSpawn]);
+      expandStream();
+      expandStream();
 
-      expect(screen.getByText('Activity Stream')).toBeInTheDocument();
-      expect(screen.getByText('0')).toBeInTheDocument();
-      expect(screen.getByText('No activity yet')).toBeInTheDocument();
+      expect(screen.queryByRole('log')).not.toBeInTheDocument();
     });
 
-    it('all interactive elements are present', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+    it('header persists across toggle states', () => {
+      renderStream([mockSpawn]);
 
-      const buttons = screen.getAllByRole('button');
-      expect(buttons.length).toBeGreaterThan(0);
-
-      const header = screen.getByText('Activity Stream');
-      expect(header).toBeInTheDocument();
+      expect(screen.getByText('Activity')).toBeInTheDocument();
+      expandStream();
+      expect(screen.getByText('Activity')).toBeInTheDocument();
     });
   });
 
   describe('Component Structure', () => {
     it('renders header with activity icon', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+      renderStream([mockSpawn]);
 
-      expect(screen.getByTestId('icon-activity')).toBeInTheDocument();
+      expect(screen.getAllByTestId('icon-activity')[0]).toBeInTheDocument();
     });
 
-    it('renders collapse/expand button', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+    it('renders chevron icon', () => {
+      renderStream([mockSpawn]);
 
-      expect(screen.getByTestId('icon-chevron-down')).toBeInTheDocument();
+      const hasChevron = screen.queryByTestId('icon-chevron-up') || screen.queryByTestId('icon-chevron-down');
+      expect(hasChevron).toBeInTheDocument();
     });
 
-    it('renders activity items when expanded', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+    it('renders entries when expanded', () => {
+      renderStream([mockSpawn]);
+      expandStream();
 
-      expect(screen.getByText(/readFile/)).toBeInTheDocument();
+      expect(screen.getByText('librarian')).toBeInTheDocument();
     });
 
-    it('renders filter section when expanded', () => {
-      const items: ActivityItem[] = [mockToolCallActivity];
-      renderStream(items);
+    it('handles empty entries', () => {
+      renderStream([]);
+      expandStream();
 
-      expect(screen.getByTestId('icon-filter')).toBeInTheDocument();
+      expect(screen.getByText('No activity yet')).toBeInTheDocument();
+    });
+
+    it('renders multiple entries correctly', () => {
+      const entries: Entry[] = Array.from({ length: 5 }, (_, i) => ({
+        ...mockSpawn,
+        id: `spawn-${i}`,
+        spawnedAgentName: `agent-${i}`,
+      }));
+
+      renderStream(entries);
+
+      expect(screen.getByText('5')).toBeInTheDocument();
     });
   });
 });

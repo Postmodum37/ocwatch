@@ -156,7 +156,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     const es = new EventSource(sseUrl);
     eventSourceRef.current = es;
 
-    const handleSSEEvent = (_event: MessageEvent) => {
+    const handleSSEEvent = () => {
       lastEventTimeRef.current = Date.now();
 
       if (debounceTimeoutRef.current) {

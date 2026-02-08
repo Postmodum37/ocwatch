@@ -1,6 +1,8 @@
 /** "<1m", "3m", "2h", "3d", or locale date */
-export function formatRelativeTime(date: Date | string): string {
+export function formatRelativeTime(date: Date | string | undefined | null): string {
+  if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '';
   const now = Date.now();
   const diff = now - d.getTime();
   const minutes = Math.floor(diff / 60000);

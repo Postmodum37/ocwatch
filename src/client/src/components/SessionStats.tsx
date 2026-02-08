@@ -26,14 +26,22 @@ export function SessionStats({ stats }: SessionStatsProps) {
   }, [isOpen]);
 
   useEffect(() => {
-    if (stats?.totalTokens !== undefined && prevTokensRef.current !== null) {
-      if (stats.totalTokens !== prevTokensRef.current) {
-        setTokensChanged(true);
-        const timeout = setTimeout(() => setTokensChanged(false), 600);
-        return () => clearTimeout(timeout);
-      }
+    const currentTokens = stats?.totalTokens;
+    const prevTokens = prevTokensRef.current;
+    
+    if (currentTokens !== undefined && prevTokens !== null && currentTokens !== prevTokens) {
+      const timeoutId = setTimeout(() => setTokensChanged(true), 0);
+      const resetTimeoutId = setTimeout(() => setTokensChanged(false), 600);
+      prevTokensRef.current = currentTokens;
+      return () => {
+        clearTimeout(timeoutId);
+        clearTimeout(resetTimeoutId);
+      };
     }
-    prevTokensRef.current = stats?.totalTokens ?? null;
+    
+    if (currentTokens !== undefined) {
+      prevTokensRef.current = currentTokens;
+    }
   }, [stats?.totalTokens]);
 
   if (!stats) {

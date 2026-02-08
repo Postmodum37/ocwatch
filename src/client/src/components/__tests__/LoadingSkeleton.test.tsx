@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { LoadingSkeleton, SessionListSkeleton } from '../LoadingSkeleton';
 import { describe, it, expect } from 'vitest';
 
