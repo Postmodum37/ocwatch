@@ -17,6 +17,12 @@ ocwatch
 
 Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool calls, and plan progress.
 
+## Preview
+
+![Dashboard overview](docs/screenshots/dashboard-overview.png)
+
+![Activity stream](docs/screenshots/dashboard-activity.png)
+
 ## Options
 
 | Flag | Description |
