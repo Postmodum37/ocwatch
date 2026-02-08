@@ -19,14 +19,10 @@ client/
 │   │   │   ├── useForceLayout.ts # d3-force simulation with RAF ticking, drag, reheat
 │   │   │   ├── collide.ts    # Rectangular collision detection force for d3-force
 │   │   │   └── index.ts      # Barrel exports
-│   │   ├── ActivityStream.tsx # Bottom panel: burst/milestone timeline, tabs, filtering (326 lines)
-│   │   ├── AgentSwimlane.tsx  # Agent-grouped horizontal activity view (308 lines)
-│   │   ├── ActivityRow.tsx    # Individual tool call details, expandable (288 lines)
+│   │   ├── ActivityStream.tsx # Bottom panel: flat event log of spawns + completions
 │   │   ├── SessionList.tsx    # Sidebar: project dropdown + session list (198 lines)
 │   │   ├── SessionStats.tsx   # Header stat dropdown with model breakdown
 │   │   ├── PlanProgress.tsx   # Plan progress bar + task checklist
-│   │   ├── BurstRow.tsx       # Grouped tool calls, expandable
-│   │   ├── MilestoneRow.tsx   # Task milestone marker
 │   │   ├── AgentBadge.tsx     # Colored agent tag (memo'd)
 │   │   ├── EmptyState.tsx     # Reusable empty state
 │   │   ├── ErrorBoundary.tsx  # Class component error fallback
