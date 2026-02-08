@@ -127,7 +127,7 @@ export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream(
 
       <AnimatePresence>
         {isExpanded && (
-          <div className="relative h-80 max-h-[50vh]">
+          <div className="relative h-48 max-h-[30vh]">
             <div
               ref={scrollRef}
               onScroll={handleScroll}
