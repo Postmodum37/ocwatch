@@ -12,30 +12,10 @@ import {
   Terminal, 
   MessageCircleQuestion 
 } from 'lucide-react';
-import type { ActivitySession, SessionStatus, SessionActivityType, ToolCallSummary } from '@shared/types';
+import type { ActivitySession, SessionStatus, SessionActivityType } from '@shared/types';
 import { formatRelativeTime } from '@shared/utils/formatTime';
 import { AgentBadge } from '../AgentBadge';
-
-// Helper functions extracted from legacy component to maintain consistent behavior
-function extractPrimaryArg(input: object, maxLength: number = 60): string | null {
-  const typedInput = input as { filePath?: string; command?: string; pattern?: string; query?: string; url?: string };
-  const keys = ['filePath', 'command', 'pattern', 'query', 'url'];
-  for (const key of keys) {
-    if (typedInput[key as keyof typeof typedInput]) {
-      const val = String(typedInput[key as keyof typeof typedInput]);
-      return val.length > maxLength ? '...' + val.slice(-maxLength) : val;
-    }
-  }
-  return null;
-}
-
-function getFullToolDisplayText(toolCalls?: ToolCallSummary[]): { toolName: string; toolArg: string | null } | null {
-  if (!toolCalls || toolCalls.length === 0) return null;
-  const latest = toolCalls[0];
-  const toolName = latest.name.replace('mcp_', '');
-  const toolArg = extractPrimaryArg(latest.input, 60);
-  return { toolName, toolArg };
-}
+import { getFullToolDisplayText } from './nodeHelpers';
 
 const StatusIndicator = memo<{ status: SessionStatus }>(function StatusIndicator({ status }) {
   switch (status) {
@@ -116,8 +96,18 @@ const ActivityTypeIndicator = memo<{ activityType?: SessionActivityType; pending
   }
 );
 
-export const AgentNode = memo(({ data, selected }: NodeProps) => {
+export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) {
   const session = data as unknown as ActivitySession;
+  
+  // Runtime guard for data contract
+  if (!session?.id || !session?.agent) {
+    return (
+      <div className="flex items-center justify-center w-[250px] h-[60px] rounded-md border border-error/50 bg-surface text-error text-xs p-2">
+        Invalid node data
+      </div>
+    );
+  }
+
   const status: SessionStatus = session.status || 'completed';
   const isCompleted = status === 'completed';
   

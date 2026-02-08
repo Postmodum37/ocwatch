@@ -12,12 +12,17 @@ client/
 │   ├── App.tsx                # Layout shell: header + sidebar + main + stream
 │   ├── main.tsx               # React entrypoint (StrictMode + ErrorBoundary)
 │   ├── components/
-│   │   ├── LiveActivity.tsx   # Main panel: session tree with status, tools, actions (319 lines)
+│   │   ├── graph/             # Force-directed graph visualization
+│   │   │   ├── GraphView.tsx  # Main container: ReactFlow + force layout + loading/empty states
+│   │   │   ├── AgentNode.tsx  # Custom node card: agent badge, status, tools, tokens, timestamps
+│   │   │   ├── AnimatedEdge.tsx # Animated bezier edges with SVG particles for active connections
+│   │   │   ├── useForceLayout.ts # d3-force simulation with RAF ticking, drag, reheat
+│   │   │   ├── collide.ts    # Rectangular collision detection force for d3-force
+│   │   │   └── index.ts      # Barrel exports
 │   │   ├── ActivityStream.tsx # Bottom panel: burst/milestone timeline, tabs, filtering (326 lines)
 │   │   ├── AgentSwimlane.tsx  # Agent-grouped horizontal activity view (308 lines)
 │   │   ├── ActivityRow.tsx    # Individual tool call details, expandable (288 lines)
 │   │   ├── SessionList.tsx    # Sidebar: project dropdown + session list (198 lines)
-│   │   ├── AgentTree.tsx      # Dagre graph layout (disabled, was v1 feature)
 │   │   ├── SessionStats.tsx   # Header stat dropdown with model breakdown
 │   │   ├── PlanProgress.tsx   # Plan progress bar + task checklist
 │   │   ├── BurstRow.tsx       # Grouped tool calls, expandable
@@ -80,7 +85,7 @@ AppProvider mounts
 
 **Scope resets**: Changing project clears `selectedSessionId`, messages, and activitySessions. Scope key (`sessionId|projectId`) change resets ETag + aborts in-flight requests.
 
-**Memoization**: `LiveActivity` memos SessionRow, StatusIndicator, ActivityTypeIndicator. `ActivityStream` memos filtered entries, agent list. Prevents cascade re-renders on 2s poll updates.
+**Memoization**: `AgentNode` memos StatusIndicator, ActivityTypeIndicator. `ActivityStream` memos filtered entries, agent list. Prevents cascade re-renders on 2s poll updates.
 
 **URL sync**: `selectedProjectId` persists to `?project=` query param. Survives page reload. Priority: URL param → server default → first project.
 
@@ -109,4 +114,4 @@ Single dark theme (GitHub-inspired). **No light mode, no customization.**
 - No CSS-in-JS — Tailwind only
 - No light theme — single dark theme
 - No component library (MUI, etc.) — custom components only
-- `AgentTree` component exists but is **disabled** (v1 feature)
+- No dagre/tree layout — force-directed graph via `@xyflow/react` + `d3-force`

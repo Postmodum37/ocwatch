@@ -20,6 +20,7 @@ const HALF_NODE_HEIGHT = NODE_HEIGHT / 2;
 const INITIAL_ALPHA = 0.45;
 const ALPHA_MIN = 0.001;
 const ALPHA_DECAY = 0.04;
+const DRAG_REHEAT_ALPHA = 0.1;
 
 const LINK_DISTANCE = 260;
 const LINK_STRENGTH = 0.12;
@@ -29,6 +30,7 @@ interface ForceLayoutNode extends RectCollisionNode {
   id: string;
 }
 
+/** Links use string IDs only (no numeric indices) — narrows SimulationLinkDatum */
 interface ForceLayoutLink extends SimulationLinkDatum<ForceLayoutNode> {
   source: string | ForceLayoutNode;
   target: string | ForceLayoutNode;
@@ -52,25 +54,26 @@ function toSimulationCenter(node: Node) {
   };
 }
 
-function idsChanged(nextIds: Set<string>, previousIds: Set<string>) {
-  if (nextIds.size !== previousIds.size) {
-    return true;
-  }
+function syncDragPosition(
+  simulationNodesById: Map<string, ForceLayoutNode>,
+  node: Node,
+  pinned: boolean,
+): ForceLayoutNode | undefined {
+  const simulationNode = simulationNodesById.get(node.id);
+  if (!simulationNode) return undefined;
 
-  for (const id of nextIds) {
-    if (!previousIds.has(id)) {
-      return true;
-    }
-  }
-
-  return false;
+  const center = toSimulationCenter(node);
+  simulationNode.x = center.x;
+  simulationNode.y = center.y;
+  simulationNode.fx = pinned ? center.x : null;
+  simulationNode.fy = pinned ? center.y : null;
+  return simulationNode;
 }
 
 export function useForceLayout({ nodes, edges, setNodes }: UseForceLayoutParams): UseForceLayoutResult {
   const simulationRef = useRef<Simulation<ForceLayoutNode, ForceLayoutLink> | null>(null);
   const linkForceRef = useRef<ForceLink<ForceLayoutNode, ForceLayoutLink> | null>(null);
   const simulationNodesByIdRef = useRef<Map<string, ForceLayoutNode>>(new Map());
-  const previousNodeIdsRef = useRef<Set<string>>(new Set());
   const frameRef = useRef<number | null>(null);
   const isTickingRef = useRef(false);
   const appliedLayoutKeysRef = useRef<{ nodeIdsKey: string; edgeLinksKey: string }>({
@@ -78,36 +81,33 @@ export function useForceLayout({ nodes, edges, setNodes }: UseForceLayoutParams)
     edgeLinksKey: '',
   });
 
-  const initSimulation = useCallback(() => {
-    if (simulationRef.current == null || linkForceRef.current == null) {
-      const linkForce = forceLink<ForceLayoutNode, ForceLayoutLink>([])
-        .id((node) => node.id)
-        .distance(LINK_DISTANCE)
-        .strength(LINK_STRENGTH);
-
-      const simulation = forceSimulation<ForceLayoutNode>([])
-        .alphaMin(ALPHA_MIN)
-        .alphaDecay(ALPHA_DECAY)
-        .force('link', linkForce)
-        .force('charge', forceManyBody().strength(CHARGE_STRENGTH))
-        .force(
-          'collide',
-          collide({
-            width: NODE_WIDTH,
-            height: NODE_HEIGHT,
-          }),
-        )
-        .force('center', forceCenter(0, 0))
-        .stop();
-
-      simulationRef.current = simulation;
-      linkForceRef.current = linkForce;
-    }
-  }, []);
-
+  // One-time simulation initialization
   useEffect(() => {
-    initSimulation();
-  }, [initSimulation]);
+    if (simulationRef.current != null && linkForceRef.current != null) return;
+
+    const linkForce = forceLink<ForceLayoutNode, ForceLayoutLink>([])
+      .id((node) => node.id)
+      .distance(LINK_DISTANCE)
+      .strength(LINK_STRENGTH);
+
+    const simulation = forceSimulation<ForceLayoutNode>([])
+      .alphaMin(ALPHA_MIN)
+      .alphaDecay(ALPHA_DECAY)
+      .force('link', linkForce)
+      .force('charge', forceManyBody().strength(CHARGE_STRENGTH))
+      .force(
+        'collide',
+        collide({
+          width: NODE_WIDTH,
+          height: NODE_HEIGHT,
+        }),
+      )
+      .force('center', forceCenter(0, 0))
+      .stop();
+
+    simulationRef.current = simulation;
+    linkForceRef.current = linkForce;
+  }, []);
 
   const nodeIdsKey = useMemo(
     () => nodes.map((node) => node.id).sort((a, b) => a.localeCompare(b)).join('|'),
@@ -177,6 +177,11 @@ export function useForceLayout({ nodes, edges, setNodes }: UseForceLayoutParams)
           const nextX = simulationNode.x - HALF_NODE_WIDTH;
           const nextY = simulationNode.y - HALF_NODE_HEIGHT;
 
+          // Guard against NaN from d3-force numerical instability
+          if (Number.isNaN(nextX) || Number.isNaN(nextY)) {
+            return node;
+          }
+
           if (Math.abs(node.position.x - nextX) < 0.1 && Math.abs(node.position.y - nextY) < 0.1) {
             return node;
           }
@@ -214,10 +219,11 @@ export function useForceLayout({ nodes, edges, setNodes }: UseForceLayoutParams)
       return;
     }
 
-    if (
-      appliedLayoutKeysRef.current.nodeIdsKey === nodeIdsKey &&
-      appliedLayoutKeysRef.current.edgeLinksKey === edgeLinksKey
-    ) {
+    const previousKeys = appliedLayoutKeysRef.current;
+    const nodeIdsChanged = previousKeys.nodeIdsKey !== nodeIdsKey;
+    const edgeLinksChanged = previousKeys.edgeLinksKey !== edgeLinksKey;
+
+    if (!nodeIdsChanged && !edgeLinksChanged) {
       return;
     }
 
@@ -226,18 +232,18 @@ export function useForceLayout({ nodes, edges, setNodes }: UseForceLayoutParams)
       edgeLinksKey,
     };
 
-    const currentNodes = nodes;
-    const currentEdges = edges;
+    const nextNodeIds = new Set(nodes.map((node) => node.id));
 
-    const nextNodeIds = new Set(currentNodes.map((node) => node.id));
-
+    // Prune removed nodes
     for (const id of simulationNodesByIdRef.current.keys()) {
       if (!nextNodeIds.has(id)) {
         simulationNodesByIdRef.current.delete(id);
       }
     }
 
-    for (const node of currentNodes) {
+    // Single pass: update existing or create new simulation nodes, build array
+    const simulationNodes: ForceLayoutNode[] = [];
+    for (const node of nodes) {
       const existing = simulationNodesByIdRef.current.get(node.id);
 
       if (existing) {
@@ -246,28 +252,19 @@ export function useForceLayout({ nodes, edges, setNodes }: UseForceLayoutParams)
           existing.x = center.x;
           existing.y = center.y;
         }
+        simulationNodes.push(existing);
         continue;
       }
 
       const center = toSimulationCenter(node);
-      simulationNodesByIdRef.current.set(node.id, {
-        id: node.id,
-        x: center.x,
-        y: center.y,
-      });
-    }
-
-    const simulationNodes: ForceLayoutNode[] = [];
-    for (const node of currentNodes) {
-      const simulationNode = simulationNodesByIdRef.current.get(node.id);
-      if (simulationNode) {
-        simulationNodes.push(simulationNode);
-      }
+      const simNode: ForceLayoutNode = { id: node.id, x: center.x, y: center.y };
+      simulationNodesByIdRef.current.set(node.id, simNode);
+      simulationNodes.push(simNode);
     }
 
     simulation.nodes(simulationNodes);
 
-    const simulationLinks: ForceLayoutLink[] = currentEdges
+    const simulationLinks: ForceLayoutLink[] = edges
       .filter((edge) => nextNodeIds.has(edge.source) && nextNodeIds.has(edge.target))
       .map((edge) => ({
         source: edge.source,
@@ -291,49 +288,35 @@ export function useForceLayout({ nodes, edges, setNodes }: UseForceLayoutParams)
     if (simulationNodes.length === 0) {
       simulation.stop();
       stopTicking();
-      previousNodeIdsRef.current = nextNodeIds;
       return;
     }
 
-    const shouldReheat = idsChanged(nextNodeIds, previousNodeIdsRef.current);
-    previousNodeIdsRef.current = nextNodeIds;
-
-    if (shouldReheat) {
+    // Reheat on node ID changes or edge changes
+    if (nodeIdsChanged || edgeLinksChanged) {
       simulation.alpha(INITIAL_ALPHA);
       simulation.alphaTarget(0);
       startTicking();
     }
   }, [nodes, edges, nodeIdsKey, edgeLinksKey, startTicking, stopTicking]);
 
-  const onNodeDragStart = useCallback<OnNodeDrag>((_event, node) => {
-    const simulationNode = simulationNodesByIdRef.current.get(node.id);
+  const onNodeDragStart = useCallback<OnNodeDrag>(
+    (_event, node) => syncDragPosition(simulationNodesByIdRef.current, node, true),
+    [],
+  );
 
-    if (!simulationNode) {
-      return;
-    }
+  const onNodeDragStop = useCallback<OnNodeDrag>(
+    (_event, node) => {
+      syncDragPosition(simulationNodesByIdRef.current, node, false);
 
-    const center = toSimulationCenter(node);
-
-    simulationNode.x = center.x;
-    simulationNode.y = center.y;
-    simulationNode.fx = center.x;
-    simulationNode.fy = center.y;
-  }, []);
-
-  const onNodeDragStop = useCallback<OnNodeDrag>((_event, node) => {
-    const simulationNode = simulationNodesByIdRef.current.get(node.id);
-
-    if (!simulationNode) {
-      return;
-    }
-
-    const center = toSimulationCenter(node);
-
-    simulationNode.x = center.x;
-    simulationNode.y = center.y;
-    simulationNode.fx = null;
-    simulationNode.fy = null;
-  }, []);
+      // Gentle reheat so other nodes adjust to the new position
+      const simulation = simulationRef.current;
+      if (simulation) {
+        simulation.alpha(DRAG_REHEAT_ALPHA);
+        startTicking();
+      }
+    },
+    [startTicking],
+  );
 
   useEffect(() => {
     return () => {

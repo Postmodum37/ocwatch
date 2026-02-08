@@ -6,14 +6,8 @@ const DEFAULT_PADDING = 24;
 const DEFAULT_STRENGTH = 0.9;
 const DEFAULT_ITERATIONS = 2;
 
-export interface RectCollisionNode extends SimulationNodeDatum {
-  x?: number;
-  y?: number;
-  vx?: number;
-  vy?: number;
-  fx?: number | null;
-  fy?: number | null;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface RectCollisionNode extends SimulationNodeDatum {}
 
 export interface RectCollideOptions {
   width?: number;
@@ -91,7 +85,8 @@ export function collide(options: RectCollideOptions = {}): Force<RectCollisionNo
     }
   };
 
-  force.initialize = (initNodes: RectCollisionNode[]) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  force.initialize = (initNodes: RectCollisionNode[], _random: () => number) => {
     nodes = initNodes;
   };
 

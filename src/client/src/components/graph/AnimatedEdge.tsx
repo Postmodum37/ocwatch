@@ -1,7 +1,17 @@
 import { memo } from 'react';
 import { BaseEdge, type EdgeProps, getBezierPath } from '@xyflow/react';
 
-const AnimatedEdge = ({
+const ACCENT_COLOR = '#58a6ff';
+const BORDER_COLOR = '#30363d';
+const PARTICLE_COUNT = 3;
+const ANIMATION_DURATION = 2; // seconds
+
+export interface AnimatedEdgeData {
+  active: boolean;
+  [key: string]: unknown;
+}
+
+function AnimatedEdgeComponent({
   id,
   sourceX,
   sourceY,
@@ -12,7 +22,7 @@ const AnimatedEdge = ({
   style = {},
   markerEnd,
   data,
-}: EdgeProps) => {
+}: EdgeProps) {
   const [edgePath] = getBezierPath({
     sourceX,
     sourceY,
@@ -24,7 +34,7 @@ const AnimatedEdge = ({
 
   const isActive = data?.active === true;
 
-  const strokeColor = isActive ? '#58a6ff40' : '#30363d';
+  const strokeColor = isActive ? `${ACCENT_COLOR}40` : BORDER_COLOR;
   
   const edgeStyle = {
     ...style,
@@ -46,17 +56,17 @@ const AnimatedEdge = ({
             stroke="none"
           />
           
-          {[0, 1, 2].map((i) => (
+          {Array.from({ length: PARTICLE_COUNT }, (_, i) => (
             <circle
               key={i}
               r="3"
-              fill="#58a6ff"
+              fill={ACCENT_COLOR}
               className="edge-particle"
             >
               <animateMotion
-                dur="2s"
+                dur={`${ANIMATION_DURATION}s`}
                 repeatCount="indefinite"
-                begin={`${i * 0.66}s`}
+                begin={`${i * (ANIMATION_DURATION / PARTICLE_COUNT)}s`}
               >
                 <mpath href={`#edge-path-${id}`} />
               </animateMotion>
@@ -66,6 +76,6 @@ const AnimatedEdge = ({
       )}
     </>
   );
-};
+}
 
-export default memo(AnimatedEdge);
+export const AnimatedEdge = memo(AnimatedEdgeComponent);
