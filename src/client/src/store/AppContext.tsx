@@ -52,7 +52,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
   useEffect(() => {
     if (prevProjectIdRef.current !== selectedProjectId) {
       prevProjectIdRef.current = selectedProjectId;
-      setSelectedSessionId(null);
+      setTimeout(() => setSelectedSessionId(null), 0);
     }
   }, [selectedProjectId]);
 
@@ -150,6 +150,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAppContext(): AppContextValue {
   const context = useContext(AppContext);
   if (context === undefined) {

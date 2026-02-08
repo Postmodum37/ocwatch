@@ -13,7 +13,7 @@ interface ActivityStreamProps {
 }
 
 export const ActivityStream = memo<ActivityStreamProps>(function ActivityStream({ entries, totalTokens = 0 }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'stream' | 'agents'>('stream');
   const [milestonesOnly, setMilestonesOnly] = useState(false);

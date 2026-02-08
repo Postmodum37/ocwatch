@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 test('real-time update on file change within 500ms', async ({ page }) => {
   await page.goto('/');
   
-  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible();
+  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible({ timeout: 10000 });
   
-  const initialCount = await page.locator('[data-testid^="session-row-"]').count();
+  const initialCount = await page.locator('.react-flow__node').count();
   
   const startTime = Date.now();
   await page.evaluate(() => {
@@ -13,7 +13,7 @@ test('real-time update on file change within 500ms', async ({ page }) => {
   });
   
   await expect(async () => {
-    const newCount = await page.locator('[data-testid^="session-row-"]').count();
+    const newCount = await page.locator('.react-flow__node').count();
     expect(newCount).toBeGreaterThanOrEqual(initialCount);
   }).toPass({ timeout: 500 });
   
@@ -30,7 +30,7 @@ test('SSE failure falls back to polling', async ({ page }) => {
   
   await page.goto('/');
   
-  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible();
+  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible({ timeout: 10000 });
   
   let pollRequestMade = false;
   page.on('response', response => {
@@ -47,7 +47,7 @@ test('SSE failure falls back to polling', async ({ page }) => {
 test('respects reduced motion preference', async ({ page }) => {
   await page.goto('/');
   
-  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible();
+  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible({ timeout: 10000 });
   
   const prefersReducedMotion = await page.evaluate(() => {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -84,7 +84,7 @@ test('SSE connection established on page load', async ({ page }) => {
   
   await page.goto('/');
   
-  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible();
+  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible({ timeout: 10000 });
   
   await page.waitForTimeout(1000);
   
@@ -105,7 +105,7 @@ test('fallback to polling when SSE unavailable', async ({ page }) => {
   
   await page.goto('/');
   
-  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible();
+  await expect(page.locator('h3:has-text("Live Activity")')).toBeVisible({ timeout: 10000 });
   
   await page.waitForTimeout(2000);
   

@@ -3,7 +3,7 @@ import { LayoutDashboard, AlertCircle, WifiOff, Bell, BellOff } from 'lucide-rea
 import { DEFAULT_PORT } from '@shared/constants'
 import { ActivityStream } from './components/ActivityStream'
 import { SessionList } from './components/SessionList'
-import { LiveActivity } from './components/LiveActivity'
+import { GraphView } from './components/graph/GraphView'
 
 import { SessionStats } from './components/SessionStats'
 import { AppProvider, useAppContext } from './store/AppContext'
@@ -127,12 +127,12 @@ function AppContent() {
             </div>
           </header>
 
-          <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
-            <LiveActivity
-              sessions={activitySessions}
-              loading={loading}
-            />
-          </main>
+           <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
+             <GraphView
+               sessions={activitySessions}
+               loading={loading}
+             />
+           </main>
         </div>
 
         <ActivityStream 

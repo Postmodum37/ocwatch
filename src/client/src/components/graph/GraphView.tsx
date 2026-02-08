@@ -46,7 +46,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
         return {
           id: session.id,
           type: 'agentNode',
-          data: session as any,
+          data: session as unknown as Record<string, unknown>,
           position: existingPos || { x: 0, y: 0 },
         };
       });
@@ -54,7 +54,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
       return nextNodes;
     });
 
-    setEdges((_currentEdges) => {
+    setEdges(() => {
       const sessionIds = new Set(sessions.map((s) => s.id));
       const nextEdges: Edge[] = [];
 

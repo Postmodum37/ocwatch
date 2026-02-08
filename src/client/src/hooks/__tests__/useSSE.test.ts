@@ -3,10 +3,15 @@ import { renderHook } from '@testing-library/react';
 import { useSSE } from '../useSSE';
 
 describe('useSSE - Liveness Detection', () => {
-  let mockEventSource: any;
+  let mockEventSource: {
+    addEventListener: (event: string, handler: () => void) => void;
+    removeEventListener: (event: string, handler: () => void) => void;
+    close: () => void;
+    onerror: ((event: Event) => void) | null;
+  };
   let eventListeners: Record<string, Array<() => void>>;
-  let setIntervalSpy: any;
-  let clearIntervalSpy: any;
+  let setIntervalSpy: ReturnType<typeof vi.spyOn>;
+  let clearIntervalSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -96,7 +101,7 @@ describe('useSSE - Liveness Detection', () => {
     renderHook(() => useSSE({ enabled: true }));
 
     const livenessCheckCalls = setIntervalSpy.mock.calls.filter(
-      (call: any[]) => call[1] === 10000
+      (call: unknown[]) => call[1] === 10000
     );
 
     expect(livenessCheckCalls.length).toBeGreaterThan(0);
@@ -106,7 +111,7 @@ describe('useSSE - Liveness Detection', () => {
     renderHook(() => useSSE({ enabled: true }));
 
     const livenessCheckFn = setIntervalSpy.mock.calls.find(
-      (call: any[]) => call[1] === 10000
+      (call: unknown[]) => call[1] === 10000
     )?.[0];
 
     expect(livenessCheckFn).toBeDefined();
