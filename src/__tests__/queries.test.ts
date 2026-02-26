@@ -110,9 +110,9 @@ describe('queries without DB', () => {
     }
   });
 
-  it('listAllSessions returns empty array when DB unavailable', async () => {
+  it('listAllSessions returns empty array when DB unavailable', () => {
     if (!DB_AVAILABLE) {
-      const result = await listAllSessions();
+      const result = listAllSessions();
       expect(Array.isArray(result)).toBe(true);
       expect(result).toHaveLength(0);
     }
@@ -168,8 +168,8 @@ describe('queries with real DB', () => {
     }
   });
 
-  (DB_AVAILABLE ? it : it.skip)('listAllSessions returns SessionMetadata array', async () => {
-    const sessions = await listAllSessions();
+  (DB_AVAILABLE ? it : it.skip)('listAllSessions returns SessionMetadata array', () => {
+    const sessions = listAllSessions();
     expect(Array.isArray(sessions)).toBe(true);
     if (sessions.length > 0) {
       const first = sessions[0];

@@ -3,6 +3,8 @@ import {
   formatCurrentAction,
   getSessionActivityState,
   TOOL_DISPLAY_NAMES,
+  deriveActivityType,
+  generateActivityMessage,
 } from '../server/logic/activityLogic';
 import type { PartMeta } from '../shared/types';
 
@@ -299,5 +301,83 @@ describe('getSessionActivityState', () => {
     const state = getSessionActivityState(parts);
     expect(state.pendingCount).toBe(0);
     expect(state.completedCount).toBe(0);
+  });
+});
+
+describe('deriveActivityType', () => {
+  it("returns 'tool' when there is a pending tool", () => {
+    const activityState = getSessionActivityState([
+      makePart({ type: 'tool', tool: 'bash', state: 'pending', startedAt: new Date() }),
+    ]);
+
+    const result = deriveActivityType(activityState, false, false, 'working');
+    expect(result).toBe('tool');
+  });
+
+  it("returns 'reasoning' when reasoning is active", () => {
+    const activityState = getSessionActivityState([
+      makePart({ type: 'reasoning', reasoningText: 'Thinking through options' }),
+    ]);
+
+    const result = deriveActivityType(activityState, false, false, 'working');
+    expect(result).toBe('reasoning');
+  });
+
+  it("returns 'patch' when there are active patch files", () => {
+    const activityState = getSessionActivityState([
+      makePart({ type: 'patch', patchFiles: ['src/a.ts', 'src/b.ts'] }),
+    ]);
+
+    const result = deriveActivityType(activityState, false, false, 'working');
+    expect(result).toBe('patch');
+  });
+
+  it("returns 'waiting-user' when waiting for user input", () => {
+    const activityState = getSessionActivityState([]);
+    const result = deriveActivityType(activityState, true, false, 'waiting', 'user');
+    expect(result).toBe('waiting-user');
+  });
+
+  it("returns 'idle' for completed sessions", () => {
+    const activityState = getSessionActivityState([]);
+    const result = deriveActivityType(activityState, false, false, 'completed');
+    expect(result).toBe('idle');
+  });
+});
+
+describe('generateActivityMessage', () => {
+  it('returns pending tool action message', () => {
+    const pendingPart = makePart({
+      type: 'tool',
+      tool: 'bash',
+      state: 'pending',
+      input: { command: 'ls -la' },
+      startedAt: new Date(),
+    });
+    const activityState = getSessionActivityState([pendingPart]);
+
+    const message = generateActivityMessage(activityState, false, false, 'working', pendingPart);
+    expect(message).toContain('Running');
+  });
+
+  it("returns waiting-user message when waiting for user", () => {
+    const activityState = getSessionActivityState([]);
+    const message = generateActivityMessage(activityState, true, false, 'waiting', undefined, 'user');
+    expect(message).toBe('Waiting for user input');
+  });
+
+  it('returns null for completed status', () => {
+    const activityState = getSessionActivityState([]);
+    const message = generateActivityMessage(activityState, false, false, 'completed');
+    expect(message).toBeNull();
+  });
+
+  it('returns reasoning message when reasoning preview exists', () => {
+    const activityState = getSessionActivityState([
+      makePart({ type: 'reasoning', reasoningText: 'Break the task into smaller steps first' }),
+    ]);
+
+    const message = generateActivityMessage(activityState, false, false, 'working');
+    expect(message).toContain('Analyzing:');
   });
 });

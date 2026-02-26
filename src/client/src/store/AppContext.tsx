@@ -67,7 +67,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     projectId: selectedProjectId,
   });
 
-  // Fetch session detail when selectedSessionId changes
+  // Fetch session detail when selectedSessionId changes or data updates
   useEffect(() => {
     if (!selectedSessionId) {
       setSessionDetail(null);
@@ -77,7 +77,11 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     const baseUrl = apiUrl || '';
     let cancelled = false;
 
-    setSessionDetailLoading(true);
+    // Only show loading spinner on initial fetch, not on background refreshes
+    const isInitialFetch = sessionDetail?.session.id !== selectedSessionId;
+    if (isInitialFetch) {
+      setSessionDetailLoading(true);
+    }
 
     fetch(`${baseUrl}/api/sessions/${selectedSessionId}`)
       .then(r => {
@@ -92,7 +96,10 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
       .catch(err => {
         if (!cancelled) {
           console.warn('Failed to fetch session detail:', err);
-          setSessionDetail(null);
+          // Only clear detail on initial fetch failure
+          if (isInitialFetch) {
+            setSessionDetail(null);
+          }
         }
       })
       .finally(() => {
@@ -104,7 +111,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     return () => {
       cancelled = true;
     };
-  }, [selectedSessionId, apiUrl]);
+  }, [selectedSessionId, apiUrl, lastUpdate]);
 
   // Derived values from sessionDetail
   const activitySessions = sessionDetail?.activity ?? [];

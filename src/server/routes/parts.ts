@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import { queryPart } from "../storage/queries";
-import { parsePartRow } from "../services/sessionService";
+import { toPartMeta } from "../services/parsing";
 import { partIdSchema, validateWithResponse } from "../validation";
 
 export function registerPartRoutes(app: Hono) {
@@ -15,7 +15,7 @@ export function registerPartRoutes(app: Hono) {
       return c.json({ error: "PART_NOT_FOUND", message: `Part '${partID}' not found`, status: 404 }, 404);
     }
 
-    const part = parsePartRow(row);
+    const part = toPartMeta(row);
     return c.json(part);
   });
 }

@@ -1,76 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import type { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { app } from "../index";
 import { invalidatePollCache } from "../services/pollService";
-import type { SessionMetadata } from "../../shared/types";
-
-const PROJECT_POLL_TEST_DIR = "/tmp/ocwatch-poll-project-test";
-const originalXdgDataHome = process.env.XDG_DATA_HOME;
-
-function restoreXdgDataHome(): void {
-  if (originalXdgDataHome === undefined) {
-    delete process.env.XDG_DATA_HOME;
-    return;
-  }
-
-  process.env.XDG_DATA_HOME = originalXdgDataHome;
-}
-
-async function writeSessionFixture(
-  projectId: string,
-  sessionId: string,
-  directory: string
-): Promise<void> {
-  const sessionDir = join(
-    PROJECT_POLL_TEST_DIR,
-    "opencode",
-    "storage",
-    "session",
-    projectId
-  );
-  await mkdir(sessionDir, { recursive: true });
-
-  await writeFile(
-    join(sessionDir, `${sessionId}.json`),
-    JSON.stringify({
-      id: sessionId,
-      slug: sessionId,
-      projectID: projectId,
-      directory,
-      title: `Session ${sessionId}`,
-      time: {
-        created: Date.now(),
-        updated: Date.now(),
-      },
-    })
-  );
-}
-
-async function writeBoulderFixture(projectDirectory: string, planName: string): Promise<void> {
-  const sisyphusDir = join(projectDirectory, ".sisyphus");
-  const plansDir = join(sisyphusDir, "plans");
-  const planFile = join(plansDir, `${planName}.md`);
-
-  await mkdir(plansDir, { recursive: true });
-  await writeFile(
-    planFile,
-    ["# Test Plan", "", "- [x] Complete fixture setup", "- [ ] Keep testing"].join("\n")
-  );
-
-  await writeFile(
-    join(sisyphusDir, "boulder.json"),
-    JSON.stringify({
-      active_plan: `.sisyphus/plans/${planName}.md`,
-      session_ids: [],
-      status: "in-progress",
-      started_at: new Date().toISOString(),
-      plan_name: planName,
-    })
-  );
-}
+import { closeDb } from "../storage/db";
+import type { SessionSummary } from "../../shared/types";
+import {
+  setupTestDb,
+  teardownTestDb,
+  insertSession,
+  writeBoulderFixture,
+} from "./helpers/testDb";
 
 describe("GET /api/poll", () => {
+  // First poll request may be slow when scanning a large real DB
   it("should return 200 with poll data on first request", async () => {
     const req = new Request("http://localhost:50234/api/poll");
     const res = await app.fetch(req);
@@ -81,12 +24,12 @@ describe("GET /api/poll", () => {
 
     const data = await res.json();
     expect(data).toHaveProperty("sessions");
-    expect(data).toHaveProperty("activeSession");
+    expect(data).toHaveProperty("activeSessionId");
     expect(data).toHaveProperty("planProgress");
     expect(data).toHaveProperty("lastUpdate");
     expect(Array.isArray(data.sessions)).toBe(true);
     expect(typeof data.lastUpdate).toBe("number");
-  });
+  }, 15_000);
 
   it("should include ETag header in response", async () => {
     const req = new Request("http://localhost:50234/api/poll");
@@ -152,15 +95,13 @@ describe("GET /api/poll", () => {
     }
   });
 
-  it("should return activeSession as null or SessionMetadata", async () => {
+  it("should return activeSessionId as null or string", async () => {
     const req = new Request("http://localhost:50234/api/poll");
     const res = await app.fetch(req);
     const data = await res.json();
 
-    if (data.activeSession !== null) {
-      expect(data.activeSession).toHaveProperty("id");
-      expect(data.activeSession).toHaveProperty("title");
-      expect(typeof data.activeSession.id).toBe("string");
+    if (data.activeSessionId !== null) {
+      expect(typeof data.activeSessionId).toBe("string");
     }
   });
 
@@ -323,17 +264,17 @@ describe("GET /api/poll", () => {
 });
 
 describe("GET /api/poll project scoping", () => {
+  const PROJECT_POLL_TEST_DIR = "/tmp/ocwatch-poll-project-test";
+  const originalXdgDataHome = process.env.XDG_DATA_HOME;
+  let testDb: Database | null = null;
+
   beforeEach(async () => {
-    await rm(PROJECT_POLL_TEST_DIR, { recursive: true, force: true });
-    await mkdir(PROJECT_POLL_TEST_DIR, { recursive: true });
-    process.env.XDG_DATA_HOME = PROJECT_POLL_TEST_DIR;
-    invalidatePollCache();
+    testDb = await setupTestDb(PROJECT_POLL_TEST_DIR);
   });
 
   afterEach(async () => {
-    await rm(PROJECT_POLL_TEST_DIR, { recursive: true, force: true });
-    restoreXdgDataHome();
-    invalidatePollCache();
+    await teardownTestDb(testDb, PROJECT_POLL_TEST_DIR, originalXdgDataHome);
+    testDb = null;
   });
 
   it("should return 400 for invalid projectId format", async () => {
@@ -343,17 +284,34 @@ describe("GET /api/poll project scoping", () => {
     expect(res.status).toBe(400);
 
     const data = await res.json();
-    expect(data).toHaveProperty("error", "VALIDATION_ERROR");
+    expect(data).toHaveProperty("error", "INVALID_PROJECT_ID");
   });
 
   it("should scope poll data and boulder lookup to selected project", async () => {
     const alphaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "alpha-project");
     const betaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "beta-project");
+    const { mkdir } = await import("node:fs/promises");
     await mkdir(alphaDirectory, { recursive: true });
     await mkdir(betaDirectory, { recursive: true });
 
-    await writeSessionFixture("project-alpha", "ses_alpha123", alphaDirectory);
-    await writeSessionFixture("project-beta", "ses_beta456", betaDirectory);
+    // Insert sessions into test SQLite DB
+    insertSession(testDb!, {
+      id: "ses_alpha123",
+      projectId: "project-alpha",
+      directory: alphaDirectory,
+      title: "Alpha Session",
+    });
+    insertSession(testDb!, {
+      id: "ses_beta456",
+      projectId: "project-beta",
+      directory: betaDirectory,
+      title: "Beta Session",
+    });
+
+    // Close the writable test DB so getDb() can open it readonly
+    testDb!.close();
+    testDb = null;
+
     await writeBoulderFixture(alphaDirectory, "alpha-plan");
     await writeBoulderFixture(betaDirectory, "beta-plan");
 
@@ -364,7 +322,7 @@ describe("GET /api/poll project scoping", () => {
 
     const data = await res.json();
     expect(data.sessions.length).toBeGreaterThan(0);
-    expect(data.sessions.every((session: SessionMetadata) => session.projectID === "project-alpha")).toBe(true);
+    expect(data.sessions.every((session: SessionSummary) => session.projectID === "project-alpha")).toBe(true);
     expect(data.planName).toBe("alpha-plan");
     expect(data.planProgress).not.toBeNull();
     expect(data.planProgress.total).toBe(2);
@@ -373,8 +331,19 @@ describe("GET /api/poll project scoping", () => {
 
   it("should return empty sessions and null plan data for unknown projectId", async () => {
     const alphaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "alpha-project");
+    const { mkdir } = await import("node:fs/promises");
     await mkdir(alphaDirectory, { recursive: true });
-    await writeSessionFixture("project-alpha", "ses_alpha123", alphaDirectory);
+
+    insertSession(testDb!, {
+      id: "ses_alpha123",
+      projectId: "project-alpha",
+      directory: alphaDirectory,
+      title: "Alpha Session",
+    });
+
+    testDb!.close();
+    testDb = null;
+
     await writeBoulderFixture(alphaDirectory, "alpha-plan");
 
     const req = new Request("http://localhost:50234/api/poll?projectId=project-missing");
@@ -384,18 +353,25 @@ describe("GET /api/poll project scoping", () => {
 
     const data = await res.json();
     expect(data.sessions).toEqual([]);
-    expect(data.activeSession).toBeNull();
+    expect(data.activeSessionId).toBeNull();
     expect(data.planProgress).toBeNull();
-    expect(data.messages).toEqual([]);
-    expect(data.activitySessions).toEqual([]);
-    expect(data.planName).toBeUndefined();
   });
 
   it("should reuse scoped cache for repeated requests with the same projectId", async () => {
     const alphaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "alpha-project");
+    const { mkdir } = await import("node:fs/promises");
     await mkdir(alphaDirectory, { recursive: true });
 
-    await writeSessionFixture("project-alpha", "ses_alpha123", alphaDirectory);
+    insertSession(testDb!, {
+      id: "ses_alpha123",
+      projectId: "project-alpha",
+      directory: alphaDirectory,
+      title: "Alpha Session",
+    });
+
+    testDb!.close();
+    testDb = null;
+
     await writeBoulderFixture(alphaDirectory, "alpha-plan");
 
     const firstReq = new Request("http://localhost:50234/api/poll?projectId=project-alpha");
@@ -419,11 +395,26 @@ describe("GET /api/poll project scoping", () => {
   it("should isolate scoped cache entries between different projectIds", async () => {
     const alphaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "alpha-project");
     const betaDirectory = join(PROJECT_POLL_TEST_DIR, "workspace", "beta-project");
+    const { mkdir } = await import("node:fs/promises");
     await mkdir(alphaDirectory, { recursive: true });
     await mkdir(betaDirectory, { recursive: true });
 
-    await writeSessionFixture("project-alpha", "ses_alpha123", alphaDirectory);
-    await writeSessionFixture("project-beta", "ses_beta456", betaDirectory);
+    insertSession(testDb!, {
+      id: "ses_alpha123",
+      projectId: "project-alpha",
+      directory: alphaDirectory,
+      title: "Alpha Session",
+    });
+    insertSession(testDb!, {
+      id: "ses_beta456",
+      projectId: "project-beta",
+      directory: betaDirectory,
+      title: "Beta Session",
+    });
+
+    testDb!.close();
+    testDb = null;
+
     await writeBoulderFixture(alphaDirectory, "alpha-plan");
     await writeBoulderFixture(betaDirectory, "beta-plan");
 

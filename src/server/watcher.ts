@@ -186,13 +186,17 @@ export class Watcher extends EventEmitter {
   private rebindDbWatcherSafe(): void {
     try {
       this.rebindDbWatcher();
-    } catch {}
+    } catch (error) {
+      console.warn('[watcher] Failed to rebind DB watcher:', error instanceof Error ? error.message : error);
+    }
   }
 
   private rebindBoulderWatcherSafe(): void {
     try {
       this.rebindBoulderWatcher();
-    } catch {}
+    } catch (error) {
+      console.warn('[watcher] Failed to rebind boulder watcher:', error instanceof Error ? error.message : error);
+    }
   }
 
   stop(): void {

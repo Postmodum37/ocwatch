@@ -2,9 +2,9 @@ import type { Hono } from "hono";
 import { listProjects, listAllSessions } from "../storage";
 
 export function registerProjectRoutes(app: Hono) {
-  app.get("/api/projects", async (c) => {
-    const projectIDs = await listProjects();
-    const allSessions = await listAllSessions();
+  app.get("/api/projects", (c) => {
+    const projectIDs = listProjects();
+    const allSessions = listAllSessions();
 
     const projectsWithDetails = projectIDs.map((projectID) => {
       const projectSessions = allSessions.filter((s) => s.projectID === projectID);

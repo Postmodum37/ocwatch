@@ -96,6 +96,7 @@ const ActivityTypeIndicator = memo<{ activityType?: SessionActivityType; pending
 );
 
 export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) {
+  // ReactFlow passes data as Record<string, unknown>; runtime guard below ensures safety
   const session = data as unknown as ActivitySession;
   
   // Runtime guard for data contract

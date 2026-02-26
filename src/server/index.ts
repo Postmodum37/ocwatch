@@ -8,7 +8,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error";
 import { registerRoutes } from "./routes";
 import { parseArgs, printHelp, openBrowser } from "./cli";
 import { getGlobalWatcher, closeAllSSEConnections } from "./routes/sse";
-import { listAllSessions } from "./storage";
+import { listAllSessions, closeDb } from "./storage";
 
 const clientDistPath = join(import.meta.dir, "..", "client", "dist");
 const flags = parseArgs();
@@ -23,7 +23,7 @@ function normalizeDirectoryPath(pathValue: string): string {
 }
 
 async function resolveDefaultProjectId(projectPath: string): Promise<string | undefined> {
-  const knownSessions = await listAllSessions();
+  const knownSessions = listAllSessions();
   const requestedPath = normalizeDirectoryPath(projectPath);
   const seenProjectDirectories = new Map<string, string>();
 
@@ -112,8 +112,21 @@ export default {
 
 function shutdown() {
   console.log("\n🛑 Shutting down gracefully...");
-  try { getGlobalWatcher().stop(); } catch {}
-  try { closeAllSSEConnections(); } catch {}
+  try {
+    getGlobalWatcher().stop();
+  } catch (error) {
+    console.warn('[shutdown] Failed to stop watcher:', error instanceof Error ? error.message : error);
+  }
+  try {
+    closeAllSSEConnections();
+  } catch (error) {
+    console.warn('[shutdown] Failed to close SSE connections:', error instanceof Error ? error.message : error);
+  }
+  try {
+    closeDb();
+  } catch (error) {
+    console.warn('[shutdown] Failed to close database:', error instanceof Error ? error.message : error);
+  }
   process.exit(0);
 }
 
@@ -125,5 +138,7 @@ if (flags.noBrowser) {
   console.log(`📡 API ready for Vite dev server`);
 } else {
   console.log(`📋 Press Ctrl+C to stop`);
-  openBrowser(url).catch(() => {});
+  openBrowser(url).catch((error) => {
+    console.warn('[ocwatch] Failed to open browser:', error instanceof Error ? error.message : error);
+  });
 }

@@ -10,6 +10,7 @@ export const TWENTY_FOUR_HOURS_MS = 86400000 as const;
 
 // API limits
 export const MAX_SESSIONS_LIMIT = 20 as const;
+/** Messages returned per session in API responses (client-facing limit) */
 export const MAX_MESSAGES_LIMIT = 100 as const;
 
 // Cache TTL

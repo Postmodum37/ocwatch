@@ -21,7 +21,6 @@ import {
 } from "../storage";
 import {
   getSessionActivityState,
-  isPendingToolCall,
   generateActivityMessage,
   deriveActivityType,
   getSessionStatusInfo,
@@ -31,65 +30,22 @@ import { resolveProjectDirectory } from "../utils/projectResolver";
 import { getSessionHierarchy } from "./sessionService";
 import { aggregateSessionStats } from "./statsService";
 import {
+  toSessionMetadata,
+  toMessageMeta,
+  toPartMeta,
+  getLatestAssistantMessage,
+  getMostRecentPendingPart,
+} from "./parsing";
+import {
   TWENTY_FOUR_HOURS_MS,
   MAX_SESSIONS_LIMIT,
   MAX_MESSAGES_LIMIT,
   POLL_CACHE_TTL_MS,
 } from "../../shared/constants";
-
+/** Max sessions to scan when building incremental state (internal upper bound) */
 const SESSION_SCAN_LIMIT = 50_000;
+/** Max messages per session for incremental poll cache (high to avoid missing updates) */
 const MESSAGE_SCAN_LIMIT = 10_000;
-
-interface MessageJSON {
-  role?: string;
-  agent?: string;
-  mode?: string;
-  modelID?: string;
-  providerID?: string;
-  model?: {
-    modelID?: string;
-    providerID?: string;
-  };
-  parentID?: string;
-  cost?: number;
-  tokens?: {
-    input?: number;
-    output?: number;
-  };
-  finish?: string;
-  time?: {
-    created?: number;
-  };
-}
-
-interface PartStateJSON {
-  status?: string;
-  input?: Record<string, unknown>;
-  output?: string;
-  error?: string;
-  title?: string;
-  time?: {
-    start?: number;
-    end?: number;
-  };
-}
-
-interface PartJSON {
-  type?: string;
-  callID?: string;
-  tool?: string;
-  state?: string | PartStateJSON;
-  text?: string;
-  title?: string;
-  reason?: string;
-  files?: unknown;
-  input?: Record<string, unknown>;
-  time?: {
-    start?: number;
-    end?: number;
-  };
-  snapshot?: string;
-}
 
 interface IncrementalPollState {
   sessionsById: Map<string, SessionMetadata>;
@@ -98,169 +54,12 @@ interface IncrementalPollState {
   lastTimestamp: number;
 }
 
-function getLatestAssistantMessage(messages: MessageMeta[]): MessageMeta | undefined {
-  return messages
-    .filter((message) => message.role === "assistant")
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
-}
-
-function getMostRecentPendingPart(parts: PartMeta[]): PartMeta | undefined {
-  return parts
-    .filter((part) => isPendingToolCall(part))
-    .sort((a, b) => (b.startedAt?.getTime() || 0) - (a.startedAt?.getTime() || 0))[0];
-}
-
 function sessionPriority(session: SessionMetadata): number {
   if (session.activityType === "waiting-user") return 4;
   if (session.status === "working") return 3;
   if (session.status === "waiting") return 2;
   if (session.status === "idle") return 1;
   return 0;
-}
-
-function parseJsonData<T>(raw: unknown): T | null {
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw) as T;
-    } catch {
-      return null;
-    }
-  }
-
-  if (raw && typeof raw === "object") {
-    return raw as T;
-  }
-
-  return null;
-}
-
-function toSessionMetadata(row: {
-  id: string;
-  projectID: string;
-  parentID: string | null;
-  directory: string;
-  title: string;
-  timeCreated: number;
-  timeUpdated: number;
-}): SessionMetadata {
-  return {
-    id: row.id,
-    projectID: row.projectID,
-    directory: row.directory,
-    title: row.title,
-    parentID: row.parentID ?? undefined,
-    createdAt: new Date(row.timeCreated),
-    updatedAt: new Date(row.timeUpdated),
-  };
-}
-
-export function toMessageMeta(row: {
-  id: string;
-  sessionID: string;
-  role: string | null;
-  data: string;
-  timeCreated: number;
-}): MessageMeta {
-  const json = parseJsonData<MessageJSON>(row.data) ?? {};
-  const tokenInput = json.tokens?.input;
-  const tokenOutput = json.tokens?.output;
-  const hasTokens = typeof tokenInput === "number" || typeof tokenOutput === "number";
-
-  return {
-    id: row.id,
-    sessionID: row.sessionID,
-    role: json.role ?? row.role ?? "unknown",
-    agent: json.agent,
-    mode: json.mode,
-    modelID: json.modelID ?? json.model?.modelID,
-    providerID: json.providerID ?? json.model?.providerID,
-    parentID: json.parentID,
-    tokens: hasTokens ? (tokenInput ?? 0) + (tokenOutput ?? 0) : undefined,
-    cost: typeof json.cost === "number" ? json.cost : undefined,
-    createdAt: new Date(json.time?.created ?? row.timeCreated),
-    finish: json.finish,
-  };
-}
-
-function toPartMeta(row: {
-  id: string;
-  messageID: string;
-  sessionID: string;
-  type: string | null;
-  tool: string | null;
-  state: string | null;
-  data: string;
-}): PartMeta {
-  const json = parseJsonData<PartJSON>(row.data) ?? {};
-
-  let state = row.state ?? undefined;
-  let input: Record<string, unknown> | undefined;
-  let title = json.title;
-
-  if (typeof json.state === "string") {
-    state = json.state;
-  } else if (json.state && typeof json.state === "object") {
-    state = json.state.status ?? state;
-    title = json.state.title ?? title;
-    if (json.state.input && typeof json.state.input === "object") {
-      input = { ...json.state.input };
-    }
-  }
-
-  if (!input && json.input && typeof json.input === "object") {
-    input = { ...json.input };
-  }
-
-  let error: string | undefined;
-  if (state === "error" || state === "failed") {
-    if (json.state && typeof json.state === "object") {
-      const text = json.state.error ?? json.state.output;
-      if (text && typeof text === "string") {
-        error = text.length > 500 ? text.slice(0, 500) : text;
-      }
-    }
-  }
-
-  let startedAt: Date | undefined;
-  let completedAt: Date | undefined;
-  if (json.time) {
-    if (typeof json.time.start === "number") {
-      startedAt = new Date(json.time.start);
-    }
-    if (typeof json.time.end === "number") {
-      completedAt = new Date(json.time.end);
-    }
-  } else if (json.state && typeof json.state === "object" && json.state.time) {
-    if (typeof json.state.time.start === "number") {
-      startedAt = new Date(json.state.time.start);
-    }
-    if (typeof json.state.time.end === "number") {
-      completedAt = new Date(json.state.time.end);
-    }
-  }
-
-  const patchFiles = Array.isArray(json.files)
-    ? json.files.filter((file): file is string => typeof file === "string")
-    : undefined;
-
-  return {
-    id: row.id,
-    sessionID: row.sessionID,
-    messageID: row.messageID,
-    type: json.type ?? row.type ?? "unknown",
-    callID: json.callID,
-    tool: json.tool ?? row.tool ?? undefined,
-    state,
-    input,
-    title,
-    error,
-    startedAt,
-    completedAt,
-    stepSnapshot: json.snapshot,
-    stepFinishReason: json.reason === "stop" || json.reason === "tool-calls" ? json.reason : undefined,
-    reasoningText: (json.type ?? row.type) === "reasoning" ? json.text : undefined,
-    patchFiles,
-  };
 }
 
 export function generateETag(data: PollResponse): string {
@@ -278,6 +77,7 @@ type PollCacheEntry = { data: PollResponse; etag: string; timestamp: number };
 const pollCacheMap = new Map<string, PollCacheEntry>();
 const pollInProgressMap = new Map<string, Promise<PollResponse>>();
 const incrementalPollStateMap = new Map<string, IncrementalPollState>();
+const MAX_INCREMENTAL_STATE_ENTRIES = 10;
 let pollCacheEpoch = 0;
 
 function cacheKey(projectId?: string): string {
@@ -328,6 +128,21 @@ function getIncrementalState(projectId?: string): IncrementalPollState {
   const existing = incrementalPollStateMap.get(key);
   if (existing) {
     return existing;
+  }
+
+  // Evict oldest entry if at capacity
+  if (incrementalPollStateMap.size >= MAX_INCREMENTAL_STATE_ENTRIES) {
+    let oldestKey: string | undefined;
+    let oldestTimestamp = Infinity;
+    for (const [k, v] of incrementalPollStateMap) {
+      if (v.lastTimestamp < oldestTimestamp) {
+        oldestTimestamp = v.lastTimestamp;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey !== undefined) {
+      incrementalPollStateMap.delete(oldestKey);
+    }
   }
 
   const created: IncrementalPollState = {

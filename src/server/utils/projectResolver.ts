@@ -15,7 +15,7 @@ export async function resolveProjectDirectory(
   projectId: string,
   preloadedSessions?: SessionMetadata[],
 ): Promise<string | null> {
-  const allSessions = preloadedSessions ?? await listAllSessions();
+  const allSessions = preloadedSessions ?? listAllSessions();
   const directory = allSessions.find((session) => session.projectID === projectId)?.directory;
 
   if (!directory) {

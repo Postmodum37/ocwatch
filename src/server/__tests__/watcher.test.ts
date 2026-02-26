@@ -12,10 +12,14 @@ describe("Watcher", () => {
     testDir = join(tmpdir(), `ocwatch-watcher-test-${Date.now()}`);
     await mkdir(testDir, { recursive: true });
 
-    const sessionDir = join(testDir, "opencode", "storage", "session");
-    const messageDir = join(testDir, "opencode", "storage", "message");
-    await mkdir(sessionDir, { recursive: true });
-    await mkdir(messageDir, { recursive: true });
+    // Create the DB file so the watcher can attach to it
+    const dbDir = join(testDir, "opencode");
+    await mkdir(dbDir, { recursive: true });
+    await writeFile(join(dbDir, "opencode.db"), "");
+
+    // Create .sisyphus dir so boulder watcher can attach
+    const sisyphusDir = join(testDir, ".sisyphus");
+    await mkdir(sisyphusDir, { recursive: true });
 
     watcher = new Watcher({ storagePath: testDir, projectPath: testDir, debounceMs: 50 });
   });
@@ -55,91 +59,77 @@ describe("Watcher", () => {
     expect(stopped).toBe(true);
   });
 
-  test("detects file changes in session directory", async () => {
+  test("detects changes to the database file", async () => {
     let changeDetected = false;
     watcher.on("change", () => {
       changeDetected = true;
     });
 
     watcher.start();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const projectDir = join(
-      testDir,
-      "opencode",
-      "storage",
-      "session",
-      "test-project"
-    );
-    await mkdir(projectDir, { recursive: true });
-    
-    const sessionFile = join(projectDir, "test.json");
-    await writeFile(sessionFile, JSON.stringify({ test: true }));
+    // Write to the DB file that the watcher monitors
+    const dbFile = join(testDir, "opencode", "opencode.db");
+    await writeFile(dbFile, "modified");
 
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     expect(changeDetected).toBe(true);
   });
 
-  test("detects file changes in message directory", async () => {
+  test("detects changes to the WAL file when present", async () => {
+    // Create WAL file — watcher prefers it over the main DB file
+    const walFile = join(testDir, "opencode", "opencode.db-wal");
+    await writeFile(walFile, "");
+
+    // Recreate watcher so it picks up the WAL file
+    watcher.stop();
+    watcher = new Watcher({ storagePath: testDir, projectPath: testDir, debounceMs: 50 });
+
     let changeDetected = false;
     watcher.on("change", () => {
       changeDetected = true;
     });
 
     watcher.start();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const messageFile = join(
-      testDir,
-      "opencode",
-      "storage",
-      "message",
-      "test.json"
-    );
-    await writeFile(messageFile, JSON.stringify({ test: true }));
+    await writeFile(walFile, "modified");
 
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     expect(changeDetected).toBe(true);
   });
 
-  test("detects file changes in boulder directory", async () => {
+  test("detects changes to boulder.json", async () => {
     let changeDetected = false;
     watcher.on("change", () => {
       changeDetected = true;
     });
 
     watcher.start();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const boulderDir = join(testDir, ".sisyphus");
-    await mkdir(boulderDir, { recursive: true });
-
-    const boulderFile = join(boulderDir, "boulder.json");
+    const boulderFile = join(testDir, ".sisyphus", "boulder.json");
     await writeFile(boulderFile, JSON.stringify({ activePlan: "plan.md" }));
 
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     expect(changeDetected).toBe(true);
   });
 
-  test("ignores non-JSON files", async () => {
+  test("does not trigger on unrelated file writes", async () => {
     let changeDetected = false;
     watcher.on("change", () => {
       changeDetected = true;
     });
 
     watcher.start();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const textFile = join(
-      testDir,
-      "opencode",
-      "storage",
-      "session",
-      "test.txt"
-    );
-    await writeFile(textFile, "test");
+    // Write to a path that the watcher does NOT monitor
+    const unrelatedDir = join(testDir, "unrelated");
+    await mkdir(unrelatedDir, { recursive: true });
+    await writeFile(join(unrelatedDir, "test.txt"), "test");
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     expect(changeDetected).toBe(false);
   });
 
@@ -150,27 +140,16 @@ describe("Watcher", () => {
     });
 
     watcher.start();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const projectDir = join(
-      testDir,
-      "opencode",
-      "storage",
-      "session",
-      "test-project"
-    );
-    await mkdir(projectDir, { recursive: true });
+    const dbFile = join(testDir, "opencode", "opencode.db");
 
-    const sessionFile = join(
-      projectDir,
-      "test.json"
-    );
+    // Rapid successive writes to the DB file
+    await writeFile(dbFile, "change-1");
+    await writeFile(dbFile, "change-2");
+    await writeFile(dbFile, "change-3");
 
-    await writeFile(sessionFile, JSON.stringify({ test: 1 }));
-    await writeFile(sessionFile, JSON.stringify({ test: 2 }));
-    await writeFile(sessionFile, JSON.stringify({ test: 3 }));
-
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     expect(changeCount).toBeGreaterThan(0);
     expect(changeCount).toBeLessThanOrEqual(2);
   });

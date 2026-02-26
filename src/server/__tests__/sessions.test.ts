@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { app } from "../index";
-import type { SessionMetadata, MessageMeta, ProjectInfo, SessionTree } from "../../shared/types";
+import type { SessionMetadata, SessionDetail, MessageMeta, ProjectInfo, SessionTree } from "../../shared/types";
 
 describe("Session API Endpoints", () => {
   describe("GET /api/sessions", () => {
@@ -23,7 +23,7 @@ describe("Session API Endpoints", () => {
         expect(session).toHaveProperty("projectID");
         expect(session).toHaveProperty("createdAt");
         expect(session).toHaveProperty("updatedAt");
-        expect(session).toHaveProperty("isActive");
+        // Note: isActive is not part of SessionMetadata — it was removed in the SQLite migration
       }
     });
 
@@ -75,11 +75,15 @@ describe("Session API Endpoints", () => {
          const res = await app.request(`/api/sessions/${sessionID}`);
          expect(res.status).toBe(200);
 
-         const data = (await res.json()) as SessionMetadata & { agentHierarchy: object };
-         expect(data).toHaveProperty("id");
-         expect(data).toHaveProperty("title");
-         expect(data).toHaveProperty("agentHierarchy");
-         expect(typeof data.agentHierarchy).toBe("object");
+         // /api/sessions/:id returns SessionDetail shape
+         const data = (await res.json()) as SessionDetail;
+         expect(data).toHaveProperty("session");
+         expect(data.session).toHaveProperty("id");
+         expect(data.session).toHaveProperty("title");
+         expect(data).toHaveProperty("activity");
+         expect(data).toHaveProperty("messages");
+         expect(data).toHaveProperty("todos");
+         expect(typeof data.activity).toBe("object");
        }
     });
   });

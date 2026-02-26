@@ -47,8 +47,11 @@ export function registerSSERoute(app: Hono) {
             data: JSON.stringify({ timestamp: Date.now() }),
             event: "heartbeat",
           });
-        } catch {
-          // Ignore errors when stream is closed
+        } catch (error) {
+          // Stream closed — expected during disconnect
+          if (error instanceof Error && error.message !== 'The stream has been aborted') {
+            console.debug('[sse] Heartbeat write failed:', error.message);
+          }
         }
       }, 30000);
 
@@ -72,8 +75,11 @@ export function registerSSERoute(app: Hono) {
             }),
             event: eventType,
           });
-        } catch {
-          // Ignore errors when stream is closed
+        } catch (error) {
+          // Stream closed — expected during disconnect
+          if (error instanceof Error && error.message !== 'The stream has been aborted') {
+            console.debug('[sse] Change event write failed:', error.message);
+          }
         }
       };
 

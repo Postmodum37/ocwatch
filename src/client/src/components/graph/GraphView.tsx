@@ -84,6 +84,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
         return {
           id: session.id,
           type: 'agentNode',
+          // ReactFlow Node.data requires Record<string, unknown>; AgentNode casts back with runtime guard
           data: session as unknown as Record<string, unknown>,
           position: existingPos || initialPos,
         };

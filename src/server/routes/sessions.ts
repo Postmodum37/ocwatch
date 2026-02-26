@@ -7,7 +7,8 @@ import {
   queryTodos,
 } from "../storage/queries";
 import type { DbSessionRow } from "../storage/queries";
-import { fetchSessionDetail, toMessageMeta } from "../services/pollService";
+import { fetchSessionDetail } from "../services/pollService";
+import { toMessageMeta } from "../services/parsing";
 import { buildSessionTree } from "../services/sessionService";
 import { sessionIdSchema, validateWithResponse } from "../validation";
 import { MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, TWENTY_FOUR_HOURS_MS } from "../../shared/constants";

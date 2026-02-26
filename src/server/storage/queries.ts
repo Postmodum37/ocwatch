@@ -1,6 +1,7 @@
 import type { Database, Statement } from "bun:sqlite";
 import { getDb } from "./db";
 import type { SessionMetadata } from "../../shared/types";
+import { toSessionMetadata } from "../services/parsing";
 
 export interface DbProjectRow {
   id: string;
@@ -312,26 +313,13 @@ export function queryMaxTimestamp(): number {
   return Number(queryMaxTimestampStmt.get()?.maxTimestamp ?? 0);
 }
 
-// Wrapper functions for backward compatibility with old sessionParser API
-
-function toSessionMetadata(row: DbSessionRow): SessionMetadata {
-  return {
-    id: row.id,
-    projectID: row.projectID,
-    directory: row.directory,
-    title: row.title,
-    parentID: row.parentID ?? undefined,
-    createdAt: new Date(row.timeCreated),
-    updatedAt: new Date(row.timeUpdated),
-  };
-}
 
 export function listProjects(): string[] {
   const projects = queryProjects();
   return projects.map((p) => p.id);
 }
 
-export async function listAllSessions(): Promise<SessionMetadata[]> {
+export function listAllSessions(): SessionMetadata[] {
   const sessions = querySessions(undefined, undefined, 10000);
   return sessions.map(toSessionMetadata);
 }

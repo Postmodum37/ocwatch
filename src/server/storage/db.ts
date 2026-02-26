@@ -69,4 +69,3 @@ export function closeDb(): void {
   dbSingleton = undefined;
 }
 
-export { SQLITE_BUSY_TIMEOUT_MS, SQLITE_CACHE_SIZE };

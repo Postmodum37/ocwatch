@@ -25,65 +25,20 @@ import {
   querySessionChildren,
   queryMessages,
   queryParts,
-  type DbSessionRow,
-  type DbMessageRow,
-  type DbPartRow,
 } from "../storage/queries";
+import { getStatusFromTimestamp } from "../utils/sessionStatus";
+import {
+  toSessionMetadata as parseSessionRow,
+  toMessageMeta as parseMessageRow,
+  toPartMeta as parsePartRow,
+  getLatestAssistantMessage,
+  getMostRecentPendingPart,
+} from "./parsing";
 
 export { detectAgentPhases, isAssistantFinished };
 
+/** Max messages to load per session for hierarchy building (effectively unlimited) */
 const MAX_MESSAGE_QUERY_LIMIT = 100_000;
-
-interface MessageDataModel {
-  modelID?: unknown;
-  providerID?: unknown;
-}
-
-interface MessageDataTokens {
-  input?: unknown;
-  output?: unknown;
-}
-
-interface MessageData {
-  role?: unknown;
-  agent?: unknown;
-  mode?: unknown;
-  modelID?: unknown;
-  providerID?: unknown;
-  model?: MessageDataModel;
-  parentID?: unknown;
-  finish?: unknown;
-  cost?: unknown;
-  tokens?: MessageDataTokens;
-}
-
-interface PartTimeData {
-  start?: unknown;
-  end?: unknown;
-}
-
-interface PartStateData {
-  status?: unknown;
-  input?: unknown;
-  output?: unknown;
-  error?: unknown;
-  title?: unknown;
-  time?: PartTimeData;
-}
-
-interface PartData {
-  type?: unknown;
-  callID?: unknown;
-  tool?: unknown;
-  state?: unknown;
-  input?: unknown;
-  title?: unknown;
-  time?: PartTimeData;
-  snapshot?: unknown;
-  reason?: unknown;
-  text?: unknown;
-  files?: unknown;
-}
 
 interface SessionContext {
   allowedSessionIds: Set<string>;
@@ -93,114 +48,6 @@ interface SessionContext {
   childrenBySession: Map<string, SessionMetadata[]>;
 }
 
-function parseJsonObject<T>(raw: string): T | null {
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
-function toDate(value: unknown): Date | undefined {
-  return typeof value === "number" ? new Date(value) : undefined;
-}
-
-function toStringOrUndefined(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-function toStringArrayOrUndefined(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-  const items = value.filter((item): item is string => typeof item === "string");
-  return items.length > 0 ? items : undefined;
-}
-
-function parseMessageRow(row: DbMessageRow): MessageMeta {
-  const data = parseJsonObject<MessageData>(row.data);
-  const role = toStringOrUndefined(data?.role) ?? row.role ?? "unknown";
-  const directModelID = toStringOrUndefined(data?.modelID);
-  const nestedModelID = toStringOrUndefined(data?.model?.modelID);
-  const directProviderID = toStringOrUndefined(data?.providerID);
-  const nestedProviderID = toStringOrUndefined(data?.model?.providerID);
-  const tokenInput = typeof data?.tokens?.input === "number" ? data.tokens.input : undefined;
-  const tokenOutput = typeof data?.tokens?.output === "number" ? data.tokens.output : undefined;
-  const tokens = tokenInput !== undefined && tokenOutput !== undefined ? tokenInput + tokenOutput : undefined;
-  const cost = typeof data?.cost === "number" ? data.cost : undefined;
-
-  return {
-    id: row.id,
-    sessionID: row.sessionID,
-    role,
-    agent: toStringOrUndefined(data?.agent) ?? row.agent ?? undefined,
-    mode: toStringOrUndefined(data?.mode),
-    modelID: directModelID ?? nestedModelID,
-    providerID: directProviderID ?? nestedProviderID,
-    parentID: toStringOrUndefined(data?.parentID),
-    tokens,
-    cost,
-    createdAt: new Date(row.timeCreated),
-    finish: toStringOrUndefined(data?.finish),
-  };
-}
-
-export function parsePartRow(row: DbPartRow): PartMeta {
-  const data = parseJsonObject<PartData>(row.data);
-  const stateObject = (typeof data?.state === "object" && data.state !== null)
-    ? data.state as PartStateData
-    : undefined;
-  const state = toStringOrUndefined(data?.state) ?? toStringOrUndefined(stateObject?.status) ?? row.state ?? undefined;
-  const nestedInput = (stateObject?.input && typeof stateObject.input === "object")
-    ? stateObject.input as Record<string, unknown>
-    : undefined;
-  const rootInput = (data?.input && typeof data.input === "object")
-    ? data.input as Record<string, unknown>
-    : undefined;
-  const input = nestedInput ?? rootInput;
-  const title = toStringOrUndefined(stateObject?.title) ?? toStringOrUndefined(data?.title);
-  const time = (data?.time && typeof data.time === "object") ? data.time : stateObject?.time;
-  const startedAt = toDate(time?.start);
-  const completedAt = toDate(time?.end);
-  const errorRaw = toStringOrUndefined(stateObject?.error) ?? toStringOrUndefined(stateObject?.output);
-  const error = (state === "error" || state === "failed") && errorRaw
-    ? errorRaw.slice(0, 500)
-    : undefined;
-  const reason = data?.reason;
-  const stepFinishReason = reason === "stop" || reason === "tool-calls" ? reason : undefined;
-  const type = toStringOrUndefined(data?.type) ?? row.type ?? "unknown";
-
-  return {
-    id: row.id,
-    sessionID: row.sessionID,
-    messageID: row.messageID,
-    type,
-    callID: toStringOrUndefined(data?.callID),
-    tool: toStringOrUndefined(data?.tool) ?? row.tool ?? undefined,
-    state,
-    input,
-    title,
-    error,
-    startedAt,
-    completedAt,
-    stepSnapshot: toStringOrUndefined(data?.snapshot),
-    stepFinishReason,
-    reasoningText: type === "reasoning" ? toStringOrUndefined(data?.text) : undefined,
-    patchFiles: toStringArrayOrUndefined(data?.files),
-  };
-}
-
-function parseSessionRow(row: DbSessionRow): SessionMetadata {
-  return {
-    id: row.id,
-    projectID: row.projectID,
-    directory: row.directory,
-    title: row.title,
-    parentID: row.parentID ?? undefined,
-    createdAt: new Date(row.timeCreated),
-    updatedAt: new Date(row.timeUpdated),
-  };
-}
 
 function createSessionContext(allSessions: SessionMetadata[]): SessionContext {
   const sessionById = new Map<string, SessionMetadata>();
@@ -263,36 +110,11 @@ function getSessionChildren(sessionId: string, context: SessionContext): Session
   return children;
 }
 
-function getLatestAssistantMessage(messages: MessageMeta[]): MessageMeta | undefined {
-  return messages
-    .filter((message) => message.role === "assistant")
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
-}
-
-function getMostRecentPendingPart(parts: PartMeta[]): PartMeta | undefined {
-  return parts
-    .filter((part) => isPendingToolCall(part))
-    .sort((a, b) => (b.startedAt?.getTime() || 0) - (a.startedAt?.getTime() || 0))[0];
-}
 
 function countBlockingChildren(statuses: SessionStatus[]): number {
   return statuses.filter((status) => status === "working" || status === "waiting").length;
 }
 
-function getStatusFromTimestamp(updatedAt: Date): SessionStatus {
-  const WORKING_THRESHOLD = 30 * 1000;
-  const COMPLETED_THRESHOLD = 5 * 60 * 1000;
-  const now = Date.now();
-  const timeSinceUpdate = now - updatedAt.getTime();
-
-  if (timeSinceUpdate < WORKING_THRESHOLD) {
-    return "working";
-  }
-  if (timeSinceUpdate < COMPLETED_THRESHOLD) {
-    return "idle";
-  }
-  return "completed";
-}
 
 function buildToolCalls(parts: PartMeta[], messageAgent: Map<string, string>): ToolCallSummary[] {
   const toolCalls = parts
