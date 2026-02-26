@@ -59,9 +59,9 @@ describe('Integration Tests', () => {
     const response = await fetch(`${SERVER_URL}/api/poll`);
     expect(response.status).toBe(200);
     
-    const data = await response.json() as { sessions: unknown[]; activeSession: unknown; planProgress: unknown; lastUpdate: number };
+    const data = await response.json() as { sessions: unknown[]; activeSessionId: string | null; planProgress: unknown; lastUpdate: number };
     expect(data).toHaveProperty('sessions');
-    expect(data).toHaveProperty('activeSession');
+    expect(data).toHaveProperty('activeSessionId');
     expect(data).toHaveProperty('planProgress');
     expect(data).toHaveProperty('lastUpdate');
     expect(Array.isArray(data.sessions)).toBe(true);
@@ -120,14 +120,10 @@ describe('Integration Tests', () => {
     expect(res.status).toBe(200);
     const data = await res.json() as Record<string, unknown>;
     expect(data).toHaveProperty('sessions');
-    expect(data).toHaveProperty('activeSession');
+    expect(data).toHaveProperty('activeSessionId');
     expect(data).toHaveProperty('planProgress');
-    expect(data).toHaveProperty('messages');
-    expect(data).toHaveProperty('activitySessions');
     expect(data).toHaveProperty('lastUpdate');
     expect(Array.isArray(data.sessions)).toBe(true);
-    expect(Array.isArray(data.messages)).toBe(true);
-    expect(Array.isArray(data.activitySessions)).toBe(true);
     expect(typeof data.lastUpdate).toBe('number');
   });
 
@@ -141,5 +137,30 @@ describe('Integration Tests', () => {
   it('GET /api/sessions/invalid-id returns error', async () => {
     const res = await fetch(`${SERVER_URL}/api/sessions/nonexistent-session-id`);
     expect([400, 404]).toContain(res.status);
+  });
+
+  it('GET /api/sessions/:id returns session detail shape', async () => {
+    const pollRes = await fetch(`${SERVER_URL}/api/poll`);
+    const pollData = await pollRes.json() as { sessions: Array<{ id: string }> };
+
+    if (pollData.sessions.length === 0) {
+      // No sessions available — nothing to assert
+      return;
+    }
+
+    const sessionId = pollData.sessions[0].id;
+    const res = await fetch(`${SERVER_URL}/api/sessions/${sessionId}`);
+    expect([200, 404]).toContain(res.status);
+
+    if (res.status === 200) {
+      const data = await res.json() as Record<string, unknown>;
+      expect(data).toHaveProperty('session');
+      expect(data).toHaveProperty('messages');
+      expect(data).toHaveProperty('activity');
+      expect(data).toHaveProperty('todos');
+      expect(Array.isArray(data.messages)).toBe(true);
+      expect(Array.isArray(data.activity)).toBe(true);
+      expect(Array.isArray(data.todos)).toBe(true);
+    }
   });
 });
