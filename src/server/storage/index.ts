@@ -9,6 +9,8 @@ export {
   querySessionChildren,
   querySessions,
   queryTodos,
+  listProjects,
+  listAllSessions,
 } from "./queries";
 export type {
   DbMessageRow,
@@ -17,3 +19,4 @@ export type {
   DbSessionRow,
   DbTodoRow,
 } from "./queries";
+export { parseBoulder, calculatePlanProgress } from "./boulderParser";

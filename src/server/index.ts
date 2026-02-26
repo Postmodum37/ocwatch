@@ -8,7 +8,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error";
 import { registerRoutes } from "./routes";
 import { parseArgs, printHelp, openBrowser } from "./cli";
 import { getGlobalWatcher, closeAllSSEConnections } from "./routes/sse";
-import { listAllSessions } from "./storage/sessionParser";
+import { listAllSessions } from "./storage";
 
 const clientDistPath = join(import.meta.dir, "..", "client", "dist");
 const flags = parseArgs();

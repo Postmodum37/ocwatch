@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { listAllSessions } from "../storage/sessionParser";
+import { listAllSessions } from "../storage";
 import type { SessionMetadata } from "../../shared/types";
 
 async function directoryExists(directory: string): Promise<boolean> {

@@ -1,5 +1,5 @@
 import type { Hono } from "hono";
-import { listProjects, listAllSessions } from "../storage/sessionParser";
+import { listProjects, listAllSessions } from "../storage";
 
 export function registerProjectRoutes(app: Hono) {
   app.get("/api/projects", async (c) => {
