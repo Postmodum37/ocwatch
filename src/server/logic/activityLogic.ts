@@ -18,6 +18,10 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
   glob: "Finding",
   task: "Delegating",
   webfetch: "Fetching",
+  agent: "Agent",
+  subtask: "Subtask",
+  compaction: "Context Compaction",
+  file: "File",
 };
 
 function getToolDisplayName(tool: string): string {
@@ -40,6 +44,21 @@ export function formatCurrentAction(part: PartMeta): string | null {
     if (desc) return desc;
     if (agentType) return `Delegating (${agentType})`;
     return "Delegating task";
+  }
+
+  if (part.tool === "agent" || part.tool === "subtask") {
+    const input = part.input as { description?: string; subagent_type?: string; name?: string } | undefined;
+    const desc = input?.description;
+    const name = input?.name;
+    const agentType = input?.subagent_type;
+    if (desc) return desc;
+    if (name) return `${toolName}: ${name}`;
+    if (agentType) return `${toolName} (${agentType})`;
+    return toolName;
+  }
+
+  if (part.tool === "compaction") {
+    return "Compacting context";
   }
 
   if (part.tool === "todowrite") {
