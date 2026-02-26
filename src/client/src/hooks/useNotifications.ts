@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { ActivitySession, SessionMetadata } from '@shared/types';
+import type { ActivitySession, SessionSummary } from '@shared/types';
 
 export interface UseNotificationsReturn {
   permission: NotificationPermission;
@@ -15,7 +15,7 @@ type SessionSnapshot = {
 };
 
 export function useNotifications(
-  sessions: SessionMetadata[],
+  sessions: SessionSummary[],
   isReconnecting: boolean,
   activitySessions: ActivitySession[] = []
 ): UseNotificationsReturn {
@@ -58,12 +58,19 @@ export function useNotifications(
   };
 
   useEffect(() => {
-    const notificationSessions: SessionSnapshot[] = [...sessions, ...activitySessions].map((session) => ({
-      id: session.id,
-      activityType: session.activityType,
-      parentID: session.parentID,
-      agent: session.agent || null,
-    }));
+    const notificationSessions: SessionSnapshot[] = [
+      ...sessions.map(s => ({
+        id: s.id,
+        activityType: s.activityType,
+        agent: s.agent || null,
+      })),
+      ...activitySessions.map(s => ({
+        id: s.id,
+        activityType: s.activityType,
+        parentID: s.parentID,
+        agent: s.agent || null,
+      })),
+    ];
 
     if (prevReconnectingRef.current === true && isReconnecting === false) {
       prevSessionsRef.current = notificationSessions;

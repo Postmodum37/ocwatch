@@ -2,13 +2,15 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import type { ReactNode } from 'react';
 import { useSSE } from '../hooks/useSSE';
 import { useNotifications } from '../hooks/useNotifications';
-import type { SessionMetadata, PlanProgress, ProjectInfo, MessageMeta, ActivitySession, SessionStats } from '@shared/types';
+import type { SessionSummary, SessionDetail, PlanProgress, ProjectInfo, MessageMeta, ActivitySession, SessionStats } from '@shared/types';
 
 interface AppContextValue {
-  sessions: SessionMetadata[];
-  activeSession: SessionMetadata | null;
+  sessions: SessionSummary[];
+  sessionDetail: SessionDetail | null;
+  sessionDetailLoading: boolean;
   planProgress: PlanProgress | null;
   planName: string | undefined;
+  // Derived from sessionDetail for backward compat with components
   sessionStats: SessionStats | null;
   messages: MessageMeta[];
   activitySessions: ActivitySession[];
@@ -38,9 +40,12 @@ interface AppProviderProps {
 export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderProps) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [agentFilter, setAgentFilter] = useState<string[]>([]);
-  
+
   const [selectedProjectId, setSelectedProjectIdRaw] = useState<string | null>(null);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
+
+  const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(null);
+  const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
 
   const userHasSelectedRef = React.useRef(false);
   const setSelectedProjectId = React.useCallback((id: string) => {
@@ -59,19 +64,62 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
   const { data, loading, error, lastUpdate, isReconnecting } = useSSE({
     apiUrl,
     pollingInterval,
-    sessionId: selectedSessionId,
     projectId: selectedProjectId,
   });
-  
+
+  // Fetch session detail when selectedSessionId changes
+  useEffect(() => {
+    if (!selectedSessionId) {
+      setSessionDetail(null);
+      return;
+    }
+
+    const baseUrl = apiUrl || '';
+    let cancelled = false;
+
+    setSessionDetailLoading(true);
+
+    fetch(`${baseUrl}/api/sessions/${selectedSessionId}`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((detail: SessionDetail) => {
+        if (!cancelled) {
+          setSessionDetail(detail);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.warn('Failed to fetch session detail:', err);
+          setSessionDetail(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSessionDetailLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSessionId, apiUrl]);
+
+  // Derived values from sessionDetail
+  const activitySessions = sessionDetail?.activity ?? [];
+  const messages = sessionDetail?.messages ?? [];
+  const sessionStats = sessionDetail?.stats ?? null;
+
   const {
     permission: notificationPermission,
     requestPermission: requestNotificationPermission,
   } = useNotifications(
     data?.sessions || [],
     isReconnecting,
-    data?.activitySessions || []
+    activitySessions
   );
-  
+
   // Load projects + health on mount, auto-select with priority chain
   useEffect(() => {
     const baseUrl = apiUrl || '';
@@ -126,12 +174,13 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
 
   const value = useMemo<AppContextValue>(() => ({
     sessions: data?.sessions || [],
-    activeSession: data?.activeSession || null,
+    sessionDetail,
+    sessionDetailLoading,
     planProgress: data?.planProgress || null,
     planName: data?.planName,
-    sessionStats: data?.sessionStats || null,
-    messages: data?.messages || [],
-    activitySessions: data?.activitySessions || [],
+    sessionStats,
+    messages,
+    activitySessions,
     selectedSessionId,
     projects,
     selectedProjectId,
@@ -145,7 +194,7 @@ export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderPr
     setSelectedSessionId,
     setSelectedProjectId,
     setAgentFilter,
-  }), [data, selectedSessionId, projects, selectedProjectId, loading, error, lastUpdate, isReconnecting, agentFilter, notificationPermission, requestNotificationPermission, setSelectedProjectId]);
+  }), [data, sessionDetail, sessionDetailLoading, sessionStats, messages, activitySessions, selectedSessionId, projects, selectedProjectId, loading, error, lastUpdate, isReconnecting, agentFilter, notificationPermission, requestNotificationPermission, setSelectedProjectId]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

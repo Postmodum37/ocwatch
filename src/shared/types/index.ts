@@ -22,6 +22,36 @@ export interface SessionMetadata {
 }
 
 /**
+ * SessionSummary is a lightweight session representation used in poll responses
+ * and as the summary field in SessionDetail
+ */
+export interface SessionSummary {
+  id: string;
+  projectID: string;
+  title: string;
+  status?: SessionStatus;
+  activityType?: SessionActivityType;
+  currentAction?: string | null;
+  agent?: string | null;
+  modelID?: string | null;
+  providerID?: string | null;
+  updatedAt: Date;
+  createdAt: Date;
+}
+
+/**
+ * SessionDetail is the full detail response for a single session
+ * Contains summary, messages, activity tree, todos, and optional stats
+ */
+export interface SessionDetail {
+  session: SessionSummary;
+  messages: MessageMeta[];
+  activity: ActivitySession[];
+  todos: TodoItem[];
+  stats?: SessionStats;
+}
+
+/**
  * MessageMeta represents a message in a session
  */
 export interface MessageMeta {
@@ -229,6 +259,13 @@ export interface PlanProgress {
   tasks: Array<{ description: string; completed: boolean }>;
 }
 
+export interface TodoItem {
+  content: string;
+  status: string;
+  priority: string;
+  position: number;
+}
+
 /**
  * ModelTokens represents token usage for a specific model
  */
@@ -316,13 +353,10 @@ export interface AgentPhase {
  * Contains current session state, plan progress, and activity data
  */
 export interface PollResponse {
-  sessions: SessionMetadata[];
-  activeSession: SessionMetadata | null;
+  sessions: SessionSummary[];
+  activeSessionId: string | null;
   planProgress: PlanProgress | null;
   planName?: string;
-  messages: MessageMeta[];
-  activitySessions: ActivitySession[];
-  sessionStats?: SessionStats;
   lastUpdate: number;
 }
 

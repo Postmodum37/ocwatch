@@ -1,23 +1,20 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { usePolling } from '../usePolling';
-import type { PollResponse } from '../usePolling';
+import type { PollResponse } from '@shared/types';
 
 const mockPollResponse: PollResponse = {
   sessions: [
     {
       id: 'test-session-1',
       projectID: 'test-project',
-      directory: '/test/path',
       title: 'Test Session',
       createdAt: new Date(),
       updatedAt: new Date(),
     },
   ],
-  activeSession: null,
+  activeSessionId: null,
   planProgress: null,
-  messages: [],
-  activitySessions: [],
   lastUpdate: Date.now(),
 };
 

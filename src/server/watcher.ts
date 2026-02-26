@@ -1,32 +1,38 @@
-/**
- * Watcher - File system watcher for OpenCode storage directories
- * Uses fs.watch() to detect changes and trigger cache invalidation
- */
-
-import { watch, type FSWatcher } from "node:fs";
-import { join } from "node:path";
+import { existsSync, watch, type FSWatcher } from "node:fs";
+import { basename, join } from "node:path";
 import { EventEmitter } from "node:events";
-import { getStoragePath } from "./storage/sessionParser";
+import { homedir } from "node:os";
 
 export interface WatcherOptions {
+  dbPath?: string;
   storagePath?: string;
   projectPath?: string;
   debounceMs?: number;
 }
 
 export class Watcher extends EventEmitter {
-  private watchers: FSWatcher[] = [];
+  private dbWatcher: FSWatcher | null = null;
+  private boulderWatcher: FSWatcher | null = null;
   private debounceTimer: Timer | null = null;
+  private rebindTimer: Timer | null = null;
   private readonly debounceMs: number;
-  private readonly storagePath: string;
+  private readonly dbPath: string;
+  private readonly walPath: string;
+  private readonly boulderPath: string;
+  private readonly boulderDirPath: string;
   private readonly projectPath: string;
+  private dbWatcherTarget: string | null = null;
+  private boulderWatcherTarget: string | null = null;
   private isRunning: boolean = false;
 
   constructor(options: WatcherOptions = {}) {
     super();
-    this.storagePath = options.storagePath || getStoragePath();
+    this.dbPath = resolveDbPath(options);
+    this.walPath = `${this.dbPath}-wal`;
     this.projectPath = options.projectPath || process.cwd();
-    this.debounceMs = options.debounceMs || 100;
+    this.boulderPath = join(this.projectPath, ".sisyphus", "boulder.json");
+    this.boulderDirPath = join(this.projectPath, ".sisyphus");
+    this.debounceMs = options.debounceMs ?? 100;
   }
 
   start(): void {
@@ -36,58 +42,10 @@ export class Watcher extends EventEmitter {
 
     this.isRunning = true;
 
-    const sessionDir = join(this.storagePath, "opencode", "storage", "session");
-    const messageDir = join(this.storagePath, "opencode", "storage", "message");
-
     try {
-      const sessionWatcher = watch(
-        sessionDir,
-        { recursive: true },
-        this.handleChange.bind(this)
-      );
-      this.watchers.push(sessionWatcher);
-
-      const messageWatcher = watch(
-        messageDir,
-        { recursive: true },
-        this.handleChange.bind(this)
-      );
-      this.watchers.push(messageWatcher);
-
-      const partDir = join(this.storagePath, "opencode", "storage", "part");
-      try {
-        const partWatcher = watch(
-          partDir,
-          { recursive: true },
-          this.handleChange.bind(this)
-        );
-        this.watchers.push(partWatcher);
-      } catch {
-        // part directory may not exist yet
-      }
-
-      const boulderDir = join(this.projectPath, ".sisyphus");
-      try {
-        const boulderWatcher = watch(
-          boulderDir,
-          { recursive: true },
-          this.handleChange.bind(this)
-        );
-        this.watchers.push(boulderWatcher);
-      } catch {
-        // boulder directory may not exist yet
-      }
-
-      try {
-        const projectWatcher = watch(
-          this.projectPath,
-          { recursive: true },
-          this.handleProjectChange.bind(this)
-        );
-        this.watchers.push(projectWatcher);
-      } catch {
-        // project watcher may fail on unsupported environments
-      }
+      this.rebindDbWatcher();
+      this.rebindBoulderWatcher();
+      this.startRebindLoop();
 
       this.emit("started");
     } catch (error) {
@@ -96,15 +54,7 @@ export class Watcher extends EventEmitter {
     }
   }
 
-  private handleChange(eventType: string, filename: string | null): void {
-    if (!filename) {
-      return;
-    }
-
-    if (!filename.endsWith(".json")) {
-      return;
-    }
-
+  private emitDebouncedChange(eventType: string, filename: string): void {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
@@ -115,20 +65,134 @@ export class Watcher extends EventEmitter {
     }, this.debounceMs);
   }
 
-  private handleProjectChange(eventType: string, filename: string | null): void {
-    if (!filename) {
+  private getPreferredDbWatchTarget(): string {
+    if (existsSync(this.walPath)) {
+      return this.walPath;
+    }
+
+    return this.dbPath;
+  }
+
+  private rebindDbWatcher(): void {
+    const preferredTarget = this.getPreferredDbWatchTarget();
+    if (this.dbWatcher && this.dbWatcherTarget === preferredTarget) {
       return;
     }
 
-    if (!filename.endsWith(".json")) {
+    if (this.dbWatcher) {
+      this.dbWatcher.close();
+      this.dbWatcher = null;
+      this.dbWatcherTarget = null;
+    }
+
+    if (!existsSync(preferredTarget)) {
       return;
     }
 
-    if (!filename.includes(".sisyphus") && !filename.includes("boulder")) {
+    try {
+      this.dbWatcher = watch(preferredTarget, (eventType, filename) => {
+        this.handleDbEvent(eventType, filename);
+      });
+      this.dbWatcherTarget = preferredTarget;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT") {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private handleDbEvent(eventType: string, _filename: string | null): void {
+    const watchedTarget = this.dbWatcherTarget;
+    if (!watchedTarget) {
       return;
     }
 
-    this.handleChange(eventType, filename);
+    this.emitDebouncedChange(eventType, basename(watchedTarget));
+
+    if (eventType === "rename" || !existsSync(watchedTarget)) {
+      this.rebindDbWatcherSafe();
+      return;
+    }
+
+    if (this.getPreferredDbWatchTarget() !== watchedTarget) {
+      this.rebindDbWatcherSafe();
+    }
+  }
+
+  private rebindBoulderWatcher(): void {
+    const preferredTarget = existsSync(this.boulderPath)
+      ? this.boulderPath
+      : this.boulderDirPath;
+
+    if (this.boulderWatcher && this.boulderWatcherTarget === preferredTarget) {
+      return;
+    }
+
+    if (this.boulderWatcher) {
+      this.boulderWatcher.close();
+      this.boulderWatcher = null;
+      this.boulderWatcherTarget = null;
+    }
+
+    if (!existsSync(preferredTarget)) {
+      return;
+    }
+
+    this.boulderWatcher = watch(preferredTarget, (eventType, filename) => {
+      this.handleBoulderEvent(eventType, filename);
+    });
+    this.boulderWatcherTarget = preferredTarget;
+  }
+
+  private handleBoulderEvent(eventType: string, filename: string | null): void {
+    if (this.boulderWatcherTarget === this.boulderDirPath) {
+      if (!filename || filename !== "boulder.json") {
+        return;
+      }
+    }
+
+    this.emitDebouncedChange(eventType, ".sisyphus/boulder.json");
+
+    if (eventType === "rename") {
+      this.rebindBoulderWatcherSafe();
+      return;
+    }
+
+    const preferredTarget = existsSync(this.boulderPath)
+      ? this.boulderPath
+      : this.boulderDirPath;
+    if (preferredTarget !== this.boulderWatcherTarget) {
+      this.rebindBoulderWatcherSafe();
+    }
+  }
+
+  private startRebindLoop(): void {
+    if (this.rebindTimer) {
+      clearInterval(this.rebindTimer);
+    }
+
+    this.rebindTimer = setInterval(() => {
+      if (!this.isRunning) {
+        return;
+      }
+
+      this.rebindDbWatcherSafe();
+      this.rebindBoulderWatcherSafe();
+    }, 1000);
+  }
+
+  private rebindDbWatcherSafe(): void {
+    try {
+      this.rebindDbWatcher();
+    } catch {}
+  }
+
+  private rebindBoulderWatcherSafe(): void {
+    try {
+      this.rebindBoulderWatcher();
+    } catch {}
   }
 
   stop(): void {
@@ -141,13 +205,29 @@ export class Watcher extends EventEmitter {
       this.debounceTimer = null;
     }
 
-    for (const watcher of this.watchers) {
-      watcher.close();
+    if (this.rebindTimer) {
+      clearInterval(this.rebindTimer);
+      this.rebindTimer = null;
     }
 
-    this.watchers = [];
+    if (this.dbWatcher) {
+      this.dbWatcher.close();
+      this.dbWatcher = null;
+      this.dbWatcherTarget = null;
+    }
+
+    if (this.boulderWatcher) {
+      this.boulderWatcher.close();
+      this.boulderWatcher = null;
+      this.boulderWatcherTarget = null;
+    }
+
     this.isRunning = false;
     this.emit("stopped");
+  }
+
+  close(): void {
+    this.stop();
   }
 
   getIsRunning(): boolean {
@@ -155,6 +235,27 @@ export class Watcher extends EventEmitter {
   }
 }
 
-export function createWatcher(storagePath?: string, projectPath?: string): Watcher {
-  return new Watcher({ storagePath, projectPath });
+function resolveDbPath(options: WatcherOptions): string {
+  if (options.dbPath) {
+    return normalizeDbPathInput(options.dbPath);
+  }
+
+  if (options.storagePath) {
+    return join(options.storagePath, "opencode", "opencode.db");
+  }
+
+  const storageRoot = process.env.XDG_DATA_HOME || join(homedir(), ".local", "share");
+  return join(storageRoot, "opencode", "opencode.db");
+}
+
+function normalizeDbPathInput(dbPathOrStoragePath: string): string {
+  if (dbPathOrStoragePath.endsWith(".db")) {
+    return dbPathOrStoragePath;
+  }
+
+  return join(dbPathOrStoragePath, "opencode", "opencode.db");
+}
+
+export function createWatcher(dbPath?: string, projectPath?: string): Watcher {
+  return new Watcher({ dbPath, projectPath });
 }

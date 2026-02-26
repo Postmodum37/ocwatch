@@ -1,16 +1,14 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useSSE } from '../useSSE';
-import type { PollResponse } from '../usePolling';
+import type { PollResponse } from '@shared/types';
 
 const mockUsePolling = vi.fn();
 const mockPollingState = {
   data: {
     sessions: [],
-    activeSession: null,
+    activeSessionId: null,
     planProgress: null,
-    messages: [],
-    activitySessions: [],
     lastUpdate: 12345,
   } as PollResponse,
   loading: false,
@@ -29,10 +27,8 @@ vi.mock('../usePolling', () => ({
 
 const mockPollResponse: PollResponse = {
   sessions: [],
-  activeSession: null,
+  activeSessionId: null,
   planProgress: null,
-  messages: [],
-  activitySessions: [],
   lastUpdate: Date.now(),
 };
 
@@ -102,10 +98,10 @@ describe('useSSE', () => {
     expect(mockUsePolling).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
   });
 
-  it('connects with session ID', async () => {
-    renderHook(() => useSSE({ sessionId: '123' }));
+  it('connects with project ID', async () => {
+    renderHook(() => useSSE({ projectId: 'proj-abc' }));
     await waitFor(() => {
-      expect(MockEventSource).toHaveBeenCalledWith('/api/sse?sessionId=123');
+      expect(MockEventSource).toHaveBeenCalledWith('/api/sse?projectId=proj-abc');
     });
   });
 

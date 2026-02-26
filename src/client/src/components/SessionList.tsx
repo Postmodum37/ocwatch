@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Loader2, Check, Circle, Folder, ChevronDown, Inbox, MessageCircleQuestion } from 'lucide-react';
-import type { SessionMetadata, ProjectInfo, SessionStatus, SessionActivityType } from '@shared/types';
+import type { SessionSummary, ProjectInfo, SessionStatus, SessionActivityType } from '@shared/types';
 import { formatRelativeTimeVerbose } from '@shared/utils/formatTime';
 import { EmptyState } from './EmptyState';
 import { ScopeSnapshot } from './sidebar/ScopeSnapshot';
@@ -9,7 +9,7 @@ import { SidebarPlanProgress } from './sidebar/SidebarPlanProgress';
 import { SystemHealth } from './sidebar/SystemHealth';
 
 interface SessionListProps {
-  sessions: SessionMetadata[];
+  sessions: SessionSummary[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   projects?: ProjectInfo[];

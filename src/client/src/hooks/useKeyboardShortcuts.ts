@@ -1,8 +1,8 @@
 import { useEffect, useCallback } from 'react';
-import type { SessionMetadata } from '@shared/types';
+import type { SessionSummary } from '@shared/types';
 
 export function useKeyboardShortcuts(options: {
-  sessions: SessionMetadata[];
+  sessions: SessionSummary[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
 }) {

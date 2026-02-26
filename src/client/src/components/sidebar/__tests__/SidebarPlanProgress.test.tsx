@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import type { PlanProgress } from '../../../../../shared/types';
+import type { PlanProgress, SessionDetail } from '../../../../../shared/types';
 import { SidebarPlanProgress } from '../SidebarPlanProgress';
 import { useAppContext } from '../../../store/AppContext';
 
@@ -17,7 +17,8 @@ const mockPlan: PlanProgress = {
 
 type AppContextMock = {
   sessions: [];
-  activeSession: null;
+  sessionDetail: SessionDetail | null;
+  sessionDetailLoading: boolean;
   planProgress: PlanProgress | null;
   planName: string | undefined;
   sessionStats: null;
@@ -40,7 +41,8 @@ type AppContextMock = {
 
 const defaultContext = (): AppContextMock => ({
   sessions: [],
-  activeSession: null,
+  sessionDetail: null,
+  sessionDetailLoading: false,
   planProgress: null,
   planName: undefined,
   sessionStats: null,

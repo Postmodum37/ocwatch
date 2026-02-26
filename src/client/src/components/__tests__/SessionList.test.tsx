@@ -1,27 +1,28 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SessionList } from '../SessionList';
-import type { SessionMetadata, ProjectInfo } from '@shared/types';
+import type { SessionSummary, ProjectInfo } from '@shared/types';
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('../../store/AppContext', () => ({
   useAppContext: () => ({
     selectedSessionId: null,
-    activeSession: null,
     sessions: [],
+    sessionDetail: null,
+    sessionDetailLoading: false,
     sessionStats: null,
     planProgress: null,
     activitySessions: [],
+    messages: [],
     lastUpdate: Date.now(),
     isReconnecting: false,
     error: null,
   }),
 }));
 
-const mockSessions: SessionMetadata[] = [
+const mockSessions: SessionSummary[] = [
   {
     id: '1',
     projectID: 'p1',
-    directory: '/tmp/p1',
     title: 'Active Session',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -29,7 +30,6 @@ const mockSessions: SessionMetadata[] = [
   {
     id: '2',
     projectID: 'p1',
-    directory: '/tmp/p1',
     title: 'Idle Session',
     createdAt: new Date(Date.now() - 1000000),
     updatedAt: new Date(Date.now() - 3600000),
@@ -37,7 +37,6 @@ const mockSessions: SessionMetadata[] = [
   {
     id: '3',
     projectID: 'p2',
-    directory: '/tmp/p2',
     title: 'Project 2 Session',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -45,7 +44,6 @@ const mockSessions: SessionMetadata[] = [
   {
     id: '4',
     projectID: 'p1',
-    directory: '/tmp/p1',
     title: 'Waiting Session',
     status: 'waiting',
     createdAt: new Date(),
@@ -54,7 +52,6 @@ const mockSessions: SessionMetadata[] = [
   {
     id: '5',
     projectID: 'p1',
-    directory: '/tmp/p1',
     title: 'Action Session',
     status: 'working',
     currentAction: 'Processing data...',
@@ -64,7 +61,6 @@ const mockSessions: SessionMetadata[] = [
   {
     id: '6',
     projectID: 'p1',
-    directory: '/tmp/p1',
     title: 'Waiting User Session',
     status: 'waiting',
     activityType: 'waiting-user',
@@ -241,10 +237,10 @@ describe('SessionList', () => {
 
   it('uses stable sort with id as secondary key', () => {
     const sameTimestamp = new Date();
-    const sessionsWithSameTime: SessionMetadata[] = [
-      { id: 'z', projectID: 'p1', directory: '/tmp', title: 'Z Session', createdAt: sameTimestamp, updatedAt: sameTimestamp },
-      { id: 'a', projectID: 'p1', directory: '/tmp', title: 'A Session', createdAt: sameTimestamp, updatedAt: sameTimestamp },
-      { id: 'm', projectID: 'p1', directory: '/tmp', title: 'M Session', createdAt: sameTimestamp, updatedAt: sameTimestamp },
+    const sessionsWithSameTime: SessionSummary[] = [
+      { id: 'z', projectID: 'p1', title: 'Z Session', createdAt: sameTimestamp, updatedAt: sameTimestamp },
+      { id: 'a', projectID: 'p1', title: 'A Session', createdAt: sameTimestamp, updatedAt: sameTimestamp },
+      { id: 'm', projectID: 'p1', title: 'M Session', createdAt: sameTimestamp, updatedAt: sameTimestamp },
     ];
     render(<SessionList sessions={sessionsWithSameTime} selectedId={null} onSelect={() => {}} />);
     const items = screen.getAllByTestId(/session-item-/);

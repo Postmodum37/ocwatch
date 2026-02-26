@@ -1,58 +1,61 @@
 import type { Hono } from "hono";
-import { listAllSessions, checkStorageExists } from "../storage/sessionParser";
-import { listMessages } from "../storage/messageParser";
-import { isAssistantFinished, buildAgentHierarchy, buildSessionTree } from "../services/sessionService";
-import { getSessionStatus } from "../utils/sessionStatus";
+import { checkDbExists } from "../storage";
+import {
+  querySessions,
+  querySession,
+  queryMessages,
+  queryTodos,
+} from "../storage/queries";
+import type { DbSessionRow } from "../storage/queries";
+import { fetchSessionDetail, toMessageMeta } from "../services/pollService";
+import { buildSessionTree } from "../services/sessionService";
 import { sessionIdSchema, validateWithResponse } from "../validation";
 import { MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, TWENTY_FOUR_HOURS_MS } from "../../shared/constants";
+import type { SessionMetadata } from "../../shared/types";
+
+const SESSION_SCAN_LIMIT = 50_000;
+
+function dbRowToSessionBase(row: DbSessionRow) {
+  return {
+    id: row.id,
+    projectID: row.projectID,
+    title: row.title,
+    parentID: row.parentID ?? undefined,
+    updatedAt: new Date(row.timeUpdated),
+    createdAt: new Date(row.timeCreated),
+  };
+}
+
+function dbRowToSessionMeta(row: DbSessionRow): SessionMetadata {
+  return {
+    id: row.id,
+    projectID: row.projectID,
+    directory: row.directory,
+    title: row.title,
+    parentID: row.parentID ?? undefined,
+    createdAt: new Date(row.timeCreated),
+    updatedAt: new Date(row.timeUpdated),
+  };
+}
 
 export function registerSessionRoutes(app: Hono) {
-  app.get("/api/sessions", async (c) => {
-    const storageExists = await checkStorageExists();
-    if (!storageExists) {
-      return c.json({ 
+  app.get("/api/sessions", (c) => {
+    if (!checkDbExists()) {
+      return c.json({
         error: "OpenCode storage not found",
         message: "OpenCode storage directory does not exist. Please ensure OpenCode is installed.",
-        sessions: []
+        sessions: [],
       }, 200);
     }
-
-    const allSessions = await listAllSessions();
 
     const now = Date.now();
     const twentyFourHoursAgo = now - TWENTY_FOUR_HOURS_MS;
 
-    const recentSessions = allSessions.filter(
-      (s) => s.updatedAt.getTime() >= twentyFourHoursAgo
-    );
+    const sessions = querySessions(undefined, twentyFourHoursAgo, MAX_SESSIONS_LIMIT)
+      .filter((row) => !row.parentID)
+      .map(dbRowToSessionBase);
 
-    const sortedSessions = recentSessions.sort(
-      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
-    );
-
-    const limitedSessions = sortedSessions.slice(0, MAX_SESSIONS_LIMIT);
-    const rootSessions = limitedSessions.filter(s => !s.parentID);
-
-    const sessionsWithActivity = await Promise.all(
-      rootSessions.map(async (session) => {
-        const messages = await listMessages(session.id);
-        const lastAssistantFinished = isAssistantFinished(messages);
-        const status = getSessionStatus(messages, false, undefined, undefined, lastAssistantFinished);
-
-        return {
-          id: session.id,
-          title: session.title,
-          projectID: session.projectID,
-          parentID: session.parentID,
-          createdAt: session.createdAt,
-          updatedAt: session.updatedAt,
-          status,
-          isActive: status === "working" || status === "idle",
-        };
-      })
-    );
-
-    return c.json(sessionsWithActivity);
+    return c.json(sessions);
   });
 
   app.get("/api/sessions/:id", async (c) => {
@@ -60,43 +63,35 @@ export function registerSessionRoutes(app: Hono) {
     if (!validation.success) return validation.response;
     const sessionID = validation.value;
 
-    const allSessions = await listAllSessions();
-    const session = allSessions.find((s) => s.id === sessionID);
-
-    if (!session) {
+    if (!checkDbExists()) {
       return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
     }
 
-    const messages = await listMessages(sessionID);
-    const agentHierarchy = buildAgentHierarchy(messages);
+    const sessionRow = querySession(sessionID);
+    if (!sessionRow) {
+      return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
+    }
 
-    return c.json({
-      ...session,
-      agentHierarchy,
-    });
+    const detail = await fetchSessionDetail(sessionID);
+    return c.json(detail);
   });
 
-  app.get("/api/sessions/:id/messages", async (c) => {
+  app.get("/api/sessions/:id/messages", (c) => {
     const validation = validateWithResponse(sessionIdSchema, c.req.param("id"), c);
     if (!validation.success) return validation.response;
     const sessionID = validation.value;
 
-    const allSessions = await listAllSessions();
-    const session = allSessions.find((s) => s.id === sessionID);
-
-    if (!session) {
+    if (!checkDbExists()) {
       return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
     }
 
-    const messages = await listMessages(sessionID);
+    const sessionRow = querySession(sessionID);
+    if (!sessionRow) {
+      return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
+    }
 
-    const sortedMessages = messages.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    );
-
-    const limitedMessages = sortedMessages.slice(0, MAX_MESSAGES_LIMIT);
-
-    return c.json(limitedMessages);
+    const messages = queryMessages(sessionID, MAX_MESSAGES_LIMIT).map(toMessageMeta);
+    return c.json(messages);
   });
 
   app.get("/api/sessions/:id/tree", async (c) => {
@@ -104,15 +99,58 @@ export function registerSessionRoutes(app: Hono) {
     if (!validation.success) return validation.response;
     const sessionID = validation.value;
 
-    const allSessions = await listAllSessions();
-    const session = allSessions.find((s) => s.id === sessionID);
-
-    if (!session) {
+    if (!checkDbExists()) {
       return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
     }
 
-    const tree = await buildSessionTree(sessionID, allSessions);
+    const sessionRow = querySession(sessionID);
+    if (!sessionRow) {
+      return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
+    }
 
+    const allSessions = querySessions(undefined, undefined, SESSION_SCAN_LIMIT).map(dbRowToSessionMeta);
+    const tree = await buildSessionTree(sessionID, allSessions);
     return c.json(tree);
+  });
+
+  app.get("/api/sessions/:id/activity", async (c) => {
+    const validation = validateWithResponse(sessionIdSchema, c.req.param("id"), c);
+    if (!validation.success) return validation.response;
+    const sessionID = validation.value;
+
+    if (!checkDbExists()) {
+      return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
+    }
+
+    const sessionRow = querySession(sessionID);
+    if (!sessionRow) {
+      return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
+    }
+
+    const detail = await fetchSessionDetail(sessionID);
+    return c.json({ activity: detail.activity });
+  });
+
+  app.get("/api/sessions/:id/todos", (c) => {
+    const validation = validateWithResponse(sessionIdSchema, c.req.param("id"), c);
+    if (!validation.success) return validation.response;
+    const sessionID = validation.value;
+
+    if (!checkDbExists()) {
+      return c.json([], 200);
+    }
+
+    const sessionRow = querySession(sessionID);
+    if (!sessionRow) {
+      return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
+    }
+
+    const todos = queryTodos(sessionID).map((row) => ({
+      content: row.content,
+      status: row.status,
+      priority: row.priority,
+      position: row.position,
+    }));
+    return c.json(todos);
   });
 }
