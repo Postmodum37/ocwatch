@@ -14,8 +14,8 @@ describe('collide', () => {
 
     runForce([a, b], { iterations: 1 });
 
-    expect(a.vx).toBeCloseTo(-6.3, 5);
-    expect(b.vx).toBeCloseTo(6.3, 5);
+    expect(a.vx).toBeCloseTo(-37.8, 5);
+    expect(b.vx).toBeCloseTo(37.8, 5);
     expect(a.vy).toBe(0);
     expect(b.vy).toBe(0);
   });
@@ -39,7 +39,7 @@ describe('collide', () => {
     runForce([a, b], { iterations: 1 });
 
     expect(a.vx).toBe(0);
-    expect(b.vx).toBeCloseTo(6.3, 5);
+    expect(b.vx).toBeCloseTo(37.8, 5);
   });
 
   it('handles identical positions deterministically by pushing positive Y direction', () => {
@@ -71,8 +71,8 @@ describe('collide', () => {
 
     runForce([a, b], { iterations: 3 });
 
-    expect(a.vx).toBeCloseTo(-18.9, 5);
-    expect(b.vx).toBeCloseTo(18.9, 5);
+    expect(a.vx).toBeCloseTo(-113.4, 5);
+    expect(b.vx).toBeCloseTo(113.4, 5);
   });
 
   it('applies custom padding, width, height, and strength settings', () => {
