@@ -7,6 +7,16 @@ import { API_BASE_URL } from '../shared/constants'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'graph': ['@xyflow/react', 'd3-force'],
+          'motion': ['motion/react'],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

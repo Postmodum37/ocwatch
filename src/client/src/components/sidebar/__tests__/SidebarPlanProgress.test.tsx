@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import type { PlanProgress, SessionDetail } from '../../../../../shared/types';
+import type { PlanProgress } from '../../../../../shared/types';
 import { SidebarPlanProgress } from '../SidebarPlanProgress';
-import { useAppContext } from '../../../store/AppContext';
+import { usePollData } from '../../../store/PollDataContext';
 
 const mockPlan: PlanProgress = {
   completed: 1,
@@ -15,81 +15,53 @@ const mockPlan: PlanProgress = {
   ],
 };
 
-type AppContextMock = {
+type PollDataMock = {
   sessions: [];
-  sessionDetail: SessionDetail | null;
-  sessionDetailLoading: boolean;
   planProgress: PlanProgress | null;
   planName: string | undefined;
-  sessionStats: null;
-  messages: [];
-  activitySessions: [];
-  selectedSessionId: string | null;
-  projects: [];
-  selectedProjectId: string | null;
   loading: boolean;
   error: null;
   lastUpdate: number;
   isReconnecting: boolean;
-  agentFilter: string[];
-  notificationPermission: NotificationPermission;
-  requestNotificationPermission: () => Promise<NotificationPermission>;
-  setSelectedSessionId: (id: string | null) => void;
-  setSelectedProjectId: (id: string) => void;
-  setAgentFilter: (agents: string[]) => void;
 };
 
-const defaultContext = (): AppContextMock => ({
+const defaultPollData = (): PollDataMock => ({
   sessions: [],
-  sessionDetail: null,
-  sessionDetailLoading: false,
   planProgress: null,
   planName: undefined,
-  sessionStats: null,
-  messages: [],
-  activitySessions: [],
-  selectedSessionId: null,
-  projects: [],
-  selectedProjectId: null,
   loading: false,
   error: null,
   lastUpdate: 0,
   isReconnecting: false,
-  agentFilter: [],
-  notificationPermission: 'default' as NotificationPermission,
-  requestNotificationPermission: async () => 'default' as NotificationPermission,
-  setSelectedSessionId: () => {},
-  setSelectedProjectId: () => {},
-  setAgentFilter: () => {},
 });
 
-const createAppContext = (overrides?: Partial<ReturnType<typeof defaultContext>>) => ({
-  ...defaultContext(),
+const createPollData = (overrides?: Partial<PollDataMock>) => ({
+  ...defaultPollData(),
   ...overrides,
 });
 
-vi.mock('../../../store/AppContext', () => ({
-  useAppContext: vi.fn(),
+vi.mock('../../../store/PollDataContext', () => ({
+  usePollData: vi.fn(),
 }));
 
-const mockUseAppContext = vi.mocked(useAppContext);
+const mockUsePollData = vi.mocked(usePollData);
 
 describe('SidebarPlanProgress', () => {
   it('shows no plan when plan is missing', () => {
-    mockUseAppContext.mockReturnValue(createAppContext());
+    mockUsePollData.mockReturnValue(createPollData());
     render(<SidebarPlanProgress />);
     expect(screen.getByText('No plan')).toBeDefined();
   });
 
   it('shows no plan when project selected but plan missing', () => {
-    mockUseAppContext.mockReturnValue(createAppContext({ selectedProjectId: 'p1' }));
+    mockUsePollData.mockReturnValue(createPollData());
     render(<SidebarPlanProgress />);
     expect(screen.getByText('No plan')).toBeDefined();
   });
 
   it('renders plan progress when plan exists', () => {
-    mockUseAppContext.mockReturnValue(
-      createAppContext({ selectedProjectId: 'p1', planProgress: mockPlan, planName: 'Plan A' })
+    mockUsePollData.mockReturnValue(
+      createPollData({ planProgress: mockPlan, planName: 'Plan A' })
     );
     render(<SidebarPlanProgress />);
     expect(screen.getByTestId('sidebar-plan-progress')).toBeDefined();

@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
-import { useAppContext } from '../../store/AppContext';
+import { useUIState } from '../../store/UIStateContext';
+import { useSessionDetail } from '../../store/SessionDetailContext';
 import { formatTokens, shortModelName } from '../../utils/formatters';
 import { getAgentColor } from '../../utils/agentColors';
 import { StatusDot } from './StatusDot';
 import type { ActivitySession } from '@shared/types';
 
 export const ActiveAgents: React.FC = () => {
-  const { activitySessions, selectedSessionId } = useAppContext();
+  const { activitySessions } = useSessionDetail();
+  const { selectedSessionId } = useUIState();
 
   const { displayAgents, overflowCount, isSessionMode } = useMemo(() => {
     let filtered: ActivitySession[] = [];

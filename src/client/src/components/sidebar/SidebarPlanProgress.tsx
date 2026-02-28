@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { CheckSquare, Square, ChevronDown, ChevronUp } from 'lucide-react';
-import { useAppContext } from '../../store/AppContext';
+import { usePollData } from '../../store/PollDataContext';
 
 export const SidebarPlanProgress: React.FC = () => {
-  const { planProgress, planName } = useAppContext();
+  const { planProgress, planName } = usePollData();
   const [expanded, setExpanded] = useState(false);
 
   if (!planProgress) {

@@ -12,7 +12,7 @@ import {
 } from 'd3-force';
 import { collide, type RectCollisionNode } from './collide';
 
-const NODE_WIDTH = 250;
+const NODE_WIDTH = 320;
 const NODE_HEIGHT = 140;
 const HALF_NODE_WIDTH = NODE_WIDTH / 2;
 const HALF_NODE_HEIGHT = NODE_HEIGHT / 2;
@@ -22,7 +22,7 @@ const ALPHA_MIN = 0.001;
 const ALPHA_DECAY = 0.04;
 const DRAG_REHEAT_ALPHA = 0.1;
 
-const LINK_DISTANCE = 260;
+const LINK_DISTANCE = 360;
 const LINK_STRENGTH = 0.12;
 const CHARGE_STRENGTH = -1200;
 

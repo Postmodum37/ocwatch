@@ -1,6 +1,6 @@
 import type { Force, SimulationNodeDatum } from 'd3-force';
 
-const DEFAULT_WIDTH = 250;
+const DEFAULT_WIDTH = 320;
 const DEFAULT_HEIGHT = 140;
 const DEFAULT_PADDING = 24;
 const DEFAULT_STRENGTH = 0.9;

@@ -102,7 +102,7 @@ export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) 
   // Runtime guard for data contract
   if (!session?.id || !session?.agent) {
     return (
-      <div className="flex items-center justify-center w-[250px] h-[60px] rounded-md border border-error/50 bg-surface text-error text-xs p-2">
+      <div className="flex items-center justify-center w-[320px] h-[60px] rounded-md border border-error/50 bg-surface text-error text-xs p-2">
         Invalid node data
       </div>
     );
@@ -142,7 +142,7 @@ export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) 
       whileHover="hover"
       variants={variants}
       className={`
-        relative flex flex-col w-[250px] rounded-md border 
+        relative flex flex-col w-[320px] rounded-md border
         bg-surface transition-colors duration-200
         ${selected ? 'border-accent ring-1 ring-accent shadow-[0_0_15px_rgba(88,166,255,0.15)]' : 'border-border'}
         ${session.activityType === 'waiting-user' ? 'border-l-2 border-l-warning' : ''}
@@ -185,7 +185,7 @@ export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) 
       </div>
 
       <div className="px-3 py-2 border-t border-border/50 flex items-center justify-between text-[10px] text-text-secondary bg-black/10">
-        <div className="flex flex-col truncate max-w-[120px]">
+        <div className="flex flex-col truncate">
           {(session.providerID || session.modelID) && (
             <span className="truncate" title={`${session.providerID}/${session.modelID}`}>
               {session.providerID}/{session.modelID}

@@ -1,17 +1,18 @@
-
-import { LayoutDashboard, AlertCircle, WifiOff, Bell, BellOff } from 'lucide-react'
+import { Suspense, useEffect } from 'react'
+import { lazy } from 'react'
+import { LayoutDashboard, AlertCircle, WifiOff, Bell, BellOff, Activity } from 'lucide-react'
 import { DEFAULT_PORT } from '@shared/constants'
 import { ActivityStream } from './components/ActivityStream'
 import { SessionList } from './components/SessionList'
-import { GraphView } from './components/graph/GraphView'
+const GraphView = lazy(() => import('./components/graph/GraphView'))
 
 import { SessionStats } from './components/SessionStats'
 import { AppProvider, useAppContext } from './store/AppContext'
-import { SessionListSkeleton } from './components/LoadingSkeleton'
+import { SessionListSkeleton, LoadingSkeleton } from './components/LoadingSkeleton'
 import { synthesizeActivityItems } from '@shared/types'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useMemo } from 'react'
-
+import { EmptyState } from './components/EmptyState'
 function AppContent() {
   const { 
     sessions, 
@@ -34,6 +35,11 @@ function AppContent() {
     selectedId: selectedSessionId,
     onSelect: setSelectedSessionId,
   });
+
+  // Prefetch GraphView chunk on mount
+  useEffect(() => {
+    import('./components/graph/GraphView');
+  }, []);
 
   const activityEntries = useMemo(
     () => synthesizeActivityItems(activitySessions).filter(item => item.type !== 'tool-call'),
@@ -127,10 +133,20 @@ function AppContent() {
           </header>
 
            <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
-             <GraphView
-               sessions={activitySessions}
-               loading={loading}
-             />
+             {activitySessions.length === 0 ? (
+               <EmptyState
+                 icon={Activity}
+                 title="No Activity"
+                 description="Select a session to view live activity"
+               />
+             ) : (
+               <Suspense fallback={<LoadingSkeleton />}>
+                 <GraphView
+                   sessions={activitySessions}
+                   loading={loading}
+                 />
+               </Suspense>
+             )}
            </main>
         </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAppContext } from '../../store/AppContext';
+import { usePollData } from '../../store/PollDataContext';
 
 function formatTimeSince(lastUpdate: number): string {
   const diff = Math.floor((Date.now() - lastUpdate) / 1000);
@@ -8,7 +8,7 @@ function formatTimeSince(lastUpdate: number): string {
 }
 
 export const SystemHealth: React.FC = () => {
-  const { lastUpdate, isReconnecting, error } = useAppContext();
+  const { lastUpdate, isReconnecting, error } = usePollData();
   const [timeSince, setTimeSince] = useState<string>(() => formatTimeSince(lastUpdate));
 
   useEffect(() => {
