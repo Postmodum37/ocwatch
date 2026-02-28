@@ -285,3 +285,5 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
     </GraphShell>
   );
 };
+
+export default GraphView;
