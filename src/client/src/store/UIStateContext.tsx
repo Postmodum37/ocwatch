@@ -104,6 +104,7 @@ export function UIStateProvider({ children, apiUrl }: UIStateProviderProps) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useUIState(): UIStateContextValue {
   const context = useContext(UIStateContext);
   if (context === undefined) {

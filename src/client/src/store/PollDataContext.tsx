@@ -48,6 +48,7 @@ export function PollDataProvider({ children, apiUrl, pollingInterval }: PollData
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePollData(): PollDataContextValue {
   const context = useContext(PollDataContext);
   if (context === undefined) {

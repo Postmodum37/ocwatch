@@ -34,6 +34,7 @@ export function SessionDetailProvider({ children, apiUrl }: SessionDetailProvide
 
   useEffect(() => {
     if (!selectedSessionId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSessionDetail(null);
       lastFetchedUpdatedAtRef.current = undefined;
       return;
@@ -132,6 +133,7 @@ export function SessionDetailProvider({ children, apiUrl }: SessionDetailProvide
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSessionDetail(): SessionDetailContextValue {
   const context = useContext(SessionDetailContext);
   if (context === undefined) {
