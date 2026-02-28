@@ -33,6 +33,25 @@ const edgeTypes: EdgeTypes = {
   animatedEdge: AnimatedEdge,
 };
 
+function getSessionFingerprint(session: ActivitySession): string {
+  return JSON.stringify({
+    status: session.status,
+    activityType: session.activityType,
+    currentAction: session.currentAction,
+    workingChildCount: session.workingChildCount,
+    pendingToolCount: session.pendingToolCount,
+    patchFilesCount: session.patchFilesCount,
+    agent: session.agent,
+    modelID: session.modelID,
+    providerID: session.providerID,
+    tokens: session.tokens,
+    updatedAt: session.updatedAt,
+    toolCalls: session.toolCalls,
+    parentID: session.parentID,
+    title: session.title,
+  });
+}
+
 /** Shared layout wrapper for all graph states */
 function GraphShell({ children, testId, headerRight }: { children: React.ReactNode; testId?: string; headerRight?: React.ReactNode }) {
   return (
@@ -57,6 +76,8 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
   const prevStatusMap = useRef<Map<string, string>>(new Map());
   const reverseFlowEdges = useRef<Set<string>>(new Set());
   const reverseFlowTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const prevNodeFingerprintsRef = useRef<Map<string, string>>(new Map());
+  const prevEdgeDirectionsRef = useRef<Map<string, EdgeDirection | null>>(new Map());
 
   // Force edge re-render when reverse flow expires
   const triggerEdgeUpdate = useCallback(() => {
@@ -75,12 +96,33 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
 
   useEffect(() => {
     setNodes((currentNodes) => {
+      const nextFingerprints = new Map(sessions.map((session) => [session.id, getSessionFingerprint(session)]));
+      const prevFingerprints = prevNodeFingerprintsRef.current;
+      const hasSameIds =
+        currentNodes.length === nextFingerprints.size &&
+        currentNodes.every((node) => nextFingerprints.has(node.id));
+      const hasSameFingerprints =
+        hasSameIds &&
+        currentNodes.every((node) => prevFingerprints.get(node.id) === nextFingerprints.get(node.id));
+
+      if (hasSameFingerprints) {
+        prevNodeFingerprintsRef.current = nextFingerprints;
+        return currentNodes;
+      }
+
       const positionMap = new Map(currentNodes.map((n) => [n.id, n.position]));
-      
+      const currentNodeMap = new Map(currentNodes.map((node) => [node.id, node]));
+
       const nextNodes: Node[] = sessions.map((session, index) => {
+        const existingNode = currentNodeMap.get(session.id);
         const existingPos = positionMap.get(session.id);
         // Stagger initial positions to avoid all-at-origin explosion
         const initialPos = { x: (index % 3) * 300, y: Math.floor(index / 3) * 200 };
+
+        if (existingNode && prevFingerprints.get(session.id) === nextFingerprints.get(session.id)) {
+          return existingNode;
+        }
+
         return {
           id: session.id,
           type: 'agentNode',
@@ -89,11 +131,12 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
           position: existingPos || initialPos,
         };
       });
-      
+
+      prevNodeFingerprintsRef.current = nextFingerprints;
       return nextNodes;
     });
 
-    setEdges(() => {
+    setEdges((prevEdges) => {
       const sessionMap = new Map(sessions.map((s) => [s.id, s]));
 
       // Detect child completion transitions: working → completed
@@ -125,7 +168,8 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
       }
       prevStatusMap.current = new Map(sessions.map((s) => [s.id, s.status ?? 'idle']));
 
-      const nextEdges: Edge[] = [];
+      const edgeRecords: Array<{ id: string; source: string; target: string; direction: EdgeDirection }> = [];
+      const nextEdgeDirections = new Map<string, EdgeDirection | null>();
 
       for (const session of sessions) {
         if (!session.parentID || !sessionMap.has(session.parentID)) continue;
@@ -138,15 +182,42 @@ export const GraphView: React.FC<GraphViewProps> = ({ sessions, loading }) => {
           direction = 'up'; // Child just completed → result return flow
         }
 
-        nextEdges.push({
-          id: `${session.parentID}-${session.id}`,
+        const edgeId = `${session.parentID}-${session.id}`;
+        nextEdgeDirections.set(edgeId, direction);
+        edgeRecords.push({
+          id: edgeId,
           source: session.parentID,
           target: session.id,
-          type: 'animatedEdge',
-          data: { direction },
+          direction,
         });
       }
-      
+
+      const topologyUnchanged =
+        prevEdges.length === edgeRecords.length &&
+        prevEdges.every((edge) => {
+          const nextRecord = edgeRecords.find((record) => record.id === edge.id);
+          return !!nextRecord && edge.source === nextRecord.source && edge.target === nextRecord.target;
+        });
+      const prevDirections = prevEdgeDirectionsRef.current;
+      const directionsUnchanged =
+        topologyUnchanged &&
+        prevDirections.size === nextEdgeDirections.size &&
+        edgeRecords.every((record) => prevDirections.get(record.id) === nextEdgeDirections.get(record.id));
+
+      if (topologyUnchanged && directionsUnchanged) {
+        prevEdgeDirectionsRef.current = nextEdgeDirections;
+        return prevEdges;
+      }
+
+      const nextEdges: Edge[] = edgeRecords.map((record) => ({
+        id: record.id,
+        source: record.source,
+        target: record.target,
+        type: 'animatedEdge',
+        data: { direction: record.direction },
+      }));
+
+      prevEdgeDirectionsRef.current = nextEdgeDirections;
       return nextEdges;
     });
   }, [sessions, setNodes, setEdges, triggerEdgeUpdate]);
