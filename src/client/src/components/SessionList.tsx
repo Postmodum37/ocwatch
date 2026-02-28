@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { Loader2, Check, Circle, Folder, ChevronDown, Inbox, MessageCircleQuestion } from 'lucide-react';
 import type { SessionSummary, ProjectInfo, SessionStatus, SessionActivityType } from '@shared/types';
 import { formatRelativeTimeVerbose } from '@shared/utils/formatTime';
@@ -36,25 +36,26 @@ const SessionStatusIcon: React.FC<{ status: SessionStatus; activityType?: Sessio
   return <Check className="w-4 h-4 text-text-secondary" data-testid="session-status-completed" />;
 };
 
-export const SessionList: React.FC<SessionListProps> = ({ 
-  sessions, 
-  selectedId, 
+export const SessionList = memo<SessionListProps>(function SessionList({
+  sessions,
+  selectedId,
   onSelect,
   projects = [],
   selectedProjectId = null,
   onProjectSelect = () => {}
-}) => {
+}) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const filteredSessions = selectedProjectId
-    ? sessions.filter(s => s.projectID === selectedProjectId)
-    : sessions;
-
-  const sortedSessions = [...filteredSessions].sort((a, b) => {
-    const timeDiff = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    if (timeDiff !== 0) return timeDiff;
-    return a.id.localeCompare(b.id);
-  });
+  const sortedSessions = useMemo(() => {
+    const filtered = selectedProjectId
+      ? sessions.filter(s => s.projectID === selectedProjectId)
+      : sessions;
+    return [...filtered].sort((a, b) => {
+      const timeDiff = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return a.id.localeCompare(b.id);
+    });
+  }, [sessions, selectedProjectId]);
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
   const projectName = selectedProject?.directory.split('/').pop() || 'Projects';
@@ -195,4 +196,4 @@ export const SessionList: React.FC<SessionListProps> = ({
        <SystemHealth />
      </div>
   );
-};
+});
