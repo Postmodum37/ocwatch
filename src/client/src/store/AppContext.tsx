@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { useSSE } from '../hooks/useSSE';
 import { useNotifications } from '../hooks/useNotifications';
 import type { SessionSummary, SessionDetail, PlanProgress, ProjectInfo, MessageMeta, ActivitySession, SessionStats } from '@shared/types';
+import { UIStateProvider, useUIState } from './UIStateContext';
+import { PollDataProvider, usePollData } from './PollDataContext';
+import { SessionDetailProvider, useSessionDetail } from './SessionDetailContext';
 
 interface AppContextValue {
   sessions: SessionSummary[];
@@ -38,211 +40,81 @@ interface AppProviderProps {
 }
 
 export function AppProvider({ children, apiUrl, pollingInterval }: AppProviderProps) {
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [agentFilter, setAgentFilter] = useState<string[]>([]);
+  return (
+    <UIStateProvider apiUrl={apiUrl}>
+      <PollDataProvider apiUrl={apiUrl} pollingInterval={pollingInterval}>
+        <SessionDetailProvider apiUrl={apiUrl}>
+          <AppContextBridge>{children}</AppContextBridge>
+        </SessionDetailProvider>
+      </PollDataProvider>
+    </UIStateProvider>
+  );
+}
 
-  const [selectedProjectId, setSelectedProjectIdRaw] = useState<string | null>(null);
-  const [projects, setProjects] = useState<ProjectInfo[]>([]);
-
-  const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(null);
-  const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
-  const lastFetchedUpdatedAtRef = React.useRef<string | undefined>(undefined);
-
-  const userHasSelectedRef = React.useRef(false);
-  const setSelectedProjectId = React.useCallback((id: string) => {
-    userHasSelectedRef.current = true;
-    setSelectedProjectIdRaw(id);
-  }, []);
-
-  const prevProjectIdRef = React.useRef(selectedProjectId);
-  useEffect(() => {
-    if (prevProjectIdRef.current !== selectedProjectId) {
-      prevProjectIdRef.current = selectedProjectId;
-      setTimeout(() => setSelectedSessionId(null), 0);
-    }
-  }, [selectedProjectId]);
-
-  const { data, loading, error, lastUpdate, isReconnecting } = useSSE({
-    apiUrl,
-    pollingInterval,
-    projectId: selectedProjectId,
-  });
-
-  // Fetch session detail when selectedSessionId changes
-  useEffect(() => {
-    if (!selectedSessionId) {
-      setSessionDetail(null);
-      lastFetchedUpdatedAtRef.current = undefined;
-      return;
-    }
-
-    const baseUrl = apiUrl || '';
-    let cancelled = false;
-
-    // Only show loading spinner on initial fetch, not on background refreshes
-    const isInitialFetch = sessionDetail?.session.id !== selectedSessionId;
-    if (isInitialFetch) {
-      setSessionDetailLoading(true);
-      lastFetchedUpdatedAtRef.current = undefined;
-    }
-
-    fetch(`${baseUrl}/api/sessions/${selectedSessionId}`)
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((detail: SessionDetail) => {
-        if (!cancelled) {
-          setSessionDetail(detail);
-          lastFetchedUpdatedAtRef.current = detail.session.updatedAt.toString();
-        }
-      })
-      .catch(err => {
-        if (!cancelled) {
-          console.warn('Failed to fetch session detail:', err);
-          // Only clear detail on initial fetch failure
-          if (isInitialFetch) {
-            setSessionDetail(null);
-          }
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setSessionDetailLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedSessionId, apiUrl]);
-
-  // Background refresh: trigger fetch when selected session's updatedAt changes in poll data
-  useEffect(() => {
-    if (!selectedSessionId || !data?.sessions) return;
-    if (lastFetchedUpdatedAtRef.current === undefined) return; // Skip on initial load
-
-    const selectedSession = data.sessions.find(s => s.id === selectedSessionId);
-    if (!selectedSession) return;
-
-    const currentUpdatedAt = selectedSession.updatedAt.toString();
-    if (currentUpdatedAt !== lastFetchedUpdatedAtRef.current) {
-      // Session has been updated, trigger a background refresh
-      const baseUrl = apiUrl || '';
-      let cancelled = false;
-
-      fetch(`${baseUrl}/api/sessions/${selectedSessionId}`)
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        })
-        .then((detail: SessionDetail) => {
-          if (!cancelled) {
-            setSessionDetail(detail);
-            lastFetchedUpdatedAtRef.current = detail.session.updatedAt.toString();
-          }
-        })
-        .catch(err => {
-          if (!cancelled) {
-            console.warn('Failed to background refresh session detail:', err);
-          }
-        });
-
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, [selectedSessionId, data?.sessions, apiUrl]);
-
-  // Derived values from sessionDetail
-  const activitySessions = sessionDetail?.activity ?? [];
-  const messages = sessionDetail?.messages ?? [];
-  const sessionStats = sessionDetail?.stats ?? null;
+function AppContextBridge({ children }: { children: ReactNode }) {
+  const pollData = usePollData();
+  const sessionDetail = useSessionDetail();
+  const uiState = useUIState();
 
   const {
     permission: notificationPermission,
     requestPermission: requestNotificationPermission,
   } = useNotifications(
-    data?.sessions || [],
-    isReconnecting,
-    activitySessions
+    pollData.sessions,
+    pollData.isReconnecting,
+    sessionDetail.activitySessions
   );
 
-  // Load projects + health on mount, auto-select with priority chain
   useEffect(() => {
-    const baseUrl = apiUrl || '';
-    let cancelled = false;
-
-    const init = async () => {
-      const [projectsResult, healthResult] = await Promise.allSettled([
-        fetch(`${baseUrl}/api/projects`).then(r => r.ok ? r.json() : []),
-        fetch(`${baseUrl}/api/health`).then(r => r.ok ? r.json() : {}),
-      ]);
-
-      if (cancelled) return;
-
-      const projectsData: ProjectInfo[] =
-        projectsResult.status === 'fulfilled' ? projectsResult.value : [];
-      const healthData =
-        healthResult.status === 'fulfilled' ? healthResult.value : {};
-
-      setProjects(projectsData);
-
-      if (userHasSelectedRef.current) return;
-
-      const projectIds = new Set(projectsData.map(p => p.id));
-      const urlParam = new URLSearchParams(window.location.search).get('project');
-      const serverDefault: string | undefined = (healthData as Record<string, unknown>).defaultProjectId as string | undefined;
-      const firstProject = projectsData.length > 0 ? projectsData[0].id : null;
-
-      const candidates = [urlParam, serverDefault, firstProject];
-      const resolved = candidates.find(c => c != null && projectIds.has(c)) ?? null;
-      if (resolved) {
-        setSelectedProjectIdRaw(resolved);
-      }
-    };
-
-    init();
-    return () => { cancelled = true; };
-  }, [apiUrl]);
-
-  useEffect(() => {
-    if (!selectedProjectId) return;
-    const params = new URLSearchParams(window.location.search);
-    params.set('project', selectedProjectId);
-    const qs = params.toString();
-    window.history.replaceState({}, '', `?${qs}`);
-  }, [selectedProjectId]);
-
-  useEffect(() => {
-    const sessions = data?.sessions || [];
-    const hasWaitingUser = sessions.some(s => s.activityType === 'waiting-user');
+    const hasWaitingUser = pollData.sessions.some(s => s.activityType === 'waiting-user');
     document.title = hasWaitingUser ? '⚡ Input needed — OCWatch' : 'OCWatch';
-  }, [data?.sessions]);
+  }, [pollData.sessions]);
 
   const value = useMemo<AppContextValue>(() => ({
-    sessions: data?.sessions || [],
-    sessionDetail,
-    sessionDetailLoading,
-    planProgress: data?.planProgress || null,
-    planName: data?.planName,
-    sessionStats,
-    messages,
-    activitySessions,
-    selectedSessionId,
-    projects,
-    selectedProjectId,
-    loading,
-    error,
-    lastUpdate,
-    isReconnecting,
-    agentFilter,
+    sessions: pollData.sessions,
+    sessionDetail: sessionDetail.sessionDetail,
+    sessionDetailLoading: sessionDetail.sessionDetailLoading,
+    planProgress: pollData.planProgress,
+    planName: pollData.planName,
+    sessionStats: sessionDetail.sessionStats,
+    messages: sessionDetail.messages,
+    activitySessions: sessionDetail.activitySessions,
+    selectedSessionId: uiState.selectedSessionId,
+    projects: uiState.projects,
+    selectedProjectId: uiState.selectedProjectId,
+    loading: pollData.loading,
+    error: pollData.error,
+    lastUpdate: pollData.lastUpdate,
+    isReconnecting: pollData.isReconnecting,
+    agentFilter: uiState.agentFilter,
     notificationPermission,
     requestNotificationPermission,
-    setSelectedSessionId,
-    setSelectedProjectId,
-    setAgentFilter,
-  }), [data, sessionDetail, sessionDetailLoading, sessionStats, messages, activitySessions, selectedSessionId, projects, selectedProjectId, loading, error, lastUpdate, isReconnecting, agentFilter, notificationPermission, requestNotificationPermission, setSelectedProjectId]);
+    setSelectedSessionId: uiState.setSelectedSessionId,
+    setSelectedProjectId: uiState.setSelectedProjectId,
+    setAgentFilter: uiState.setAgentFilter,
+  }), [
+    pollData.sessions,
+    pollData.planProgress,
+    pollData.planName,
+    pollData.loading,
+    pollData.error,
+    pollData.lastUpdate,
+    pollData.isReconnecting,
+    sessionDetail.sessionDetail,
+    sessionDetail.sessionDetailLoading,
+    sessionDetail.sessionStats,
+    sessionDetail.messages,
+    sessionDetail.activitySessions,
+    uiState.selectedSessionId,
+    uiState.projects,
+    uiState.selectedProjectId,
+    uiState.agentFilter,
+    uiState.setSelectedSessionId,
+    uiState.setSelectedProjectId,
+    uiState.setAgentFilter,
+    notificationPermission,
+    requestNotificationPermission,
+  ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
