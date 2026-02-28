@@ -19,6 +19,40 @@ vi.mock('../../store/AppContext', () => ({
   }),
 }));
 
+vi.mock('../../store/PollDataContext', () => ({
+  usePollData: () => ({
+    sessions: [],
+    planProgress: null,
+    planName: undefined,
+    loading: false,
+    error: null,
+    lastUpdate: Date.now(),
+    isReconnecting: false,
+  }),
+}));
+
+vi.mock('../../store/UIStateContext', () => ({
+  useUIState: () => ({
+    selectedSessionId: null,
+    selectedProjectId: null,
+    agentFilter: [],
+    projects: [],
+    setSelectedSessionId: () => {},
+    setSelectedProjectId: () => {},
+    setAgentFilter: () => {},
+  }),
+}));
+
+vi.mock('../../store/SessionDetailContext', () => ({
+  useSessionDetail: () => ({
+    sessionDetail: null,
+    sessionDetailLoading: false,
+    sessionStats: null,
+    messages: [],
+    activitySessions: [],
+  }),
+}));
+
 const mockSessions: SessionSummary[] = [
   {
     id: '1',

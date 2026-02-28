@@ -30,6 +30,7 @@ export function SessionDetailProvider({ children, apiUrl }: SessionDetailProvide
 
   const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(null);
   const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
+  const lastFetchedSessionIdRef = useRef<string | undefined>(undefined);
   const lastFetchedUpdatedAtRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -37,47 +38,46 @@ export function SessionDetailProvider({ children, apiUrl }: SessionDetailProvide
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSessionDetail(null);
       lastFetchedUpdatedAtRef.current = undefined;
+      lastFetchedSessionIdRef.current = undefined;
       return;
     }
 
+    const controller = new AbortController();
     const baseUrl = apiUrl || '';
-    let cancelled = false;
 
-    const isInitialFetch = sessionDetail?.session.id !== selectedSessionId;
+    const isInitialFetch = lastFetchedSessionIdRef.current !== selectedSessionId;
     if (isInitialFetch) {
       setSessionDetailLoading(true);
       lastFetchedUpdatedAtRef.current = undefined;
     }
 
-    fetch(`${baseUrl}/api/sessions/${selectedSessionId}`)
+    fetch(`${baseUrl}/api/sessions/${selectedSessionId}`, { signal: controller.signal })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
       .then((detail: SessionDetail) => {
-        if (!cancelled) {
-          setSessionDetail(detail);
-          lastFetchedUpdatedAtRef.current = detail.session.updatedAt.toString();
-        }
+        setSessionDetail(detail);
+        lastFetchedSessionIdRef.current = detail.session.id;
+        lastFetchedUpdatedAtRef.current = detail.session.updatedAt.toString();
       })
       .catch(err => {
-        if (!cancelled) {
-          console.warn('Failed to fetch session detail:', err);
-          if (isInitialFetch) {
-            setSessionDetail(null);
-          }
+        if (err.name === 'AbortError') return;
+        console.warn('Failed to fetch session detail:', err);
+        if (isInitialFetch) {
+          setSessionDetail(null);
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setSessionDetailLoading(false);
         }
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [selectedSessionId, apiUrl, sessionDetail?.session.id]);
+  }, [selectedSessionId, apiUrl]);
 
   useEffect(() => {
     if (!selectedSessionId || sessions.length === 0) return;
@@ -87,31 +87,28 @@ export function SessionDetailProvider({ children, apiUrl }: SessionDetailProvide
     if (!selectedSession) return;
 
     const currentUpdatedAt = selectedSession.updatedAt.toString();
-    if (currentUpdatedAt !== lastFetchedUpdatedAtRef.current) {
-      const baseUrl = apiUrl || '';
-      let cancelled = false;
+    if (currentUpdatedAt === lastFetchedUpdatedAtRef.current) return;
 
-      fetch(`${baseUrl}/api/sessions/${selectedSessionId}`)
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        })
-        .then((detail: SessionDetail) => {
-          if (!cancelled) {
-            setSessionDetail(detail);
-            lastFetchedUpdatedAtRef.current = detail.session.updatedAt.toString();
-          }
-        })
-        .catch(err => {
-          if (!cancelled) {
-            console.warn('Failed to background refresh session detail:', err);
-          }
-        });
+    const controller = new AbortController();
+    const baseUrl = apiUrl || '';
 
-      return () => {
-        cancelled = true;
-      };
-    }
+    fetch(`${baseUrl}/api/sessions/${selectedSessionId}`, { signal: controller.signal })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((detail: SessionDetail) => {
+        setSessionDetail(detail);
+        lastFetchedUpdatedAtRef.current = detail.session.updatedAt.toString();
+      })
+      .catch(err => {
+        if (err.name === 'AbortError') return;
+        console.warn('Failed to background refresh session detail:', err);
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, [selectedSessionId, sessions, apiUrl]);
 
   const activitySessions = sessionDetail?.activity ?? [];
