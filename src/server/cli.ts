@@ -2,6 +2,7 @@ import { DEFAULT_PORT } from "../shared/constants";
 
 export interface CLIFlags {
   port: number;
+  host: string;
   noBrowser: boolean;
   projectPath: string | null;
   showHelp: boolean;
@@ -11,6 +12,7 @@ export function parseArgs(): CLIFlags {
   const args = process.argv.slice(2);
   const flags: CLIFlags = {
     port: DEFAULT_PORT,
+    host: "localhost",
     noBrowser: false,
     projectPath: null,
     showHelp: false,
@@ -27,6 +29,15 @@ export function parseArgs(): CLIFlags {
       const portValue = args[i + 1];
       if (portValue && !isNaN(parseInt(portValue))) {
         flags.port = parseInt(portValue);
+        i++;
+      }
+    } else if (arg === "--host") {
+      const hostValue = args[i + 1];
+      if (hostValue && /^[a-zA-Z0-9.\-:]+$/.test(hostValue)) {
+        flags.host = hostValue;
+        i++;
+      } else if (hostValue) {
+        console.warn(`[ocwatch] Invalid --host value ignored: ${hostValue}`);
         i++;
       }
     } else if (arg === "--project") {
@@ -49,6 +60,7 @@ Usage: ocwatch [options]
 
 Options:
   --port <number>      Server port (default: 50234)
+  --host <address>     Bind address (default: localhost, use 0.0.0.0 for all interfaces)
   --no-browser         Skip auto-opening browser
   --project <path>     Set default project filter
   --help, -h           Show this help message
@@ -56,6 +68,7 @@ Options:
 Examples:
   ocwatch
   ocwatch --port 50999
+  ocwatch --host 0.0.0.0
   ocwatch --no-browser
   ocwatch --project /path/to/project
 `);

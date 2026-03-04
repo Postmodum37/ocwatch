@@ -76,10 +76,18 @@ app.use("*", errorHandler);
 
 app.use(
   "/api/*",
-  cors({
-    origin: ["http://localhost:3000", "http://localhost:50234"],
-    credentials: true,
-  })
+  cors(
+    flags.host === "0.0.0.0"
+      ? { origin: "*", credentials: false }
+      : {
+          origin: [
+            `http://localhost:3000`,
+            `http://localhost:${flags.port}`,
+            `http://${flags.host}:${flags.port}`,
+          ],
+          credentials: true,
+        }
+  )
 );
 
 registerRoutes(app, { defaultProjectIdPromise });
@@ -103,10 +111,13 @@ app.notFound(async (c) => {
 export { app };
 
 const port = flags.port;
-const url = `http://localhost:${port}`;
+const hostname = flags.host;
+const displayHost = hostname === "0.0.0.0" ? "localhost" : hostname;
+const url = `http://${displayHost}:${port}`;
 
 export default {
   port,
+  hostname,
   fetch: app.fetch,
 };
 
