@@ -3,7 +3,6 @@ import {
   SessionMetadata,
   MessageMeta,
   PartMeta,
-  AgentInfo,
   ToolCall,
   PlanProgress,
   Boulder,
@@ -76,21 +75,6 @@ describe("Type Definitions", () => {
       expect(part.id).toBe("part_123");
       expect(part.tool).toBe("bash");
       expect(part.state).toBe("complete");
-    });
-  });
-
-  describe("AgentInfo", () => {
-    it("should create a valid agent info object", () => {
-      const agent: AgentInfo = {
-        name: "claude",
-        mode: "normal",
-        modelID: "claude-3-sonnet",
-        active: true,
-        sessionID: "ses_123",
-      };
-
-      expect(agent.name).toBe("claude");
-      expect(agent.active).toBe(true);
     });
   });
 
