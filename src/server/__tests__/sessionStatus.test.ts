@@ -1,11 +1,21 @@
 import { describe, test, expect } from "bun:test";
 import {
-  getSessionStatus,
   getSessionStatusInfo,
   getStatusFromTimestamp,
   isPendingToolCall,
 } from "../utils/sessionStatus";
 import type { MessageMeta, PartMeta } from "../../shared/types";
+
+function getSessionStatus(
+  messages: MessageMeta[],
+  hasPendingToolCall = false,
+  lastToolCompletedAt?: Date,
+  workingChildCount?: number,
+  lastAssistantFinished?: boolean,
+  isSubagent = false
+) {
+  return getSessionStatusInfo(messages, hasPendingToolCall, lastToolCompletedAt, workingChildCount, lastAssistantFinished, isSubagent).status;
+}
 
 function createMessage(secondsAgo: number): MessageMeta {
   return {

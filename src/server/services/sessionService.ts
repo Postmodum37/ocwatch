@@ -148,26 +148,6 @@ function buildToolCalls(parts: PartMeta[], messageAgent: Map<string, string>): T
   return toolCalls.slice(0, 50);
 }
 
-export function buildAgentHierarchy(messages: MessageMeta[]): Record<string, string[]> {
-  const hierarchy: Record<string, string[]> = {};
-
-  for (const msg of messages) {
-    if (msg.agent && msg.parentID) {
-      const parentMsg = messages.find((m) => m.id === msg.parentID);
-      if (parentMsg?.agent) {
-        if (!hierarchy[parentMsg.agent]) {
-          hierarchy[parentMsg.agent] = [];
-        }
-        if (!hierarchy[parentMsg.agent].includes(msg.agent)) {
-          hierarchy[parentMsg.agent].push(msg.agent);
-        }
-      }
-    }
-  }
-
-  return hierarchy;
-}
-
 export async function buildSessionTree(
   rootSessionID: string,
   allSessions: SessionMetadata[]

@@ -9,10 +9,6 @@ export const pollQuerySchema = z.object({
   sessionId: sessionIdSchema.optional(),
 });
 
-export function validateParam<T>(schema: z.ZodSchema<T>, value: unknown): T {
-  return schema.parse(value);
-}
-
 export type ValidationResult<T> = { success: true; value: T } | { success: false; response: Response };
 
 export function validateWithResponse<T>(
