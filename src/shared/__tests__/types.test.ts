@@ -6,8 +6,8 @@ import {
   ToolCall,
   PlanProgress,
   Boulder,
-  RingBuffer,
 } from "../types";
+import { RingBuffer } from "../utils/RingBuffer";
 
 describe("Type Definitions", () => {
   describe("SessionMetadata", () => {

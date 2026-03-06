@@ -203,8 +203,6 @@ export type ActivityItem =
   | AgentSpawnActivity
   | AgentCompleteActivity;
 
-export { synthesizeActivityItems } from '../utils/activityUtils';
-
 /**
  * PlanProgress represents progress on a plan
  */
@@ -316,4 +314,3 @@ export interface PollResponse {
   lastUpdate: number;
 }
 
-export { RingBuffer } from '../utils/RingBuffer';
