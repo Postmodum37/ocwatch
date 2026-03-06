@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePolling } from './usePolling';
+import { useScopedFetch } from './useScopedFetch';
 import type { PollResponse } from '@shared/types';
 
 export interface UseSSEState {
@@ -40,9 +41,17 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const scopeKey = projectId ?? '';
-  const currentScopeKeyRef = useRef<string>(scopeKey);
   const lastEventTimeRef = useRef<number>(Date.now());
+
+  const scopeKey = projectId ?? '';
+  const { scopeChanged, isStale, getCurrentScopeKey } = useScopedFetch(scopeKey);
+
+  if (scopeChanged) {
+    setSseState(prev => ({
+      ...prev,
+      loading: true,
+    }));
+  }
 
   const pollingState = usePolling({
     enabled: enabled && isUsingFallback,
@@ -52,6 +61,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
   });
 
   const fetchData = useCallback(async () => {
+    const fetchScopeKey = getCurrentScopeKey();
     const params = new URLSearchParams();
     if (projectId) params.set('projectId', projectId);
     const qs = params.toString();
@@ -61,7 +71,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data: PollResponse = await response.json();
 
-      if (currentScopeKeyRef.current === scopeKey) {
+      if (!isStale(fetchScopeKey)) {
         setSseState(prev => ({
           ...prev,
           data,
@@ -73,17 +83,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     } catch (err) {
       console.error('Failed to fetch data:', err);
     }
-  }, [projectId, scopeKey]);
-
-  useEffect(() => {
-    if (currentScopeKeyRef.current !== scopeKey) {
-      currentScopeKeyRef.current = scopeKey;
-      setSseState(prev => ({
-        ...prev,
-        loading: true,
-      }));
-    }
-  }, [scopeKey]);
+  }, [projectId, isStale, getCurrentScopeKey]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
