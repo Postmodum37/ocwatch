@@ -86,14 +86,19 @@ export const GraphView: React.FC<GraphViewProps> = ({ rootSessionId, sessions, l
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
   const [reverseFlowNodeIds, setReverseFlowNodeIds] = useState<Set<string>>(new Set());
+  const [prevRootSessionId, setPrevRootSessionId] = useState(rootSessionId);
 
-  useEffect(() => {
+  if (prevRootSessionId !== rootSessionId) {
+    setPrevRootSessionId(rootSessionId);
     setDirection('TB');
     setShowCompleted(true);
     setFocusActiveOverride(null);
     setFocusedNodeId(null);
     setExpandedNodeIds(new Set());
     setReverseFlowNodeIds(new Set());
+  }
+
+  useEffect(() => {
     previousStatusMapRef.current = new Map();
   }, [rootSessionId]);
 
@@ -121,6 +126,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ rootSessionId, sessions, l
       const parentWorking = parentSession?.status === 'working' || parentSession?.status === 'waiting';
 
       if (previousStatus === 'working' && currentStatus === 'completed' && parentWorking) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setReverseFlowNodeIds((prev) => {
           const next = new Set(prev);
           next.add(session.id);

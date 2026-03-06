@@ -140,6 +140,7 @@ export function useSelectedActivityGraph({
 
     lastRefreshTokenRef.current = refreshToken;
     void fetchGraph(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSessionId, fetchGraph]);
 
   useEffect(() => {
