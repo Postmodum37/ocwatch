@@ -5,13 +5,11 @@ export const sessionIdSchema = z.string().regex(/^ses_[a-zA-Z0-9]+$/, 'Invalid s
 
 export const partIdSchema = z.string().min(1, 'Part ID required');
 
+export const projectIdSchema = z.string().regex(/^[a-zA-Z0-9_-]+$/, 'Invalid project ID format');
+
 export const pollQuerySchema = z.object({
   sessionId: sessionIdSchema.optional(),
 });
-
-export function validateParam<T>(schema: z.ZodSchema<T>, value: unknown): T {
-  return schema.parse(value);
-}
 
 export type ValidationResult<T> = { success: true; value: T } | { success: false; response: Response };
 

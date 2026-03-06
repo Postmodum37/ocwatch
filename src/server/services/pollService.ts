@@ -348,7 +348,7 @@ export async function fetchPollData(projectId?: string): Promise<PollResponse> {
         planName = boulder.planName || undefined;
       }
     } catch (err) {
-      console.debug("Failed to parse boulder.json:", err instanceof Error ? err.message : err);
+      console.warn("Failed to parse boulder.json:", err instanceof Error ? err.message : err);
     }
   }
 

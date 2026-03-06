@@ -1,5 +1,4 @@
 import type { Hono } from "hono";
-import { z } from "zod";
 import {
   generateETag,
   fetchPollData,
@@ -10,8 +9,7 @@ import {
   setPollInProgress,
   getPollCacheTTL,
 } from "../services/pollService";
-
-const projectIdSchema = z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid project ID format");
+import { projectIdSchema, validateWithResponse } from "../validation";
 
 export function registerPollRoute(app: Hono) {
   app.get("/api/poll", async (c) => {
@@ -21,11 +19,9 @@ export function registerPollRoute(app: Hono) {
     let projectId: string | undefined;
 
     if (rawProjectId) {
-      const result = projectIdSchema.safeParse(rawProjectId);
-      if (!result.success) {
-        return c.json({ error: "INVALID_PROJECT_ID", message: "Invalid project ID format" }, 400);
-      }
-      projectId = result.data;
+      const validation = validateWithResponse(projectIdSchema, rawProjectId, c);
+      if (!validation.success) return validation.response;
+      projectId = validation.value;
     }
 
     const POLL_CACHE_TTL = getPollCacheTTL();
@@ -49,7 +45,8 @@ export function registerPollRoute(app: Hono) {
         }
         c.header("ETag", etag);
         return c.json(data);
-      } catch {
+      } catch (err) {
+        console.warn("Poll request failed, retrying:", err instanceof Error ? err.message : err);
         setPollInProgress(null, projectId);
       }
     }

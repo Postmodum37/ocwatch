@@ -9,7 +9,7 @@ const GraphView = lazy(() => import('./components/graph/GraphView'))
 import { SessionStats } from './components/SessionStats'
 import { AppProvider, useAppContext } from './store/AppContext'
 import { SessionListSkeleton, LoadingSkeleton } from './components/LoadingSkeleton'
-import { synthesizeActivityItems } from '@shared/types'
+import { synthesizeActivityItems } from '@shared/utils/activityUtils'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useMemo } from 'react'
 import { EmptyState } from './components/EmptyState'

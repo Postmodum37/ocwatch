@@ -9,13 +9,3 @@ export function getAgentColor(agent: string | null | undefined): string {
   
   return '#6b7280'; // gray
 }
-
-export const AGENT_COLORS = {
-  sisyphus: '#3b82f6',
-  prometheus: '#a855f7',
-  explore: '#22c55e',
-  librarian: '#22c55e',
-  oracle: '#f59e0b',
-  build: '#06b6d4',
-  default: '#6b7280',
-} as const;

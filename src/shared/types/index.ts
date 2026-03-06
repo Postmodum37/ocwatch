@@ -127,17 +127,6 @@ export interface PartMeta {
 }
 
 /**
- * AgentInfo represents an active agent
- */
-export interface AgentInfo {
-  name: string;
-  mode: string;
-  modelID: string;
-  active: boolean;
-  sessionID: string;
-}
-
-/**
  * ToolCall represents a tool invocation
  */
 export interface ToolCall {
@@ -213,41 +202,6 @@ export type ActivityItem =
   | ToolCallActivity
   | AgentSpawnActivity
   | AgentCompleteActivity;
-
-/**
- * BurstEntry represents a burst of tool call activity
- * Groups consecutive tool calls from the same agent with aggregated metrics
- */
-export interface BurstEntry {
-  id: string;
-  type: "burst";
-  agentName: string;
-  items: ToolCallActivity[];
-  toolBreakdown: Record<string, number>;
-  durationMs: number;
-  firstTimestamp: Date;
-  lastTimestamp: Date;
-  pendingCount: number;
-  errorCount: number;
-}
-
-/**
- * MilestoneEntry represents a significant event in the activity stream
- * (agent spawn or agent complete)
- */
-export interface MilestoneEntry {
-  id: string;
-  type: "milestone";
-  item: AgentSpawnActivity | AgentCompleteActivity;
-}
-
-/**
- * StreamEntry is a union type for activity stream entries
- * Represents either a burst of tool calls or a milestone event
- */
-export type StreamEntry = BurstEntry | MilestoneEntry;
-
-export { synthesizeActivityItems } from '../utils/activityUtils';
 
 /**
  * PlanProgress represents progress on a plan
@@ -360,4 +314,3 @@ export interface PollResponse {
   lastUpdate: number;
 }
 
-export { RingBuffer } from '../utils/RingBuffer';
