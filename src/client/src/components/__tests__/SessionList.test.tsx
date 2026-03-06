@@ -3,22 +3,6 @@ import { SessionList } from '../SessionList';
 import type { SessionSummary, ProjectInfo } from '@shared/types';
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('../../store/AppContext', () => ({
-  useAppContext: () => ({
-    selectedSessionId: null,
-    sessions: [],
-    sessionDetail: null,
-    sessionDetailLoading: false,
-    sessionStats: null,
-    planProgress: null,
-    activitySessions: [],
-    messages: [],
-    lastUpdate: Date.now(),
-    isReconnecting: false,
-    error: null,
-  }),
-}));
-
 vi.mock('../../store/PollDataContext', () => ({
   usePollData: () => ({
     sessions: [],
@@ -28,6 +12,11 @@ vi.mock('../../store/PollDataContext', () => ({
     error: null,
     lastUpdate: Date.now(),
     isReconnecting: false,
+    sessionDetail: null,
+    sessionDetailLoading: false,
+    sessionStats: null,
+    messages: [],
+    activitySessions: [],
   }),
 }));
 
@@ -40,16 +29,6 @@ vi.mock('../../store/UIStateContext', () => ({
     setSelectedSessionId: () => {},
     setSelectedProjectId: () => {},
     setAgentFilter: () => {},
-  }),
-}));
-
-vi.mock('../../store/SessionDetailContext', () => ({
-  useSessionDetail: () => ({
-    sessionDetail: null,
-    sessionDetailLoading: false,
-    sessionStats: null,
-    messages: [],
-    activitySessions: [],
   }),
 }));
 

@@ -7,28 +7,37 @@ import { SessionList } from './components/SessionList'
 const GraphView = lazy(() => import('./components/graph/GraphView'))
 
 import { SessionStats } from './components/SessionStats'
-import { AppProvider, useAppContext } from './store/AppContext'
+import { AppProvider } from './store/AppContext'
+import { usePollData } from './store/PollDataContext'
+import { useUIState } from './store/UIStateContext'
 import { SessionListSkeleton, LoadingSkeleton } from './components/LoadingSkeleton'
 import { synthesizeActivityItems } from '@shared/utils/activityUtils'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useNotifications } from './hooks/useNotifications'
 import { useMemo } from 'react'
 import { EmptyState } from './components/EmptyState'
 function AppContent() {
-  const { 
-    sessions, 
-    sessionStats, 
+  const {
+    sessions,
+    sessionStats,
     activitySessions,
-    selectedSessionId,  
+    loading,
+    error,
+    isReconnecting,
+  } = usePollData();
+
+  const {
+    selectedSessionId,
     setSelectedSessionId,
     projects,
     selectedProjectId,
     setSelectedProjectId,
-    loading,
-    error,
-    isReconnecting,
-    notificationPermission,
-    requestNotificationPermission,
-  } = useAppContext();
+  } = useUIState();
+
+  const {
+    permission: notificationPermission,
+    requestPermission: requestNotificationPermission,
+  } = useNotifications(sessions, isReconnecting, activitySessions);
 
   useKeyboardShortcuts({
     sessions,
@@ -40,6 +49,11 @@ function AppContent() {
   useEffect(() => {
     import('./components/graph/GraphView');
   }, []);
+
+  useEffect(() => {
+    const hasWaitingUser = sessions.some(s => s.activityType === 'waiting-user');
+    document.title = hasWaitingUser ? '⚡ Input needed — OCWatch' : 'OCWatch';
+  }, [sessions]);
 
   const activityEntries = useMemo(
     () => synthesizeActivityItems(activitySessions).filter(item => item.type !== 'tool-call'),
@@ -75,7 +89,7 @@ function AppContent() {
       {loading && sessions.length === 0 ? (
         <SessionListSkeleton />
       ) : (
-        <SessionList 
+        <SessionList
           sessions={sessions}
           selectedId={selectedSessionId}
           onSelect={setSelectedSessionId}
@@ -84,7 +98,7 @@ function AppContent() {
           onProjectSelect={setSelectedProjectId}
         />
       )}
-      
+
       <div className="flex-1 flex flex-col min-w-0 relative h-full">
         <div className="flex-1 flex flex-col overflow-hidden">
           <header className="flex items-center justify-between gap-4 border-b border-border p-4 flex-shrink-0">
@@ -150,7 +164,7 @@ function AppContent() {
            </main>
         </div>
 
-        <ActivityStream 
+        <ActivityStream
             entries={activityEntries}
         />
       </div>

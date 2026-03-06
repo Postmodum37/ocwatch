@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
+import { usePollData } from '../../store/PollDataContext';
 import { useUIState } from '../../store/UIStateContext';
-import { useSessionDetail } from '../../store/SessionDetailContext';
 import { formatTokens, shortModelName } from '../../utils/formatters';
 import { getAgentColor } from '../../utils/agentColors';
 import { StatusDot } from './StatusDot';
 import type { ActivitySession } from '@shared/types';
 
 export const ActiveAgents: React.FC = () => {
-  const { activitySessions } = useSessionDetail();
+  const { activitySessions } = usePollData();
   const { selectedSessionId } = useUIState();
 
   const { displayAgents, overflowCount, isSessionMode } = useMemo(() => {
