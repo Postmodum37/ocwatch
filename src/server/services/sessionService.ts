@@ -1,10 +1,6 @@
 import type {
   SessionMetadata,
-  MessageMeta,
   ActivitySession,
-  TreeNode,
-  TreeEdge,
-  SessionTree,
   PartMeta,
   SessionStatus,
   ToolCallSummary,
@@ -21,94 +17,21 @@ import {
   getSessionStatusInfo,
   type SessionStatusInfo,
 } from "../logic";
-import {
-  querySessionChildren,
-  queryMessages,
-  queryParts,
-} from "../storage/queries";
 import { getStatusFromTimestamp } from "../utils/sessionStatus";
 import {
-  toSessionMetadata as parseSessionRow,
-  toMessageMeta as parseMessageRow,
-  toPartMeta as parsePartRow,
   getLatestAssistantMessage,
   getMostRecentPendingPart,
 } from "./parsing";
+import {
+  type SessionContext,
+  createSessionContext,
+  getSessionFromContext,
+  getSessionMessages,
+  getSessionParts,
+  getSessionChildren,
+} from "./sessionContext";
 
 export { detectAgentPhases, isAssistantFinished };
-
-/** Max messages to load per session for hierarchy building (effectively unlimited) */
-const MAX_MESSAGE_QUERY_LIMIT = 100_000;
-
-interface SessionContext {
-  allowedSessionIds: Set<string>;
-  sessionById: Map<string, SessionMetadata>;
-  messagesBySession: Map<string, MessageMeta[]>;
-  partsBySession: Map<string, PartMeta[]>;
-  childrenBySession: Map<string, SessionMetadata[]>;
-}
-
-
-function createSessionContext(allSessions: SessionMetadata[]): SessionContext {
-  const sessionById = new Map<string, SessionMetadata>();
-  for (const session of allSessions) {
-    sessionById.set(session.id, session);
-  }
-
-  return {
-    allowedSessionIds: new Set(allSessions.map((session) => session.id)),
-    sessionById,
-    messagesBySession: new Map<string, MessageMeta[]>(),
-    partsBySession: new Map<string, PartMeta[]>(),
-    childrenBySession: new Map<string, SessionMetadata[]>(),
-  };
-}
-
-function getSessionFromContext(sessionId: string, context: SessionContext): SessionMetadata | undefined {
-  return context.sessionById.get(sessionId);
-}
-
-function getSessionMessages(sessionId: string, context: SessionContext): MessageMeta[] {
-  const cached = context.messagesBySession.get(sessionId);
-  if (cached) {
-    return cached;
-  }
-
-  const messages = queryMessages(sessionId, MAX_MESSAGE_QUERY_LIMIT).map(parseMessageRow);
-  context.messagesBySession.set(sessionId, messages);
-  return messages;
-}
-
-function getSessionParts(sessionId: string, context: SessionContext): PartMeta[] {
-  const cached = context.partsBySession.get(sessionId);
-  if (cached) {
-    return cached;
-  }
-
-  const parts = queryParts(sessionId).map(parsePartRow);
-  context.partsBySession.set(sessionId, parts);
-  return parts;
-}
-
-function getSessionChildren(sessionId: string, context: SessionContext): SessionMetadata[] {
-  const cached = context.childrenBySession.get(sessionId);
-  if (cached) {
-    return cached;
-  }
-
-  const children = querySessionChildren(sessionId)
-    .map(parseSessionRow)
-    .filter((child) => context.allowedSessionIds.has(child.id));
-
-  for (const child of children) {
-    if (!context.sessionById.has(child.id)) {
-      context.sessionById.set(child.id, child);
-    }
-  }
-
-  context.childrenBySession.set(sessionId, children);
-  return children;
-}
 
 
 function countBlockingChildren(statuses: SessionStatus[]): number {
@@ -146,81 +69,6 @@ function buildToolCalls(parts: PartMeta[], messageAgent: Map<string, string>): T
   });
 
   return toolCalls.slice(0, 50);
-}
-
-export async function buildSessionTree(
-  rootSessionID: string,
-  allSessions: SessionMetadata[]
-): Promise<SessionTree> {
-  const nodes: TreeNode[] = [];
-  const edges: TreeEdge[] = [];
-  const visited = new Set<string>();
-  const context = createSessionContext(allSessions);
-
-  async function processSession(sessionID: string, depth = 0) {
-    if (depth > MAX_RECURSION_DEPTH) {
-      console.warn(`Max recursion depth reached for session ${sessionID}`);
-      return;
-    }
-    if (visited.has(sessionID)) {
-      return;
-    }
-    visited.add(sessionID);
-
-    const session = getSessionFromContext(sessionID, context);
-    if (!session) {
-      return;
-    }
-
-    const messages = getSessionMessages(sessionID, context);
-    const lastAssistantFinished = isAssistantFinished(messages);
-    const isSubagent = !!session.parentID;
-    const status = getSessionStatusInfo(
-      messages,
-      false,
-      undefined,
-      undefined,
-      lastAssistantFinished,
-      isSubagent
-    ).status;
-
-    const lastMessage = messages.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    )[0];
-
-    nodes.push({
-      id: session.id,
-      data: {
-        title: session.title,
-        agent: lastMessage?.agent,
-        model: lastMessage?.modelID,
-        isActive: status === "working" || status === "idle",
-      },
-    });
-
-    if (session.parentID) {
-      edges.push({
-        source: session.parentID,
-        target: session.id,
-      });
-      await processSession(session.parentID, depth + 1);
-    }
-
-    const children = getSessionChildren(sessionID, context);
-    await Promise.all(
-      children.map((child) => {
-        edges.push({
-          source: sessionID,
-          target: child.id,
-        });
-        return processSession(child.id, depth + 1);
-      })
-    );
-  }
-
-  await processSession(rootSessionID, 0);
-
-  return { nodes, edges };
 }
 
 export async function getSessionHierarchy(
@@ -422,7 +270,7 @@ export async function getSessionHierarchy(
   return result;
 }
 
-export async function processChildSession(
+async function processChildSession(
   sessionId: string,
   parentId: string,
   allSessions: SessionMetadata[],
