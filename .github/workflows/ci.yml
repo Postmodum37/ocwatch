@@ -41,6 +41,9 @@ jobs:
       - name: Lint client
         run: cd src/client && bun run lint
 
+      - name: Set up test database
+        run: bun scripts/ci-setup-db.ts
+
       - name: Test server & shared
         run: bun run test
 
