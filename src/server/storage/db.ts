@@ -22,15 +22,8 @@ function getDbPath(): string {
 }
 
 function configureConnectionPragmas(db: Database): void {
-  db.query("PRAGMA busy_timeout = 5000;").run();
-  db.query("PRAGMA cache_size = -20000;").run();
-
-  try {
-    db.query("PRAGMA journal_mode = WAL;").run();
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    console.warn(`[storage/db] Failed to enforce WAL journal mode: ${reason}`);
-  }
+  db.query(`PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT_MS};`).run();
+  db.query(`PRAGMA cache_size = ${SQLITE_CACHE_SIZE};`).run();
 }
 
 export function checkDbExists(): boolean {
@@ -68,4 +61,3 @@ export function closeDb(): void {
   dbSingleton.close();
   dbSingleton = undefined;
 }
-

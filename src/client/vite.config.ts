@@ -11,7 +11,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'graph': ['@xyflow/react', 'd3-force'],
+          'graph': ['@xyflow/react'],
           'motion': ['motion/react'],
         },
       },
@@ -22,6 +22,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',
     css: true,
+    include: ['src/**/*.vitest.{ts,tsx}'],
     exclude: ['**/node_modules/**', '**/e2e/**', '**/dist/**'],
   },
   resolve: {

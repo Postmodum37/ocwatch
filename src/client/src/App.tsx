@@ -24,6 +24,7 @@ function AppContent() {
     loading,
     error,
     isReconnecting,
+    sessionDetailLoading,
   } = usePollData();
 
   const {
@@ -147,7 +148,7 @@ function AppContent() {
           </header>
 
            <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
-             {activitySessions.length === 0 ? (
+             {!selectedSessionId ? (
                <EmptyState
                  icon={Activity}
                  title="No Activity"
@@ -156,8 +157,9 @@ function AppContent() {
              ) : (
                <Suspense fallback={<LoadingSkeleton />}>
                  <GraphView
+                   rootSessionId={selectedSessionId}
                    sessions={activitySessions}
-                   loading={loading}
+                   loading={sessionDetailLoading}
                  />
                </Suspense>
              )}

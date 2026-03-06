@@ -69,11 +69,13 @@ let queryProjectsStmt: Statement<DbProjectRow, []> | null = null;
 let querySessionsStmt: Statement<DbSessionRow, [string | null, number | null, number]> | null = null;
 let querySessionStmt: Statement<DbSessionRow, [string]> | null = null;
 let querySessionChildrenStmt: Statement<DbSessionRow, [string]> | null = null;
+let querySessionSubtreeStmt: Statement<DbSessionRow, [string]> | null = null;
 let queryMessagesStmt: Statement<DbMessageRow, [string, number]> | null = null;
 let queryPartsStmt: Statement<DbPartRow, [string]> | null = null;
 let queryPartStmt: Statement<DbPartRow, [string]> | null = null;
 let queryTodosStmt: Statement<DbTodoRow, [string]> | null = null;
 let queryMaxTimestampStmt: Statement<{ maxTimestamp: number | null }, []> | null = null;
+let querySessionSubtreeRevisionStmt: Statement<{ maxTimestamp: number | null }, [string]> | null = null;
 let queryProjectByWorktreeStmt: Statement<DbProjectRow, [string]> | null = null;
 let queryProjectSummariesStmt: Statement<DbProjectSummaryRow, []> | null = null;
 
@@ -150,6 +152,50 @@ function getReadyDb(): Database | null {
     FROM session
     WHERE parent_id = ?1
     ORDER BY time_created ASC
+  `);
+
+  querySessionSubtreeStmt = db.query<DbSessionRow, [string]>(`
+    WITH RECURSIVE subtree AS (
+      SELECT
+        id,
+        project_id AS projectID,
+        parent_id AS parentID,
+        slug,
+        directory,
+        title,
+        version,
+        time_created AS timeCreated,
+        time_updated AS timeUpdated
+      FROM session
+      WHERE id = ?1
+
+      UNION ALL
+
+      SELECT
+        s.id,
+        s.project_id AS projectID,
+        s.parent_id AS parentID,
+        s.slug,
+        s.directory,
+        s.title,
+        s.version,
+        s.time_created AS timeCreated,
+        s.time_updated AS timeUpdated
+      FROM session s
+      INNER JOIN subtree st ON s.parent_id = st.id
+    )
+    SELECT
+      id,
+      projectID,
+      parentID,
+      slug,
+      directory,
+      title,
+      version,
+      timeCreated,
+      timeUpdated
+    FROM subtree
+    ORDER BY timeCreated ASC, id ASC
   `);
 
   queryMessagesStmt = db.query<DbMessageRow, [string, number]>(`
@@ -232,6 +278,28 @@ function getReadyDb(): Database | null {
     )
   `);
 
+  querySessionSubtreeRevisionStmt = db.query<{ maxTimestamp: number | null }, [string]>(`
+    WITH RECURSIVE subtree AS (
+      SELECT id
+      FROM session
+      WHERE id = ?1
+
+      UNION ALL
+
+      SELECT s.id
+      FROM session s
+      INNER JOIN subtree st ON s.parent_id = st.id
+    )
+    SELECT MAX(ts) AS maxTimestamp
+    FROM (
+      SELECT MAX(time_updated) AS ts FROM session WHERE id IN (SELECT id FROM subtree)
+      UNION ALL
+      SELECT MAX(time_updated) AS ts FROM message WHERE session_id IN (SELECT id FROM subtree)
+      UNION ALL
+      SELECT MAX(time_updated) AS ts FROM part WHERE session_id IN (SELECT id FROM subtree)
+    )
+  `);
+
   queryProjectByWorktreeStmt = db.query<DbProjectRow, [string]>(`
     SELECT
       id,
@@ -302,6 +370,15 @@ export function querySessionChildren(sessionId: string): DbSessionRow[] {
   return querySessionChildrenStmt.all(sessionId);
 }
 
+export function querySessionSubtree(sessionId: string): DbSessionRow[] {
+  const db = getReadyDb();
+  if (!db || !querySessionSubtreeStmt) {
+    return [];
+  }
+
+  return querySessionSubtreeStmt.all(sessionId);
+}
+
 export function queryMessages(sessionId: string, limit = 100): DbMessageRow[] {
   const db = getReadyDb();
   if (!db || !queryMessagesStmt) {
@@ -318,6 +395,76 @@ export function queryParts(sessionId: string): DbPartRow[] {
   }
 
   return queryPartsStmt.all(sessionId);
+}
+
+export function queryMessagesForSessions(sessionIds: string[], limitPerSession = 100): DbMessageRow[] {
+  const db = getReadyDb();
+  if (!db || sessionIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = sessionIds.map((_, index) => `?${index + 1}`).join(", ");
+  const limitParam = `?${sessionIds.length + 1}`;
+  const statement = db.query<DbMessageRow, (string | number)[]>(`
+    SELECT
+      id,
+      sessionID,
+      timeCreated,
+      timeUpdated,
+      role,
+      agent,
+      data
+    FROM (
+      SELECT
+        id,
+        session_id AS sessionID,
+        time_created AS timeCreated,
+        time_updated AS timeUpdated,
+        json_extract(data, '$.role') AS role,
+        json_extract(data, '$.agent') AS agent,
+        data,
+        ROW_NUMBER() OVER (
+          PARTITION BY session_id
+          ORDER BY time_created DESC, id DESC
+        ) AS rowNumber
+      FROM message
+      WHERE session_id IN (${placeholders})
+    )
+    WHERE rowNumber <= ${limitParam}
+    ORDER BY sessionID ASC, timeCreated DESC, id DESC
+  `);
+
+  return statement.all(...sessionIds, limitPerSession);
+}
+
+export function queryPartsForSessions(sessionIds: string[]): DbPartRow[] {
+  const db = getReadyDb();
+  if (!db || sessionIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = sessionIds.map((_, index) => `?${index + 1}`).join(", ");
+  const statement = db.query<DbPartRow, string[]>(`
+    SELECT
+      id,
+      message_id AS messageID,
+      session_id AS sessionID,
+      time_created AS timeCreated,
+      time_updated AS timeUpdated,
+      json_extract(data, '$.type') AS type,
+      json_extract(data, '$.tool') AS tool,
+      CASE
+        WHEN json_type(data, '$.state') = 'text' THEN json_extract(data, '$.state')
+        WHEN json_type(data, '$.state.type') = 'text' THEN json_extract(data, '$.state.type')
+        ELSE NULL
+      END AS state,
+      data
+    FROM part
+    WHERE session_id IN (${placeholders})
+    ORDER BY sessionID ASC, timeCreated DESC, id DESC
+  `);
+
+  return statement.all(...sessionIds);
 }
 
 export function queryPart(partId: string): DbPartRow | null {
@@ -345,6 +492,15 @@ export function queryMaxTimestamp(): number {
   }
 
   return Number(queryMaxTimestampStmt.get()?.maxTimestamp ?? 0);
+}
+
+export function querySessionSubtreeRevision(sessionId: string): number {
+  const db = getReadyDb();
+  if (!db || !querySessionSubtreeRevisionStmt) {
+    return 0;
+  }
+
+  return Number(querySessionSubtreeRevisionStmt.get(sessionId)?.maxTimestamp ?? 0);
 }
 
 

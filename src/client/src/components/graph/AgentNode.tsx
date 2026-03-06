@@ -1,28 +1,28 @@
 import React, { memo } from 'react';
-import { Handle, Position } from '@xyflow/react';
-import type { NodeProps } from '@xyflow/react';
-import { motion } from 'motion/react';
-import { 
-  Check, 
-  Loader2, 
-  Circle, 
-  Clock, 
-  Sparkles, 
-  FileEdit, 
-  Terminal, 
-  MessageCircleQuestion 
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import {
+  Check,
+  ChevronDown,
+  Circle,
+  Clock,
+  FileEdit,
+  Loader2,
+  MessageCircleQuestion,
+  Sparkles,
+  Terminal,
 } from 'lucide-react';
-import type { ActivitySession, SessionStatus, SessionActivityType } from '@shared/types';
+import type { SessionActivityType, SessionStatus } from '@shared/types';
 import { formatRelativeTime } from '@shared/utils/formatTime';
 import { AgentBadge } from '../AgentBadge';
 import { getFullToolDisplayText } from './nodeHelpers';
+import type { GraphNodeData } from './types';
 
 const StatusIndicator = memo<{ status: SessionStatus }>(function StatusIndicator({ status }) {
   switch (status) {
     case 'working':
       return (
-        <span 
-          className="flex items-center justify-center w-4 h-4 rounded-full animate-badge-glow" 
+        <span
+          className="flex items-center justify-center w-4 h-4 rounded-full animate-badge-glow"
           style={{ '--badge-color': 'rgba(88, 166, 255, 0.5)' } as React.CSSProperties}
           role="img"
           aria-label="Working"
@@ -55,7 +55,7 @@ const StatusIndicator = memo<{ status: SessionStatus }>(function StatusIndicator
 const ActivityTypeIndicator = memo<{ activityType?: SessionActivityType; pendingCount?: number; patchCount?: number }>(
   function ActivityTypeIndicator({ activityType, pendingCount, patchCount }) {
     if (!activityType || activityType === 'idle') return null;
-    
+
     switch (activityType) {
       case 'reasoning':
         return (
@@ -92,17 +92,18 @@ const ActivityTypeIndicator = memo<{ activityType?: SessionActivityType; pending
       default:
         return null;
     }
-  }
+  },
 );
 
-export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) {
-  // ReactFlow passes data as Record<string, unknown>; runtime guard below ensures safety
-  const session = data as unknown as ActivitySession;
-  
-  // Runtime guard for data contract
+export const AgentNode = memo(function AgentNode({
+  data,
+}: NodeProps<Node<GraphNodeData>>) {
+  const graphNodeData = data as GraphNodeData;
+  const session = graphNodeData.session;
+
   if (!session?.id || !session?.agent) {
     return (
-      <div className="flex items-center justify-center w-[320px] h-[60px] rounded-md border border-error/50 bg-surface text-error text-xs p-2">
+      <div className="flex items-center justify-center w-[320px] min-h-[60px] rounded-md border border-error/50 bg-surface text-error text-xs p-2">
         Invalid node data
       </div>
     );
@@ -110,7 +111,7 @@ export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) 
 
   const status: SessionStatus = session.status || 'completed';
   const isCompleted = status === 'completed';
-  
+
   let currentActionText = session.currentAction;
   if (session.activityType === 'waiting-user' && (!currentActionText || currentActionText === 'question')) {
     currentActionText = 'Waiting for your response';
@@ -124,43 +125,31 @@ export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) 
 
   const toolInfo = getFullToolDisplayText(session.toolCalls);
 
-  // Animation variants for entering and state changes
-  const variants = {
-    initial: { opacity: 0, scale: 0.9 },
-    animate: { 
-      opacity: isCompleted ? 0.3 : 1, 
-      scale: 1,
-      transition: { duration: 0.3 }
-    },
-    hover: isCompleted ? { opacity: 0.8 } : {}
-  };
-
   return (
-    <motion.div 
-      initial="initial"
-      animate="animate"
-      whileHover="hover"
-      variants={variants}
-      className={`
-        relative flex flex-col w-[320px] rounded-md border
-        bg-surface transition-colors duration-200
-        ${selected ? 'border-accent ring-1 ring-accent shadow-[0_0_15px_rgba(88,166,255,0.15)]' : 'border-border'}
-        ${session.activityType === 'waiting-user' ? 'border-l-2 border-l-warning' : ''}
-        ${status === 'working' ? 'animate-node-pulse' : ''}
-      `}
+    <div
+      className={[
+        'relative flex flex-col w-[320px] rounded-md border bg-surface transition-[opacity,border-color,box-shadow,transform] duration-200',
+        graphNodeData.isFocused
+          ? 'border-accent ring-1 ring-accent shadow-[0_0_18px_rgba(88,166,255,0.18)]'
+          : 'border-border',
+        graphNodeData.isDimmed ? 'opacity-35 scale-[0.98]' : (isCompleted ? 'opacity-80' : 'opacity-100'),
+        session.activityType === 'waiting-user' ? 'border-l-2 border-l-warning' : '',
+        status === 'working' && !graphNodeData.isDimmed ? 'animate-node-pulse' : '',
+      ].join(' ')}
     >
-      <Handle 
-        type="target" 
-        position={Position.Top} 
-        className="!bg-border !w-2 !h-2" 
-      />
+      <Handle type="target" position={Position.Top} className="!bg-border !w-2 !h-2" />
 
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 bg-black/20">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <AgentBadge agent={session.agent} status={status} />
+          {session.nodeKind === 'phase' && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide border border-border text-text-secondary">
+              Phase
+            </span>
+          )}
           <StatusIndicator status={status} />
         </div>
-        <ActivityTypeIndicator 
+        <ActivityTypeIndicator
           activityType={session.activityType}
           pendingCount={session.pendingToolCount}
           patchCount={session.patchFilesCount}
@@ -182,6 +171,20 @@ export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) 
             )}
           </div>
         )}
+
+        {graphNodeData.collapsedDescendantCount > 0 && (
+          <button
+            type="button"
+            className="nodrag nopan inline-flex items-center gap-1.5 w-fit px-2 py-1 rounded-full border border-border bg-background/80 text-[11px] text-text-secondary hover:text-text-primary hover:border-accent transition-colors"
+            onClick={(event) => {
+              event.stopPropagation();
+              graphNodeData.onToggleCollapse(session.id);
+            }}
+          >
+            <ChevronDown className="w-3 h-3" />
+            <span>+{graphNodeData.collapsedDescendantCount} completed</span>
+          </button>
+        )}
       </div>
 
       <div className="px-3 py-2 border-t border-border/50 flex items-center justify-between text-[10px] text-text-secondary bg-black/10">
@@ -200,11 +203,7 @@ export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps) 
         </div>
       </div>
 
-      <Handle 
-        type="source" 
-        position={Position.Bottom} 
-        className="!bg-border !w-2 !h-2" 
-      />
-    </motion.div>
+      <Handle type="source" position={Position.Bottom} className="!bg-border !w-2 !h-2" />
+    </div>
   );
 });

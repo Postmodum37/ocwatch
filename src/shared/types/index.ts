@@ -74,11 +74,13 @@ export interface MessageMeta {
  * Includes agent info and hierarchy
  */
 export type SessionActivityType = "tool" | "reasoning" | "patch" | "waiting-tools" | "waiting-user" | "idle";
+export type ActivityNodeKind = "session" | "phase";
 
 export interface ActivitySession {
   id: string;
   title: string;
   agent: string;
+  nodeKind?: ActivityNodeKind;
   modelID?: string;
   providerID?: string;
   parentID?: string;
@@ -238,6 +240,13 @@ export interface SessionStats {
   modelBreakdown: ModelTokens[];
 }
 
+export interface SessionActivityResponse {
+  session: SessionSummary;
+  activity: ActivitySession[];
+  stats: SessionStats | null;
+  revision: number;
+}
+
 /**
  * Boulder represents the current plan state
  */
@@ -313,4 +322,3 @@ export interface PollResponse {
   planName?: string;
   lastUpdate: number;
 }
-

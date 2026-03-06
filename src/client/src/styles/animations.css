@@ -147,3 +147,40 @@
 .edge-particle-return {
   filter: drop-shadow(0 0 2px #22c55e);
 }
+
+@keyframes graph-edge-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -36;
+  }
+}
+
+@keyframes graph-edge-return {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 18;
+    opacity: 0.8;
+  }
+}
+
+.graph-edge-flow {
+  animation: graph-edge-flow 1.2s linear infinite;
+}
+
+.graph-edge-return {
+  animation: graph-edge-return 1.1s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-badge-glow,
+  .animate-node-pulse,
+  .graph-edge-flow,
+  .graph-edge-return {
+    animation: none !important;
+  }
+}

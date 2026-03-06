@@ -1,4 +1,4 @@
-import { existsSync, watch, type FSWatcher } from "node:fs";
+import { existsSync, statSync, watch, type FSWatcher } from "node:fs";
 import { basename, join } from "node:path";
 import { EventEmitter } from "node:events";
 import { homedir } from "node:os";
@@ -23,6 +23,7 @@ export class Watcher extends EventEmitter {
   private readonly projectPath: string;
   private dbWatcherTarget: string | null = null;
   private boulderWatcherTarget: string | null = null;
+  private lastKnownBoulderSignature: string | null = null;
   private isRunning: boolean = false;
 
   constructor(options: WatcherOptions = {}) {
@@ -144,21 +145,56 @@ export class Watcher extends EventEmitter {
       this.handleBoulderEvent(eventType, filename);
     });
     this.boulderWatcherTarget = preferredTarget;
+    this.lastKnownBoulderSignature = this.getBoulderSignature();
   }
 
   private handleBoulderEvent(eventType: string, filename: string | null): void {
+    const currentSignature = this.getBoulderSignature();
+    const signatureChanged = currentSignature !== this.lastKnownBoulderSignature;
+
     if (this.boulderWatcherTarget === this.boulderDirPath) {
-      if (!filename || filename !== "boulder.json") {
+      if (filename && filename !== "boulder.json" && !signatureChanged) {
+        return;
+      }
+
+      if (!filename && !signatureChanged) {
         return;
       }
     }
 
+    this.lastKnownBoulderSignature = currentSignature;
     this.emitDebouncedChange(eventType, ".sisyphus/boulder.json");
 
     if (eventType === "rename") {
       this.rebindBoulderWatcherSafe();
       return;
     }
+
+    const preferredTarget = existsSync(this.boulderPath)
+      ? this.boulderPath
+      : this.boulderDirPath;
+    if (preferredTarget !== this.boulderWatcherTarget) {
+      this.rebindBoulderWatcherSafe();
+    }
+  }
+
+  private getBoulderSignature(): string | null {
+    try {
+      const stats = statSync(this.boulderPath);
+      return `${stats.size}:${stats.mtimeMs}`;
+    } catch {
+      return null;
+    }
+  }
+
+  private pollForBoulderChanges(): void {
+    const currentSignature = this.getBoulderSignature();
+    if (currentSignature === this.lastKnownBoulderSignature) {
+      return;
+    }
+
+    this.lastKnownBoulderSignature = currentSignature;
+    this.emitDebouncedChange("change", ".sisyphus/boulder.json");
 
     const preferredTarget = existsSync(this.boulderPath)
       ? this.boulderPath
@@ -178,9 +214,10 @@ export class Watcher extends EventEmitter {
         return;
       }
 
+      this.pollForBoulderChanges();
       this.rebindDbWatcherSafe();
       this.rebindBoulderWatcherSafe();
-    }, 1000);
+    }, 100);
   }
 
   private rebindDbWatcherSafe(): void {
@@ -226,6 +263,7 @@ export class Watcher extends EventEmitter {
       this.boulderWatcherTarget = null;
     }
 
+    this.lastKnownBoulderSignature = null;
     this.isRunning = false;
     this.emit("stopped");
   }

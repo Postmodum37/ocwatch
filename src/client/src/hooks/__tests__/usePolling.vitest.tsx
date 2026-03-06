@@ -253,7 +253,7 @@ describe('usePolling', () => {
   });
 
   it('uses custom API URL', async () => {
-    const customUrl = '/custom/api/endpoint';
+    const customUrl = 'http://localhost:4010';
 
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -267,7 +267,7 @@ describe('usePolling', () => {
     await waitFor(
       () => {
         expect(global.fetch).toHaveBeenCalledWith(
-          customUrl,
+          `${customUrl}/api/poll`,
           expect.any(Object)
         );
       },

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PollResponse } from '@shared/types';
 import { useScopedFetch } from './useScopedFetch';
+import { appendProjectId, resolveApiEndpoint } from './resolveApiEndpoint';
 
 interface UsePollingState {
   data: PollResponse | null;
@@ -23,20 +24,16 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
   const {
     interval = 2000,
     enabled = true,
-    apiUrl = '/api/poll',
+    apiUrl,
     maxRetries = 5,
     projectId,
   } = options;
 
-  const pollUrl = (() => {
-    const params = new URLSearchParams();
-    if (projectId) params.set('projectId', projectId);
-    const qs = params.toString();
-    return qs ? `${apiUrl}?${qs}` : apiUrl;
-  })();
+  const pollUrl = appendProjectId(resolveApiEndpoint(apiUrl, 'poll'), projectId);
 
   const scopeKey = projectId ?? '';
-  const { scopeChanged, createAbortController, isStale, getCurrentScopeKey } = useScopedFetch(scopeKey);
+  const previousScopeKeyRef = useRef(scopeKey);
+  const { createAbortController, isStale, getCurrentScopeKey } = useScopedFetch(scopeKey);
 
   const [state, setState] = useState<UsePollingState>({
     data: null,
@@ -51,20 +48,27 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const failedAttemptsRef = useRef(0);
 
-  if (scopeChanged) {
+  useEffect(() => {
+    if (previousScopeKeyRef.current === scopeKey) {
+      return;
+    }
+
+    previousScopeKeyRef.current = scopeKey;
     etagRef.current = null;
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
       retryTimeoutRef.current = null;
     }
     failedAttemptsRef.current = 0;
-    setState(prev => ({
-      ...prev,
+    setState({
+      data: null,
       loading: true,
       error: null,
+      lastUpdate: 0,
+      isReconnecting: false,
       failedAttempts: 0,
-    }));
-  }
+    });
+  }, [scopeKey]);
 
   const fetchData = useCallback(async () => {
     const fetchScopeKey = getCurrentScopeKey();

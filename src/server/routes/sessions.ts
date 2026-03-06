@@ -7,12 +7,22 @@ import {
   queryTodos,
 } from "../storage/queries";
 import type { DbSessionRow } from "../storage/queries";
-import { fetchSessionDetail } from "../services/pollService";
+import {
+  fetchSessionActivity,
+  fetchSessionDetail,
+  generateSessionActivityETag,
+  getPollCacheEpoch,
+  getSessionActivityCache,
+  getSessionActivityInProgress,
+  setSessionActivityCache,
+  setSessionActivityInProgress,
+} from "../services/pollService";
 import { toMessageMeta } from "../services/parsing";
+import { selectRecentRootSessions } from "../services/recentSessions";
 import { buildSessionTree } from "../services/sessionTree";
 import { sessionIdSchema, validateWithResponse } from "../validation";
 import { MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, SESSION_SCAN_LIMIT } from "../../shared/constants";
-import type { SessionMetadata } from "../../shared/types";
+import type { SessionActivityResponse, SessionMetadata } from "../../shared/types";
 
 function dbRowToSessionBase(row: DbSessionRow) {
   return {
@@ -47,9 +57,10 @@ export function registerSessionRoutes(app: Hono) {
       }, 200);
     }
 
-    const sessions = querySessions(undefined, undefined, MAX_SESSIONS_LIMIT)
-      .filter((row) => !row.parentID)
-      .map(dbRowToSessionBase);
+    const sessions = selectRecentRootSessions(
+      querySessions(undefined, undefined, SESSION_SCAN_LIMIT).map(dbRowToSessionBase),
+      MAX_SESSIONS_LIMIT,
+    );
 
     return c.json(sessions);
   });
@@ -113,6 +124,7 @@ export function registerSessionRoutes(app: Hono) {
     const validation = validateWithResponse(sessionIdSchema, c.req.param("id"), c);
     if (!validation.success) return validation.response;
     const sessionID = validation.value;
+    const clientETag = c.req.header("If-None-Match");
 
     if (!checkDbExists()) {
       return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
@@ -123,8 +135,53 @@ export function registerSessionRoutes(app: Hono) {
       return c.json({ error: "SESSION_NOT_FOUND", message: `Session '${sessionID}' not found`, status: 404 }, 404);
     }
 
-    const detail = await fetchSessionDetail(sessionID);
-    return c.json({ activity: detail.activity });
+    const cached = getSessionActivityCache(sessionID);
+    if (cached) {
+      if (clientETag === cached.etag) {
+        return new Response(null, { status: 304, headers: { ETag: cached.etag } });
+      }
+      c.header("ETag", cached.etag);
+      return c.json(cached.data);
+    }
+
+    const inProgress = getSessionActivityInProgress(sessionID);
+    if (inProgress) {
+      try {
+        const data = await inProgress;
+        const etag = generateSessionActivityETag(data);
+        if (clientETag === etag) {
+          return new Response(null, { status: 304, headers: { ETag: etag } });
+        }
+        c.header("ETag", etag);
+        return c.json(data);
+      } catch (err) {
+        console.warn("Session activity request failed, retrying:", err instanceof Error ? err.message : err);
+        setSessionActivityInProgress(sessionID, null);
+      }
+    }
+
+    const cacheEpochAtStart = getPollCacheEpoch();
+    const promise = fetchSessionActivity(sessionID);
+    setSessionActivityInProgress(sessionID, promise);
+
+    let data: SessionActivityResponse;
+    try {
+      data = await promise;
+      const etag = generateSessionActivityETag(data);
+      if (cacheEpochAtStart === getPollCacheEpoch()) {
+        setSessionActivityCache(sessionID, { data, etag });
+      }
+    } finally {
+      setSessionActivityInProgress(sessionID, null);
+    }
+
+    const etag = generateSessionActivityETag(data);
+    if (clientETag === etag) {
+      return new Response(null, { status: 304, headers: { ETag: etag } });
+    }
+
+    c.header("ETag", etag);
+    return c.json(data);
   });
 
   app.get("/api/sessions/:id/todos", (c) => {

@@ -73,11 +73,12 @@ function buildToolCalls(parts: PartMeta[], messageAgent: Map<string, string>): T
 
 export async function getSessionHierarchy(
   rootSessionId: string,
-  allSessions: SessionMetadata[]
+  allSessions: SessionMetadata[],
+  contextArg?: SessionContext,
 ): Promise<ActivitySession[]> {
   const result: ActivitySession[] = [];
   const processed = new Set<string>();
-  const context = createSessionContext(allSessions);
+  const context = contextArg ?? createSessionContext(allSessions);
 
   const rootSession = getSessionFromContext(rootSessionId, context);
   if (!rootSession) return result;
@@ -148,6 +149,7 @@ export async function getSessionHierarchy(
       id: rootSession.id,
       title: rootSession.title,
       agent: latestAssistantMsg?.agent || "unknown",
+      nodeKind: "session",
       modelID: latestAssistantMsg?.modelID,
       providerID: latestAssistantMsg?.providerID,
       parentID: rootSession.parentID,
@@ -247,6 +249,7 @@ export async function getSessionHierarchy(
         id: virtualId,
         title: rootSession.title,
         agent: phase.agent,
+        nodeKind: "phase",
         modelID: latestPhaseMsg?.modelID,
         providerID: latestPhaseMsg?.providerID,
         parentID: undefined,
@@ -354,6 +357,7 @@ async function processChildSession(
     id: session.id,
     title: session.title,
     agent: latestAssistantMsg?.agent || "unknown",
+    nodeKind: "session",
     modelID: latestAssistantMsg?.modelID,
     providerID: latestAssistantMsg?.providerID,
     parentID: parentId,

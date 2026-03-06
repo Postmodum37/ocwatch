@@ -19,9 +19,9 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 
 ## Preview
 
-![Dashboard overview](docs/screenshots/dashboard-overview.png)
+![Dashboard overview with the stable activity tree](docs/screenshots/dashboard-overview.png)
 
-![Activity stream](docs/screenshots/dashboard-activity.png)
+![Focused activity tree with the expanded activity stream](docs/screenshots/dashboard-activity.png)
 
 ## Options
 
@@ -35,7 +35,7 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 ## What it monitors
 
 - **Sessions** — active and recent agent sessions
-- **Agent hierarchy** — parent/child agent tree (background agents, specialized agents)
+- **Diagram view** — stable parent/child activity tree with focus controls and agent inspector
 - **Tool calls** — live tool invocations with metadata (LSP, AST, MCPs)
 - **Plan progress** — task completion from `.sisyphus/boulder.json`
 - **Activity stream** — real-time feed of agent actions
@@ -45,6 +45,25 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 - [Bun](https://bun.sh) v1.0+
 - macOS
 - [OpenCode](https://github.com/anomalyco/opencode) running (reads from `~/.local/share/opencode/storage/`)
+
+## Testing
+
+```bash
+# Root Bun suite (scoped to src/ via bunfig.toml)
+bun test
+
+# Project-standard server/shared/integration command
+bun run test
+
+# Client unit tests (Vitest)
+cd src/client && bun run test
+
+# Client E2E tests (Playwright)
+cd src/client && bun run test:e2e
+```
+
+- Client unit tests use `*.vitest.ts` / `*.vitest.tsx`.
+- Playwright specs use `*.pw.ts`.
 
 ## Disclaimer
 

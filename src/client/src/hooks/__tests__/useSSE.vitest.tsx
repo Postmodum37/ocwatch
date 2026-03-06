@@ -105,6 +105,21 @@ describe('useSSE', () => {
     });
   });
 
+  it('uses custom base URL for SSE and poll fetches', async () => {
+    renderHook(() => useSSE({ apiUrl: 'http://localhost:4010', projectId: 'proj-abc' }));
+
+    await waitFor(() => {
+      expect(MockEventSource).toHaveBeenCalledWith('http://localhost:4010/api/sse?projectId=proj-abc');
+    });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:4010/api/poll?projectId=proj-abc',
+        expect.any(Object),
+      );
+    });
+  });
+
   it('handles incoming messages with debounce', async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useSSE());

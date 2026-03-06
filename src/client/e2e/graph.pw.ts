@@ -60,7 +60,7 @@ test('graph node selection highlights node', async ({ page }) => {
   }
 });
 
-test('graph node drag changes position', async ({ page }) => {
+test('graph node click opens the focus inspector', async ({ page }) => {
   await page.goto('/');
   
   await page.waitForTimeout(1000);
@@ -69,26 +69,9 @@ test('graph node drag changes position', async ({ page }) => {
   
   if (nodeCount > 0) {
     const firstNode = page.locator('.react-flow__node').first();
-    
-    const beforeBox = await firstNode.boundingBox();
-    expect(beforeBox).not.toBeNull();
-    
-    if (beforeBox) {
-      await page.mouse.move(beforeBox.x + beforeBox.width / 2, beforeBox.y + beforeBox.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(beforeBox.x + 100, beforeBox.y + 100, { steps: 10 });
-      await page.mouse.up();
-      
-      await page.waitForTimeout(300);
-      
-      const afterBox = await firstNode.boundingBox();
-      expect(afterBox).not.toBeNull();
-      
-      if (afterBox) {
-        const moved = Math.abs(afterBox.x - beforeBox.x) > 50 || Math.abs(afterBox.y - beforeBox.y) > 50;
-        expect(moved).toBe(true);
-      }
-    }
+    await firstNode.click();
+    await expect(page.getByText('Agent session').or(page.getByText('Agent phase'))).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clear' })).toBeVisible();
   }
 });
 

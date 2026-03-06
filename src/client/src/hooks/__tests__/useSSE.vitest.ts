@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { useSSE } from '../useSSE';
 
 describe('useSSE - Liveness Detection', () => {
@@ -40,17 +40,7 @@ describe('useSSE - Liveness Detection', () => {
     const EventSourceSpy = vi.fn(MockEventSource);
     global.EventSource = EventSourceSpy as unknown as typeof EventSource;
 
-    global.fetch = vi.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({
-          sessions: [],
-          messages: [],
-          activitySessions: [],
-          sessionStats: null,
-        }),
-      })
-    ) as unknown as typeof fetch;
+    global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
 
     setIntervalSpy = vi.spyOn(global, 'setInterval');
     clearIntervalSpy = vi.spyOn(global, 'clearInterval');
@@ -179,7 +169,9 @@ describe('useSSE - Liveness Detection', () => {
     renderHook(() => useSSE({ enabled: true }));
     
     vi.setSystemTime(startTime + 46000);
-    vi.advanceTimersByTime(46000);
+    act(() => {
+      vi.advanceTimersByTime(46000);
+    });
     
     expect(mockEventSource.close).toHaveBeenCalled();
     

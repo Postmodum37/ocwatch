@@ -34,9 +34,7 @@ export const ScopeSnapshot: React.FC = () => {
   const sessionStats = useMemo(() => {
     if (!selectedSessionId || !selectedSession) return null;
 
-    const agentCount = activitySessions.filter(
-      s => s.id === selectedSessionId || s.parentID === selectedSessionId
-    ).length;
+    const agentCount = activitySessions.length;
 
     return {
       agentCount,
