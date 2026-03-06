@@ -12,8 +12,9 @@ export function synthesizeActivityItems(
   });
 
   sessions.forEach((session) => {
-    if (session.parentID && sessionMap.has(session.parentID)) {
-      const parent = sessionMap.get(session.parentID)!;
+    if (session.parentID) {
+      const parent = sessionMap.get(session.parentID);
+      if (!parent) return;
       items.push({
         id: `spawn-${session.id}`,
         type: "agent-spawn",

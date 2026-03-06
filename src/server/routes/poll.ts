@@ -49,7 +49,8 @@ export function registerPollRoute(app: Hono) {
         }
         c.header("ETag", etag);
         return c.json(data);
-      } catch {
+      } catch (err) {
+        console.warn("Poll request failed, retrying:", err instanceof Error ? err.message : err);
         setPollInProgress(null, projectId);
       }
     }
