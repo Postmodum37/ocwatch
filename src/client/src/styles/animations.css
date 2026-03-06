@@ -1,16 +1,5 @@
 /* Activity Stream Animations */
 
-@keyframes slide-in-from-top {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @keyframes pulse-bg {
   0% {
     background-color: transparent;
@@ -33,10 +22,6 @@
 }
 
 /* Animation utility classes */
-.animate-slide-in-from-top {
-  animation: slide-in-from-top 200ms ease-out forwards;
-}
-
 .animate-pulse-bg {
   animation: pulse-bg 300ms ease-out forwards;
 }
