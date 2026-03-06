@@ -26,8 +26,8 @@ ocwatch/
 │   ├── client/              # React + Vite SPA (see src/client/AGENTS.md)
 │   │   ├── src/
 │   │   │   ├── components/  # 14 components + 5 sidebar widgets
-│   │   │   ├── hooks/       # useSSE, usePolling, useNotifications, useKeyboardShortcuts
-│   │   │   ├── store/       # AppContext (React Context API)
+│   │   │   ├── hooks/       # useSSE, useSelectedActivityGraph, useNotifications, useKeyboardShortcuts
+│   │   │   ├── store/       # AppProvider + UIStateContext + PollDataContext
 │   │   │   ├── utils/       # agentColors, formatters
 │   │   │   └── styles/      # Tailwind CSS + custom animations
 │   │   └── e2e/             # Playwright specs (`*.pw.ts`)
@@ -46,7 +46,7 @@ ocwatch/
 |------|----------|-------|
 | Add API endpoint | `src/server/routes/` | Create file, register in `routes/index.ts` |
 | New UI component | `src/client/src/components/` | `.tsx`, Tailwind classes, dark theme only |
-| Track new state | `src/client/src/store/AppContext.tsx` | Add to `AppContextValue` interface |
+| Track new client state | `src/client/src/store/UIStateContext.tsx` / `src/client/src/store/PollDataContext.tsx` | UI selection lives in `UIStateContext`; fetched server data lives in `PollDataContext` |
 | New storage source | `src/server/storage/` | New parser → wire into `pollService.fetchPollData()` |
 | Add shared type | `src/shared/types/index.ts` | Types only — no logic in this file |
 | Session status logic | `src/server/utils/sessionStatus.ts` | Time-based thresholds (30s/5min) |
@@ -66,9 +66,9 @@ ocwatch/
 | `Watcher` | class | server/watcher.ts | EventEmitter wrapping `fs.watch` on 5 dirs |
 | `parsePart` | fn | server/storage/partParser.ts | Parses tool call JSON → `PartMeta` |
 | `getSessionActivityState` | fn | server/storage/partParser.ts | Derives pending/completed/reasoning state |
-| `AppProvider` | component | client/src/store/AppContext.tsx | Global state (sessions, plan, projects, UI) |
+| `AppProvider` | component | client/src/store/AppContext.tsx | Composes `UIStateProvider` + `PollDataProvider` |
 | `useSSE` | hook | client/src/hooks/useSSE.ts | SSE → polling fallback, ETag 304, reconnect backoff |
-| `LiveActivity` | component | client/src/components/LiveActivity.tsx | Main panel: real-time session tree |
+| `GraphView` | component | client/src/components/graph/GraphView.tsx | Main panel: stable activity tree with focus controls |
 | `ActivityStream` | component | client/src/components/ActivityStream.tsx | Bottom panel: burst/milestone timeline |
 | `SessionList` | component | client/src/components/SessionList.tsx | Sidebar: project dropdown + session list |
 | `synthesizeActivityItems` | fn | shared/utils/activityUtils.ts | Sessions → ActivityItems (spawns+tools+completions) |
@@ -162,6 +162,7 @@ cd src/client && bun run lint
 | `/api/health` | GET | Health check + `defaultProjectId` |
 | `/api/sessions` | GET | Recent root sessions (max 20) |
 | `/api/sessions/:id` | GET | Session details |
+| `/api/sessions/:id/activity` | GET | Live activity graph payload (`session`, `activity`, `stats`, `revision`, ETag cached) |
 | `/api/sessions/:id/messages` | GET | Messages (last 100, desc) |
 | `/api/sessions/:id/tree` | GET | Agent tree (React Flow format) |
 | `/api/parts/:id` | GET | Single part (lazy load) |

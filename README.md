@@ -19,9 +19,9 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 
 ## Preview
 
-![Dashboard overview](docs/screenshots/dashboard-overview.png)
+![Dashboard overview with the stable activity tree](docs/screenshots/dashboard-overview.png)
 
-![Activity stream](docs/screenshots/dashboard-activity.png)
+![Focused activity tree with the expanded activity stream](docs/screenshots/dashboard-activity.png)
 
 ## Options
 
@@ -35,7 +35,7 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 ## What it monitors
 
 - **Sessions** — active and recent agent sessions
-- **Agent hierarchy** — parent/child agent tree (background agents, specialized agents)
+- **Diagram view** — stable parent/child activity tree with focus controls and agent inspector
 - **Tool calls** — live tool invocations with metadata (LSP, AST, MCPs)
 - **Plan progress** — task completion from `.sisyphus/boulder.json`
 - **Activity stream** — real-time feed of agent actions
