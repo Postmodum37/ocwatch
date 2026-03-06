@@ -1,6 +1,21 @@
+function normalizeApiBase(apiUrl: string | undefined): string {
+  return apiUrl?.replace(/\/$/, "") ?? "";
+}
+
+export function resolveApiPath(apiUrl: string | undefined, path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const normalized = normalizeApiBase(apiUrl);
+
+  if (!normalized) {
+    return normalizedPath;
+  }
+
+  return `${normalized}${normalizedPath}`;
+}
+
 export function resolveApiEndpoint(apiUrl: string | undefined, resource: "poll" | "sse"): string {
   const suffix = `/api/${resource}`;
-  const normalized = apiUrl?.replace(/\/$/, "") ?? "";
+  const normalized = normalizeApiBase(apiUrl);
 
   if (!normalized) {
     return suffix;
@@ -14,7 +29,7 @@ export function resolveApiEndpoint(apiUrl: string | undefined, resource: "poll" 
     return normalized.replace(/\/api\/(?:poll|sse)$/, suffix);
   }
 
-  return `${normalized}${suffix}`;
+  return resolveApiPath(normalized, suffix);
 }
 
 export function appendProjectId(endpoint: string, projectId?: string | null): string {

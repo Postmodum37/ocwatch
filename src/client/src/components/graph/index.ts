@@ -1,8 +1,7 @@
 export { GraphView } from './GraphView';
 export { AgentNode } from './AgentNode';
 export { AnimatedEdge } from './AnimatedEdge';
-export { useForceLayout } from './useForceLayout';
-export { collide } from './collide';
+export { buildGraphModel } from './graphModel';
 export { getFullToolDisplayText } from './nodeHelpers';
-export type { RectCollisionNode, RectCollideOptions } from './collide';
-export type { AnimatedEdgeData, EdgeDirection } from './AnimatedEdge';
+export type { EdgeDirection } from './AnimatedEdge';
+export type { GraphDirection, GraphEdgeData, GraphNodeData } from './types';

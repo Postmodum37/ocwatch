@@ -15,9 +15,7 @@ export const ActiveAgents: React.FC = () => {
     const isSessionMode = !!selectedSessionId;
 
     if (isSessionMode) {
-      filtered = activitySessions.filter(
-        s => s.id === selectedSessionId || s.parentID === selectedSessionId
-      );
+      filtered = activitySessions;
     } else {
       filtered = activitySessions.filter(s => 
         s.status === 'working' || s.status === 'idle'
@@ -99,5 +97,4 @@ const AgentRow = React.memo<{ session: ActivitySession }>(({ session }) => {
     </div>
   );
 });
-
 

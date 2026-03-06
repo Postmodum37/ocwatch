@@ -9,6 +9,7 @@ import type {
   ActivitySession,
   PartMeta,
   TodoItem,
+  SessionActivityResponse,
 } from "../../shared/types";
 import { parseBoulder, calculatePlanProgress } from "../storage/boulderParser";
 import {
@@ -16,7 +17,11 @@ import {
   queryMaxTimestamp,
   queryMessages,
   queryParts,
+  queryMessagesForSessions,
+  queryPartsForSessions,
   querySessions,
+  querySessionSubtree,
+  querySessionSubtreeRevision,
   queryTodos,
 } from "../storage";
 import {
@@ -71,16 +76,37 @@ export function generateETag(data: PollResponse): string {
   return `"${hash.substring(0, 16)}"`;
 }
 
+export function generateSessionActivityETag(data: SessionActivityResponse): string {
+  const hash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        revision: data.revision,
+        session: data.session,
+        activity: data.activity,
+        stats: data.stats,
+      }),
+    )
+    .digest("hex");
+  return `"${hash.substring(0, 16)}"`;
+}
+
 type PollCacheEntry = { data: PollResponse; etag: string; timestamp: number };
+type SessionActivityCacheEntry = { data: SessionActivityResponse; etag: string };
 
 const pollCacheMap = new Map<string, PollCacheEntry>();
 const pollInProgressMap = new Map<string, Promise<PollResponse>>();
+const sessionActivityCacheMap = new Map<string, SessionActivityCacheEntry>();
+const sessionActivityInProgressMap = new Map<string, Promise<SessionActivityResponse>>();
 const incrementalPollStateMap = new Map<string, IncrementalPollState>();
 const MAX_INCREMENTAL_STATE_ENTRIES = 10;
 let pollCacheEpoch = 0;
 
 function cacheKey(projectId?: string): string {
   return projectId ?? "";
+}
+
+function sessionActivityCacheKey(sessionId: string): string {
+  return sessionId;
 }
 
 export function getPollCache(projectId?: string): PollCacheEntry | null {
@@ -103,6 +129,7 @@ export function getPollCacheEpoch() {
 export function invalidatePollCache() {
   pollCacheEpoch += 1;
   pollCacheMap.clear();
+  sessionActivityCacheMap.clear();
 }
 
 export function getPollInProgress(projectId?: string): Promise<PollResponse> | null {
@@ -115,6 +142,32 @@ export function setPollInProgress(promise: Promise<PollResponse> | null, project
     pollInProgressMap.set(key, promise);
   } else {
     pollInProgressMap.delete(key);
+  }
+}
+
+export function getSessionActivityCache(sessionId: string): SessionActivityCacheEntry | null {
+  return sessionActivityCacheMap.get(sessionActivityCacheKey(sessionId)) ?? null;
+}
+
+export function setSessionActivityCache(sessionId: string, cache: SessionActivityCacheEntry | null) {
+  const key = sessionActivityCacheKey(sessionId);
+  if (cache) {
+    sessionActivityCacheMap.set(key, cache);
+  } else {
+    sessionActivityCacheMap.delete(key);
+  }
+}
+
+export function getSessionActivityInProgress(sessionId: string): Promise<SessionActivityResponse> | null {
+  return sessionActivityInProgressMap.get(sessionActivityCacheKey(sessionId)) ?? null;
+}
+
+export function setSessionActivityInProgress(sessionId: string, promise: Promise<SessionActivityResponse> | null) {
+  const key = sessionActivityCacheKey(sessionId);
+  if (promise) {
+    sessionActivityInProgressMap.set(key, promise);
+  } else {
+    sessionActivityInProgressMap.delete(key);
   }
 }
 
@@ -156,6 +209,38 @@ function getIncrementalState(projectId?: string): IncrementalPollState {
 
 function sortMessagesDescending(messages: MessageMeta[]): MessageMeta[] {
   return [...messages].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+function groupMessagesBySession(rows: ReturnType<typeof queryMessagesForSessions>): Map<string, MessageMeta[]> {
+  const grouped = new Map<string, MessageMeta[]>();
+
+  for (const row of rows) {
+    const parsed = toMessageMeta(row);
+    const existing = grouped.get(parsed.sessionID);
+    if (existing) {
+      existing.push(parsed);
+    } else {
+      grouped.set(parsed.sessionID, [parsed]);
+    }
+  }
+
+  return grouped;
+}
+
+function groupPartsBySession(rows: ReturnType<typeof queryPartsForSessions>): Map<string, PartMeta[]> {
+  const grouped = new Map<string, PartMeta[]>();
+
+  for (const row of rows) {
+    const parsed = toPartMeta(row);
+    const existing = grouped.get(parsed.sessionID);
+    if (existing) {
+      existing.push(parsed);
+    } else {
+      grouped.set(parsed.sessionID, [parsed]);
+    }
+  }
+
+  return grouped;
 }
 
 function loadMessagesForSession(state: IncrementalPollState, sessionId: string, forceRefresh = false): MessageMeta[] {
@@ -371,45 +456,36 @@ export async function fetchPollData(projectId?: string): Promise<PollResponse> {
   };
 }
 
-export async function fetchSessionDetail(sessionId: string): Promise<SessionDetail> {
-  // Get all sessions for hierarchy context
-  const allSessions = querySessions(undefined, undefined, SESSION_SCAN_LIMIT).map(toSessionMetadata);
-  const context = createSessionContext(allSessions);
+async function buildSessionActivityResponse(sessionId: string): Promise<{
+  graph: SessionActivityResponse;
+  messagesBySession: Map<string, MessageMeta[]>;
+}> {
+  const allSessions = querySessionSubtree(sessionId).map(toSessionMetadata);
+  const sessionIds = allSessions.map((session) => session.id);
+  const messagesBySession = groupMessagesBySession(
+    queryMessagesForSessions(sessionIds, MESSAGE_SCAN_LIMIT),
+  );
+  const partsBySession = groupPartsBySession(queryPartsForSessions(sessionIds));
+  const context = createSessionContext(allSessions, {
+    messagesBySession,
+    partsBySession,
+  });
 
-  // Get messages for this session
-  const messages = queryMessages(sessionId, MAX_MESSAGES_LIMIT).map(toMessageMeta);
-  context.messagesBySession.set(sessionId, messages);
-
-  // Get activity tree (hierarchy)
-  const activity: ActivitySession[] = await getSessionHierarchy(sessionId, allSessions, context);
-
-  // Build messages cache for stats
-  const messagesCache = new Map<string, MessageMeta[]>(context.messagesBySession);
-  for (const activitySession of activity) {
-    if (!messagesCache.has(activitySession.id) && !activitySession.id.includes("-phase-")) {
-      const childMessages = queryMessages(activitySession.id, MAX_MESSAGES_LIMIT).map(toMessageMeta);
-      messagesCache.set(activitySession.id, childMessages);
+  for (const session of allSessions) {
+    if (!messagesBySession.has(session.id)) {
+      messagesBySession.set(session.id, []);
+    }
+    if (!partsBySession.has(session.id)) {
+      partsBySession.set(session.id, []);
     }
   }
 
-  // Get todos
-  const todos: TodoItem[] = queryTodos(sessionId).map((row) => ({
-    content: row.content,
-    status: row.status,
-    priority: row.priority,
-    position: row.position,
-  }));
-
-  // Compute stats
-  const stats = aggregateSessionStats(activity, messagesCache);
-
-  // Find the session metadata
-  const sessionMeta = allSessions.find((s) => s.id === sessionId);
-
-  // Find the root activity entry for derived status (direct match or last phase)
+  const activity: ActivitySession[] = await getSessionHierarchy(sessionId, allSessions, context);
+  const stats = aggregateSessionStats(activity, messagesBySession);
+  const sessionMeta = allSessions.find((session) => session.id === sessionId);
   const rootActivity =
-    activity.find((a) => a.id === sessionId) ??
-    activity.filter((a) => a.id.startsWith(`${sessionId}-phase-`)).pop();
+    activity.find((activitySession) => activitySession.id === sessionId) ??
+    activity.filter((activitySession) => activitySession.id.startsWith(`${sessionId}-phase-`)).pop();
 
   const session: SessionSummary = {
     id: sessionId,
@@ -425,5 +501,38 @@ export async function fetchSessionDetail(sessionId: string): Promise<SessionDeta
     createdAt: sessionMeta?.createdAt ?? new Date(),
   };
 
-  return { session, messages, activity, todos, stats };
+  return {
+    graph: {
+      session,
+      activity,
+      stats,
+      revision: querySessionSubtreeRevision(sessionId),
+    },
+    messagesBySession,
+  };
+}
+
+export async function fetchSessionActivity(sessionId: string): Promise<SessionActivityResponse> {
+  return (await buildSessionActivityResponse(sessionId)).graph;
+}
+
+export async function fetchSessionDetail(sessionId: string): Promise<SessionDetail> {
+  const { graph, messagesBySession } = await buildSessionActivityResponse(sessionId);
+
+  const todos: TodoItem[] = queryTodos(sessionId).map((row) => ({
+    content: row.content,
+    status: row.status,
+    priority: row.priority,
+    position: row.position,
+  }));
+
+  const messages = (messagesBySession.get(sessionId) ?? []).slice(0, MAX_MESSAGES_LIMIT);
+
+  return {
+    session: graph.session,
+    messages,
+    activity: graph.activity,
+    todos,
+    stats: graph.stats ?? undefined,
+  };
 }

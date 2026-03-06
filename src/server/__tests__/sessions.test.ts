@@ -2,7 +2,14 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import type { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { app } from "../index";
-import type { SessionMetadata, SessionDetail, MessageMeta, ProjectInfo, SessionTree } from "../../shared/types";
+import type {
+  SessionActivityResponse,
+  SessionDetail,
+  MessageMeta,
+  ProjectInfo,
+  SessionMetadata,
+  SessionTree,
+} from "../../shared/types";
 import {
   setupTestDb,
   teardownTestDb,
@@ -231,6 +238,50 @@ describe("Session API Endpoints", () => {
           expect(edge).toHaveProperty("source");
           expect(edge).toHaveProperty("target");
         }
+      }
+    });
+  });
+
+  describe("GET /api/sessions/:id/activity", () => {
+    test("returns graph-focused session activity payload with revision", async () => {
+      const sessionsRes = await app.request("/api/sessions");
+      const sessions = (await sessionsRes.json()) as SessionMetadata[];
+
+      if (sessions.length > 0) {
+        const sessionID = sessions[0].id;
+        const res = await app.request(`/api/sessions/${sessionID}/activity`);
+        expect(res.status).toBe(200);
+
+        const data = (await res.json()) as SessionActivityResponse;
+        expect(data).toHaveProperty("session");
+        expect(data.session.id).toBe(sessionID);
+        expect(data).toHaveProperty("activity");
+        expect(Array.isArray(data.activity)).toBe(true);
+        expect(data).toHaveProperty("stats");
+        expect(data).toHaveProperty("revision");
+        expect(typeof data.revision).toBe("number");
+        expect(res.headers.get("ETag")).toBeTruthy();
+      }
+    });
+
+    test("returns 304 when activity ETag matches", async () => {
+      const sessionsRes = await app.request("/api/sessions");
+      const sessions = (await sessionsRes.json()) as SessionMetadata[];
+
+      if (sessions.length > 0) {
+        const sessionID = sessions[0].id;
+        const firstRes = await app.request(`/api/sessions/${sessionID}/activity`);
+        const etag = firstRes.headers.get("ETag");
+        expect(etag).toBeTruthy();
+
+        const secondRes = await app.request(`/api/sessions/${sessionID}/activity`, {
+          headers: {
+            "If-None-Match": etag!,
+          },
+        });
+
+        expect(secondRes.status).toBe(304);
+        expect(secondRes.headers.get("ETag")).toBe(etag);
       }
     });
   });

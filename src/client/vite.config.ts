@@ -11,7 +11,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'graph': ['@xyflow/react', 'd3-force'],
+          'graph': ['@xyflow/react'],
           'motion': ['motion/react'],
         },
       },
