@@ -264,6 +264,57 @@ describe("GET /api/poll", () => {
   });
 });
 
+describe("GET /api/poll root selection", () => {
+  const TEST_DIR = "/tmp/ocwatch-poll-root-selection";
+  const originalXdgDataHome = process.env.XDG_DATA_HOME;
+  let testDb: Database | null = null;
+
+  beforeEach(async () => {
+    testDb = await setupTestDb(TEST_DIR);
+  });
+
+  afterEach(async () => {
+    await teardownTestDb(testDb, TEST_DIR, originalXdgDataHome);
+    testDb = null;
+  });
+
+  it("returns 20 root sessions even when newer child sessions exist", async () => {
+    const projectDirectory = join(TEST_DIR, "workspace", "alpha");
+    const now = Date.now();
+
+    for (let index = 0; index < 25; index += 1) {
+      const rootId = `ses_pollroot${String(index).padStart(3, "0")}`;
+      insertSession(testDb!, {
+        id: rootId,
+        projectId: "projectalpha",
+        directory: projectDirectory,
+        title: `Root ${index}`,
+        timeCreated: now - 100_000 - index,
+        timeUpdated: now - 10_000 - index,
+      });
+      insertSession(testDb!, {
+        id: `ses_pollchild${String(index).padStart(3, "0")}`,
+        projectId: "projectalpha",
+        directory: projectDirectory,
+        parentId: rootId,
+        title: `Child ${index}`,
+        timeCreated: now - index,
+        timeUpdated: now - index,
+      });
+    }
+
+    testDb!.close();
+    testDb = null;
+
+    const res = await app.fetch(new Request("http://localhost:50234/api/poll"));
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.sessions).toHaveLength(20);
+    expect(data.sessions.every((session: SessionSummary) => session.id.startsWith("ses_pollroot"))).toBe(true);
+  });
+});
+
 describe("GET /api/poll project scoping", () => {
   const PROJECT_POLL_TEST_DIR = "/tmp/ocwatch-poll-project-test";
   const originalXdgDataHome = process.env.XDG_DATA_HOME;

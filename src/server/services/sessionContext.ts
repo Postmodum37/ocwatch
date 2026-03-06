@@ -1,4 +1,5 @@
 import type { SessionMetadata, MessageMeta, PartMeta } from "../../shared/types";
+import { MESSAGE_SCAN_LIMIT } from "../../shared/constants";
 import {
   querySessionChildren,
   queryMessages,
@@ -9,9 +10,6 @@ import {
   toMessageMeta as parseMessageRow,
   toPartMeta as parsePartRow,
 } from "./parsing";
-
-/** Max messages to load per session for hierarchy building (effectively unlimited) */
-const MAX_MESSAGE_QUERY_LIMIT = 100_000;
 
 export interface SessionContext {
   allowedSessionIds: Set<string>;
@@ -46,7 +44,7 @@ export function getSessionMessages(sessionId: string, context: SessionContext): 
     return cached;
   }
 
-  const messages = queryMessages(sessionId, MAX_MESSAGE_QUERY_LIMIT).map(parseMessageRow);
+  const messages = queryMessages(sessionId, MESSAGE_SCAN_LIMIT).map(parseMessageRow);
   context.messagesBySession.set(sessionId, messages);
   return messages;
 }

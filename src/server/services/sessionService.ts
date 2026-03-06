@@ -73,11 +73,12 @@ function buildToolCalls(parts: PartMeta[], messageAgent: Map<string, string>): T
 
 export async function getSessionHierarchy(
   rootSessionId: string,
-  allSessions: SessionMetadata[]
+  allSessions: SessionMetadata[],
+  contextArg?: SessionContext,
 ): Promise<ActivitySession[]> {
   const result: ActivitySession[] = [];
   const processed = new Set<string>();
-  const context = createSessionContext(allSessions);
+  const context = contextArg ?? createSessionContext(allSessions);
 
   const rootSession = getSessionFromContext(rootSessionId, context);
   if (!rootSession) return result;

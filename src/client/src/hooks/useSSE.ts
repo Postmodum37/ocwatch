@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePolling } from './usePolling';
 import { useScopedFetch } from './useScopedFetch';
 import type { PollResponse } from '@shared/types';
+import { appendProjectId, resolveApiEndpoint } from './resolveApiEndpoint';
 
 export interface UseSSEState {
   data: PollResponse | null;
@@ -22,7 +23,7 @@ export interface UseSSEOptions {
 export function useSSE(options: UseSSEOptions = {}): UseSSEState {
   const {
     enabled = true,
-    apiUrl = '/api/sse',
+    apiUrl,
     pollingInterval = 2000,
     projectId,
   } = options;
@@ -42,32 +43,26 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const lastEventTimeRef = useRef<number>(Date.now());
+  const previousScopeKeyRef = useRef(projectId ?? '');
+  const sseEndpoint = resolveApiEndpoint(apiUrl, 'sse');
+  const pollEndpoint = appendProjectId(resolveApiEndpoint(apiUrl, 'poll'), projectId);
 
   const scopeKey = projectId ?? '';
-  const { scopeChanged, isStale, getCurrentScopeKey } = useScopedFetch(scopeKey);
-
-  if (scopeChanged) {
-    setSseState(prev => ({
-      ...prev,
-      loading: true,
-    }));
-  }
+  const { createAbortController, isStale, getCurrentScopeKey } = useScopedFetch(scopeKey);
 
   const pollingState = usePolling({
     enabled: enabled && isUsingFallback,
     interval: pollingInterval,
-    apiUrl: '/api/poll',
+    apiUrl,
     projectId,
   });
 
   const fetchData = useCallback(async () => {
     const fetchScopeKey = getCurrentScopeKey();
-    const params = new URLSearchParams();
-    if (projectId) params.set('projectId', projectId);
-    const qs = params.toString();
-    const pollUrl = qs ? `/api/poll?${qs}` : '/api/poll';
+    const abortController = createAbortController();
+
     try {
-      const response = await fetch(pollUrl);
+      const response = await fetch(pollEndpoint, { signal: abortController.signal });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data: PollResponse = await response.json();
 
@@ -78,16 +73,47 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
           loading: false,
           lastUpdate: Date.now(),
           error: null,
+          isReconnecting: false,
         }));
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       console.error('Failed to fetch data:', err);
     }
-  }, [projectId, isStale, getCurrentScopeKey]);
+  }, [createAbortController, getCurrentScopeKey, isStale, pollEndpoint]);
+
+  useEffect(() => {
+    if (previousScopeKeyRef.current === scopeKey) {
+      return;
+    }
+
+    previousScopeKeyRef.current = scopeKey;
+    lastEventTimeRef.current = Date.now();
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    setIsUsingFallback(false);
+    setSseState({
+      data: null,
+      loading: true,
+      error: null,
+      lastUpdate: 0,
+      isReconnecting: false,
+      failedAttempts: 0,
+    });
+  }, [scopeKey]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && enabled) {
+        lastEventTimeRef.current = Date.now();
         setSseState(prev => ({ ...prev, isReconnecting: true }));
         setIsUsingFallback(false);
       }
@@ -97,6 +123,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
       if (!enabled) {
         return;
       }
+      lastEventTimeRef.current = Date.now();
       setSseState(prev => ({ ...prev, isReconnecting: true }));
       setIsUsingFallback(false);
     };
@@ -141,12 +168,9 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
       return;
     }
 
+    lastEventTimeRef.current = Date.now();
     fetchData();
-
-    const sseParams = new URLSearchParams();
-    if (projectId) sseParams.set('projectId', projectId);
-    const sseQs = sseParams.toString();
-    const sseUrl = sseQs ? `${apiUrl}?${sseQs}` : apiUrl;
+    const sseUrl = appendProjectId(sseEndpoint, projectId);
     const es = new EventSource(sseUrl);
     eventSourceRef.current = es;
 
@@ -162,6 +186,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     };
 
     es.addEventListener('connected', () => {
+      lastEventTimeRef.current = Date.now();
       setSseState(prev => ({
         ...prev,
         error: null,
@@ -174,9 +199,9 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
     es.addEventListener('message-update', handleSSEEvent);
     es.addEventListener('part-update', handleSSEEvent);
     es.addEventListener('plan-update', handleSSEEvent);
-    // Heartbeat keeps connection alive but intentionally does NOT reset liveness timer
-    // Only meaningful events (session/message/plan updates) should prevent stale detection
-    es.addEventListener('heartbeat', () => {});
+    es.addEventListener('heartbeat', () => {
+      lastEventTimeRef.current = Date.now();
+    });
 
     es.onerror = () => {
       es.close();
@@ -219,7 +244,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEState {
         eventSourceRef.current = null;
       }
     };
-  }, [enabled, isUsingFallback, apiUrl, projectId, fetchData]);
+  }, [enabled, fetchData, isUsingFallback, projectId, sseEndpoint]);
 
   return isUsingFallback ? pollingState : sseState;
 }

@@ -9,6 +9,7 @@ import {
 import type { DbSessionRow } from "../storage/queries";
 import { fetchSessionDetail } from "../services/pollService";
 import { toMessageMeta } from "../services/parsing";
+import { selectRecentRootSessions } from "../services/recentSessions";
 import { buildSessionTree } from "../services/sessionTree";
 import { sessionIdSchema, validateWithResponse } from "../validation";
 import { MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, SESSION_SCAN_LIMIT } from "../../shared/constants";
@@ -47,9 +48,10 @@ export function registerSessionRoutes(app: Hono) {
       }, 200);
     }
 
-    const sessions = querySessions(undefined, undefined, MAX_SESSIONS_LIMIT)
-      .filter((row) => !row.parentID)
-      .map(dbRowToSessionBase);
+    const sessions = selectRecentRootSessions(
+      querySessions(undefined, undefined, SESSION_SCAN_LIMIT).map(dbRowToSessionBase),
+      MAX_SESSIONS_LIMIT,
+    );
 
     return c.json(sessions);
   });

@@ -34,6 +34,14 @@ interface PollDataProviderProps {
 
 const PollDataContext = createContext<PollDataContextValue | undefined>(undefined);
 
+function normalizeUpdatedAt(updatedAt: Date | string | undefined): string | undefined {
+  if (!updatedAt) {
+    return undefined;
+  }
+
+  return new Date(updatedAt).toISOString();
+}
+
 export function PollDataProvider({ children, apiUrl, pollingInterval }: PollDataProviderProps) {
   const { selectedProjectId, selectedSessionId } = useUIState();
 
@@ -77,7 +85,7 @@ export function PollDataProvider({ children, apiUrl, pollingInterval }: PollData
       .then((detail: SessionDetail) => {
         setSessionDetail(detail);
         lastFetchedSessionIdRef.current = detail.session.id;
-        lastFetchedUpdatedAtRef.current = detail.session.updatedAt.toString();
+        lastFetchedUpdatedAtRef.current = normalizeUpdatedAt(detail.session.updatedAt);
       })
       .catch(err => {
         if (err.name === 'AbortError') return;
@@ -104,7 +112,7 @@ export function PollDataProvider({ children, apiUrl, pollingInterval }: PollData
     const selectedSession = sessions.find(s => s.id === selectedSessionId);
     if (!selectedSession) return;
 
-    const currentUpdatedAt = selectedSession.updatedAt.toString();
+    const currentUpdatedAt = normalizeUpdatedAt(selectedSession.updatedAt);
     if (currentUpdatedAt === lastFetchedUpdatedAtRef.current) return;
 
     const controller = new AbortController();
@@ -117,7 +125,7 @@ export function PollDataProvider({ children, apiUrl, pollingInterval }: PollData
       })
       .then((detail: SessionDetail) => {
         setSessionDetail(detail);
-        lastFetchedUpdatedAtRef.current = detail.session.updatedAt.toString();
+        lastFetchedUpdatedAtRef.current = normalizeUpdatedAt(detail.session.updatedAt);
       })
       .catch(err => {
         if (err.name === 'AbortError') return;

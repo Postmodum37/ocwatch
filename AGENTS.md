@@ -30,7 +30,7 @@ ocwatch/
 │   │   │   ├── store/       # AppContext (React Context API)
 │   │   │   ├── utils/       # agentColors, formatters
 │   │   │   └── styles/      # Tailwind CSS + custom animations
-│   │   └── e2e/             # Playwright smoke + SSE tests
+│   │   └── e2e/             # Playwright specs (`*.pw.ts`)
 │   ├── shared/              # Cross-boundary types and utilities (see src/shared/AGENTS.md)
 │   │   ├── types/           # 30+ interfaces — the API contract
 │   │   ├── utils/           # RingBuffer, burstGrouping, activityUtils, formatTime
@@ -78,7 +78,7 @@ ocwatch/
 ## CONVENTIONS
 
 - **TypeScript**: Strict mode, `verbatimModuleSyntax: true` (client), path aliases `@server/`, `@client/`, `@shared/`
-- **Testing**: Server → `bun test` (Bun native), Client → Vitest + jsdom, E2E → Playwright
+- **Testing**: Root `bun test` is scoped to `src/`; Server → Bun native, Client → Vitest (`*.vitest.ts[x]`), E2E → Playwright (`*.pw.ts`)
 - **Styling**: Tailwind CSS, single dark theme (`#0d1117` bg, `#58a6ff` accent), custom animations in `animations.css`
 - **State**: React Context API only — no Redux/Zustand
 - **API**: ETag-cached polling (2s interval) + SSE with polling fallback. Promise coalescing deduplicates concurrent requests
@@ -134,7 +134,7 @@ bun run build                         # Build client
 bun run start                         # Production server (serves built client)
 
 # Tests
-bun test                              # Server + shared + integration tests
+bun test                              # Root Bun suite (scoped to src/)
 cd src/client && bun run test         # Client tests (Vitest)
 cd src/client && bun run test:e2e     # Playwright E2E
 
@@ -160,7 +160,7 @@ cd src/client && bun run lint
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/health` | GET | Health check + `defaultProjectId` |
-| `/api/sessions` | GET | Sessions (last 24h, max 20) |
+| `/api/sessions` | GET | Recent root sessions (max 20) |
 | `/api/sessions/:id` | GET | Session details |
 | `/api/sessions/:id/messages` | GET | Messages (last 100, desc) |
 | `/api/sessions/:id/tree` | GET | Agent tree (React Flow format) |

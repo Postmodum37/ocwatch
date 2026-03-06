@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { UIStateProvider, useUIState } from '../UIStateContext';
 import { PollDataProvider, usePollData } from '../PollDataContext';
@@ -25,7 +25,7 @@ describe('useUIState', () => {
     consoleSpy.mockRestore();
   });
 
-  it('returns the expected shape when inside UIStateProvider', () => {
+  it('returns the expected shape when inside UIStateProvider', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve([]),
@@ -36,6 +36,10 @@ describe('useUIState', () => {
     );
 
     const { result } = renderHook(() => useUIState(), { wrapper });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
 
     expect(result.current).toHaveProperty('selectedSessionId');
     expect(result.current).toHaveProperty('selectedProjectId');
@@ -62,7 +66,7 @@ describe('usePollData', () => {
     consoleSpy.mockRestore();
   });
 
-  it('returns the expected shape when inside PollDataProvider', () => {
+  it('returns the expected shape when inside PollDataProvider', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve([]),
@@ -75,6 +79,10 @@ describe('usePollData', () => {
     );
 
     const { result } = renderHook(() => usePollData(), { wrapper });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
 
     expect(result.current).toHaveProperty('sessions');
     expect(result.current).toHaveProperty('planProgress');
@@ -100,7 +108,7 @@ describe('usePollData', () => {
 });
 
 describe('context isolation: separate provider boundaries', () => {
-  it('UIStateContext and PollDataContext are distinct — UIState consumer does not receive poll data', () => {
+  it('UIStateContext and PollDataContext are distinct — UIState consumer does not receive poll data', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve([]),
@@ -115,12 +123,16 @@ describe('context isolation: separate provider boundaries', () => {
     // A UIState consumer has no access to poll data fields
     const { result } = renderHook(() => useUIState(), { wrapper });
 
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+
     expect(result.current).not.toHaveProperty('sessions');
     expect(result.current).not.toHaveProperty('planProgress');
     expect(result.current).not.toHaveProperty('loading');
   });
 
-  it('PollDataContext consumer does not expose UI-only state', () => {
+  it('PollDataContext consumer does not expose UI-only state', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve([]),
@@ -134,6 +146,10 @@ describe('context isolation: separate provider boundaries', () => {
 
     // A PollData consumer has no access to UI state fields
     const { result } = renderHook(() => usePollData(), { wrapper });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
 
     expect(result.current).not.toHaveProperty('selectedSessionId');
     expect(result.current).not.toHaveProperty('selectedProjectId');

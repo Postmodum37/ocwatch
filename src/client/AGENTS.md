@@ -46,7 +46,7 @@ client/
 │   └── styles/
 │       ├── index.css          # Tailwind base imports
 │       └── animations.css     # Custom keyframes: badge-glow, shimmer, waiting-user, attention
-├── e2e/                       # Playwright: smoke.spec.ts, sse.spec.ts
+├── e2e/                       # Playwright specs (`*.pw.ts`)
 ├── vite.config.ts             # Vite + Vitest config, API proxy to :50234
 └── tailwind.config.js         # Dark theme colors, class-based dark mode
 ```
@@ -61,6 +61,12 @@ client/
 | Agent colors | `src/utils/agentColors.ts` | Keyed by agent name prefix (case-insensitive) |
 | Add animation | `src/styles/animations.css` | Custom keyframes, referenced via Tailwind `animate-*` |
 | Sidebar widget | `src/components/sidebar/` | Small components consuming `useAppContext()` |
+
+## TESTING
+
+- Client unit tests use `*.vitest.ts` / `*.vitest.tsx` and run via `cd src/client && bun run test`.
+- Playwright specs use `*.pw.ts` and run via `cd src/client && bun run test:e2e`.
+- Root `bun test` is intentionally scoped to the repo `src/` tree and does not run client Vitest or Playwright suites.
 
 ## DATA FLOW
 

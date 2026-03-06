@@ -1,8 +1,67 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import type { Database } from "bun:sqlite";
+import { join } from "node:path";
 import { app } from "../index";
 import type { SessionMetadata, SessionDetail, MessageMeta, ProjectInfo, SessionTree } from "../../shared/types";
+import {
+  setupTestDb,
+  teardownTestDb,
+  insertSession,
+} from "./helpers/testDb";
 
 describe("Session API Endpoints", () => {
+  describe("GET /api/sessions root selection", () => {
+    const TEST_DIR = "/tmp/ocwatch-sessions-root-selection";
+    const originalXdgDataHome = process.env.XDG_DATA_HOME;
+    let testDb: Database | null = null;
+
+    beforeEach(async () => {
+      testDb = await setupTestDb(TEST_DIR);
+    });
+
+    afterEach(async () => {
+      await teardownTestDb(testDb, TEST_DIR, originalXdgDataHome);
+      testDb = null;
+    });
+
+    test("returns 20 root sessions even when newer child sessions exist", async () => {
+      const projectDirectory = join(TEST_DIR, "workspace", "alpha");
+      const now = Date.now();
+
+      for (let index = 0; index < 25; index += 1) {
+        const rootId = `ses_root${String(index).padStart(3, "0")}`;
+        insertSession(testDb!, {
+          id: rootId,
+          projectId: "projectalpha",
+          directory: projectDirectory,
+          title: `Root ${index}`,
+          timeCreated: now - 100_000 - index,
+          timeUpdated: now - 10_000 - index,
+        });
+        insertSession(testDb!, {
+          id: `ses_child${String(index).padStart(3, "0")}`,
+          projectId: "projectalpha",
+          directory: projectDirectory,
+          parentId: rootId,
+          title: `Child ${index}`,
+          timeCreated: now - index,
+          timeUpdated: now - index,
+        });
+      }
+
+      testDb!.close();
+      testDb = null;
+
+      const res = await app.request("/api/sessions");
+      expect(res.status).toBe(200);
+
+      const data = (await res.json()) as SessionMetadata[];
+      expect(data).toHaveLength(20);
+      expect(data.every((session) => !session.parentID)).toBe(true);
+      expect(data.every((session) => session.id.startsWith("ses_root"))).toBe(true);
+    });
+  });
+
   describe("GET /api/sessions", () => {
     test("returns array of sessions", async () => {
       const res = await app.request("/api/sessions");

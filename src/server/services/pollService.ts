@@ -27,6 +27,7 @@ import {
   isAssistantFinished,
 } from "../logic";
 import { resolveProjectDirectory } from "../utils/projectResolver";
+import { createSessionContext } from "./sessionContext";
 import { getSessionHierarchy } from "./sessionService";
 import { aggregateSessionStats } from "./statsService";
 import {
@@ -36,6 +37,7 @@ import {
   getLatestAssistantMessage,
   getMostRecentPendingPart,
 } from "./parsing";
+import { selectRecentRootSessions } from "./recentSessions";
 import {
   MAX_SESSIONS_LIMIT,
   MAX_MESSAGES_LIMIT,
@@ -261,9 +263,7 @@ export async function fetchPollData(projectId?: string): Promise<PollResponse> {
 
   const now = Date.now();
 
-  const sortedSessions = scopedSessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-  const limitedSessions = sortedSessions.slice(0, MAX_SESSIONS_LIMIT);
-  const rootSessions = limitedSessions.filter((session) => !session.parentID);
+  const rootSessions = selectRecentRootSessions(scopedSessions, MAX_SESSIONS_LIMIT);
 
   function getCachedMessages(id: string): MessageMeta[] {
     const cached = state.messagesBySessionId.get(id);
@@ -374,16 +374,17 @@ export async function fetchPollData(projectId?: string): Promise<PollResponse> {
 export async function fetchSessionDetail(sessionId: string): Promise<SessionDetail> {
   // Get all sessions for hierarchy context
   const allSessions = querySessions(undefined, undefined, SESSION_SCAN_LIMIT).map(toSessionMetadata);
+  const context = createSessionContext(allSessions);
 
   // Get messages for this session
   const messages = queryMessages(sessionId, MAX_MESSAGES_LIMIT).map(toMessageMeta);
+  context.messagesBySession.set(sessionId, messages);
 
   // Get activity tree (hierarchy)
-  const activity: ActivitySession[] = await getSessionHierarchy(sessionId, allSessions);
+  const activity: ActivitySession[] = await getSessionHierarchy(sessionId, allSessions, context);
 
   // Build messages cache for stats
-  const messagesCache = new Map<string, MessageMeta[]>();
-  messagesCache.set(sessionId, messages);
+  const messagesCache = new Map<string, MessageMeta[]>(context.messagesBySession);
   for (const activitySession of activity) {
     if (!messagesCache.has(activitySession.id) && !activitySession.id.includes("-phase-")) {
       const childMessages = queryMessages(activitySession.id, MAX_MESSAGES_LIMIT).map(toMessageMeta);

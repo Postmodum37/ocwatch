@@ -46,6 +46,25 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 - macOS
 - [OpenCode](https://github.com/anomalyco/opencode) running (reads from `~/.local/share/opencode/storage/`)
 
+## Testing
+
+```bash
+# Root Bun suite (scoped to src/ via bunfig.toml)
+bun test
+
+# Project-standard server/shared/integration command
+bun run test
+
+# Client unit tests (Vitest)
+cd src/client && bun run test
+
+# Client E2E tests (Playwright)
+cd src/client && bun run test:e2e
+```
+
+- Client unit tests use `*.vitest.ts` / `*.vitest.tsx`.
+- Playwright specs use `*.pw.ts`.
+
 ## Disclaimer
 
 This project is not built by the OpenCode team and is not affiliated with or endorsed by [OpenCode](https://opencode.ai) or [oh-my-opencode](https://github.com/code-yeongyu/oh-my-opencode).

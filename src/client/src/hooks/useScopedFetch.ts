@@ -8,14 +8,13 @@ export function useScopedFetch(scopeKey: string) {
   const currentScopeKeyRef = useRef(scopeKey);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const scopeChanged = currentScopeKeyRef.current !== scopeKey;
-  if (scopeChanged) {
+  useEffect(() => {
     currentScopeKeyRef.current = scopeKey;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-  }
+  }, [scopeKey]);
 
   useEffect(() => {
     return () => {
@@ -42,5 +41,5 @@ export function useScopedFetch(scopeKey: string) {
     return currentScopeKeyRef.current;
   }, []);
 
-  return { scopeChanged, createAbortController, isStale, getCurrentScopeKey };
+  return { createAbortController, isStale, getCurrentScopeKey };
 }
