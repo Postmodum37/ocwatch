@@ -3,7 +3,6 @@ import { renderHook } from '@testing-library/react';
 import React from 'react';
 import { UIStateProvider, useUIState } from '../UIStateContext';
 import { PollDataProvider, usePollData } from '../PollDataContext';
-import { SessionDetailProvider, useSessionDetail } from '../SessionDetailContext';
 
 // Mock useSSE to prevent real HTTP requests in PollDataProvider
 vi.mock('../../hooks/useSSE', () => ({
@@ -84,42 +83,14 @@ describe('usePollData', () => {
     expect(result.current).toHaveProperty('error');
     expect(result.current).toHaveProperty('lastUpdate');
     expect(result.current).toHaveProperty('isReconnecting');
-    expect(Array.isArray(result.current.sessions)).toBe(true);
-    expect(result.current.sessions).toHaveLength(0);
-    expect(result.current.planProgress).toBeNull();
-  });
-});
-
-describe('useSessionDetail', () => {
-  it('throws when used outside SessionDetailProvider', () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => renderHook(() => useSessionDetail())).toThrow(
-      'useSessionDetail must be used within SessionDetailProvider',
-    );
-    consoleSpy.mockRestore();
-  });
-
-  it('returns the expected shape when inside SessionDetailProvider', () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-    }) as unknown as typeof fetch;
-
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <UIStateProvider>
-        <PollDataProvider>
-          <SessionDetailProvider>{children}</SessionDetailProvider>
-        </PollDataProvider>
-      </UIStateProvider>
-    );
-
-    const { result } = renderHook(() => useSessionDetail(), { wrapper });
-
     expect(result.current).toHaveProperty('sessionDetail');
     expect(result.current).toHaveProperty('sessionDetailLoading');
     expect(result.current).toHaveProperty('sessionStats');
     expect(result.current).toHaveProperty('messages');
     expect(result.current).toHaveProperty('activitySessions');
+    expect(Array.isArray(result.current.sessions)).toBe(true);
+    expect(result.current.sessions).toHaveLength(0);
+    expect(result.current.planProgress).toBeNull();
     expect(result.current.sessionDetail).toBeNull();
     expect(result.current.sessionDetailLoading).toBe(false);
     expect(result.current.sessionStats).toBeNull();

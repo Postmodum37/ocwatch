@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PollResponse } from '@shared/types';
+import { useScopedFetch } from './useScopedFetch';
 
 interface UsePollingState {
   data: PollResponse | null;
@@ -34,6 +35,9 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
     return qs ? `${apiUrl}?${qs}` : apiUrl;
   })();
 
+  const scopeKey = projectId ?? '';
+  const { scopeChanged, createAbortController, isStale, getCurrentScopeKey } = useScopedFetch(scopeKey);
+
   const [state, setState] = useState<UsePollingState>({
     data: null,
     loading: true,
@@ -44,47 +48,27 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
   });
 
   const etagRef = useRef<string | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scopeKey = projectId ?? '';
-  const currentScopeKeyRef = useRef<string>(scopeKey);
   const failedAttemptsRef = useRef(0);
 
-  useEffect(() => {
-    if (currentScopeKeyRef.current !== scopeKey) {
-      currentScopeKeyRef.current = scopeKey;
-      etagRef.current = null;
-
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
-      }
-
-      failedAttemptsRef.current = 0;
-
-      setState(prev => ({
-        ...prev,
-        loading: true,
-        error: null,
-        failedAttempts: 0,
-      }));
+  if (scopeChanged) {
+    etagRef.current = null;
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
     }
-  }, [scopeKey]);
+    failedAttemptsRef.current = 0;
+    setState(prev => ({
+      ...prev,
+      loading: true,
+      error: null,
+      failedAttempts: 0,
+    }));
+  }
 
   const fetchData = useCallback(async () => {
-    const fetchScopeKey = currentScopeKeyRef.current;
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+    const fetchScopeKey = getCurrentScopeKey();
+    const abortController = createAbortController();
 
     try {
       const headers: HeadersInit = {};
@@ -98,7 +82,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         signal: abortController.signal,
       });
 
-      if (currentScopeKeyRef.current !== fetchScopeKey) {
+      if (isStale(fetchScopeKey)) {
         return;
       }
 
@@ -125,7 +109,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
 
       const data: PollResponse = await response.json();
 
-      if (currentScopeKeyRef.current !== fetchScopeKey) {
+      if (isStale(fetchScopeKey)) {
         return;
       }
 
@@ -143,7 +127,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         return;
       }
 
-      if (currentScopeKeyRef.current !== fetchScopeKey) {
+      if (isStale(fetchScopeKey)) {
         return;
       }
 
@@ -166,7 +150,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
         }, backoffDelay);
       }
     }
-  }, [pollUrl, maxRetries]);
+  }, [pollUrl, maxRetries, createAbortController, isStale, getCurrentScopeKey]);
 
   useEffect(() => {
     if (!enabled) {
@@ -179,9 +163,6 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingState {
 
     return () => {
       clearInterval(intervalId);
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }

@@ -1,15 +1,13 @@
 import React, { useMemo } from 'react';
 import { usePollData } from '../../store/PollDataContext';
 import { useUIState } from '../../store/UIStateContext';
-import { useSessionDetail } from '../../store/SessionDetailContext';
 import { formatDuration, shortModelName } from '../../utils/formatters';
 import { getAgentColor } from '../../utils/agentColors';
 import { StatusDot } from './StatusDot';
 
 export const ScopeSnapshot: React.FC = () => {
-  const { sessions } = usePollData();
+  const { sessions, activitySessions } = usePollData();
   const { selectedSessionId } = useUIState();
-  const { activitySessions } = useSessionDetail();
 
   const selectedSession = useMemo(() => 
     sessions.find(s => s.id === selectedSessionId), 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ActivitySession, SessionSummary } from '@shared/types';
+import { NOTIFICATION_COOLDOWN_MS } from '@shared/constants';
 
 export interface UseNotificationsReturn {
   permission: NotificationPermission;
@@ -107,7 +108,7 @@ export function useNotifications(
       if (!prev) continue;
 
       const lastNotification = cooldownRef.current.get(sessionId);
-      if (lastNotification && now - lastNotification < 10_000) continue;
+      if (lastNotification && now - lastNotification < NOTIFICATION_COOLDOWN_MS) continue;
 
       if (
         current.activityType === 'waiting-user' &&

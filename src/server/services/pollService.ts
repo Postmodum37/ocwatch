@@ -41,11 +41,9 @@ import {
   MAX_SESSIONS_LIMIT,
   MAX_MESSAGES_LIMIT,
   POLL_CACHE_TTL_MS,
+  SESSION_SCAN_LIMIT,
+  MESSAGE_SCAN_LIMIT,
 } from "../../shared/constants";
-/** Max sessions to scan when building incremental state (internal upper bound) */
-const SESSION_SCAN_LIMIT = 50_000;
-/** Max messages per session for incremental poll cache (high to avoid missing updates) */
-const MESSAGE_SCAN_LIMIT = 10_000;
 
 interface IncrementalPollState {
   sessionsById: Map<string, SessionMetadata>;

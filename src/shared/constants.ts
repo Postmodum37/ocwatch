@@ -21,3 +21,10 @@ export const RINGBUFFER_CAPACITY = 1000 as const;
 
 // Session hierarchy depth limit
 export const MAX_RECURSION_DEPTH = 10 as const;
+
+/** Internal upper bound for session queries (not client-facing) */
+export const SESSION_SCAN_LIMIT = 50_000 as const;
+/** Internal upper bound for message queries per session (not client-facing) */
+export const MESSAGE_SCAN_LIMIT = 10_000 as const;
+/** Cooldown between notifications for the same session (ms) */
+export const NOTIFICATION_COOLDOWN_MS = 10_000 as const;
