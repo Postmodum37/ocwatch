@@ -284,7 +284,7 @@ describe("GET /api/poll project scoping", () => {
     expect(res.status).toBe(400);
 
     const data = await res.json();
-    expect(data).toHaveProperty("error", "INVALID_PROJECT_ID");
+    expect(data).toHaveProperty("error", "VALIDATION_ERROR");
   });
 
   it("should scope poll data and boulder lookup to selected project", async () => {
