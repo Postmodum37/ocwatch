@@ -5,9 +5,6 @@
 export const DEFAULT_PORT = 50234 as const;
 export const API_BASE_URL = `http://localhost:${DEFAULT_PORT}`;
 
-// Time constants
-export const TWENTY_FOUR_HOURS_MS = 86400000 as const;
-
 // API limits
 export const MAX_SESSIONS_LIMIT = 20 as const;
 /** Messages returned per session in API responses (client-facing limit) */

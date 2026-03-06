@@ -23,6 +23,11 @@ type PollDataMock = {
   error: null;
   lastUpdate: number;
   isReconnecting: boolean;
+  sessionDetail: null;
+  sessionDetailLoading: boolean;
+  sessionStats: null;
+  messages: [];
+  activitySessions: [];
 };
 
 const defaultPollData = (): PollDataMock => ({
@@ -33,6 +38,11 @@ const defaultPollData = (): PollDataMock => ({
   error: null,
   lastUpdate: 0,
   isReconnecting: false,
+  sessionDetail: null,
+  sessionDetailLoading: false,
+  sessionStats: null,
+  messages: [],
+  activitySessions: [],
 });
 
 const createPollData = (overrides?: Partial<PollDataMock>) => ({

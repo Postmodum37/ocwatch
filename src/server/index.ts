@@ -8,7 +8,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error";
 import { registerRoutes } from "./routes";
 import { parseArgs, printHelp, openBrowser } from "./cli";
 import { getGlobalWatcher, closeAllSSEConnections } from "./routes/sse";
-import { listAllSessions, closeDb } from "./storage";
+import { queryProjectByWorktree, closeDb } from "./storage";
 
 const clientDistPath = join(import.meta.dir, "..", "client", "dist");
 const flags = parseArgs();
@@ -18,32 +18,17 @@ if (flags.showHelp) {
   process.exit(0);
 }
 
+// Start watcher eagerly so fs events are captured before the first request
+getGlobalWatcher();
+
 function normalizeDirectoryPath(pathValue: string): string {
   return normalize(resolve(pathValue));
 }
 
-async function resolveDefaultProjectId(projectPath: string): Promise<string | undefined> {
-  const knownSessions = listAllSessions();
-  const requestedPath = normalizeDirectoryPath(projectPath);
-  const seenProjectDirectories = new Map<string, string>();
-
-  for (const session of knownSessions) {
-    if (!session.directory || seenProjectDirectories.has(session.projectID)) {
-      continue;
-    }
-    seenProjectDirectories.set(
-      session.projectID,
-      normalizeDirectoryPath(session.directory)
-    );
-  }
-
-  for (const [projectID, directory] of seenProjectDirectories) {
-    if (directory === requestedPath) {
-      return projectID;
-    }
-  }
-
-  return undefined;
+function resolveDefaultProjectId(projectPath: string): string | undefined {
+  const normalizedPath = normalizeDirectoryPath(projectPath);
+  const project = queryProjectByWorktree(normalizedPath);
+  return project?.id;
 }
 
 async function getDefaultProjectIdFromFlag(projectPath: string | null): Promise<string | undefined> {
@@ -52,7 +37,7 @@ async function getDefaultProjectIdFromFlag(projectPath: string | null): Promise<
   }
 
   try {
-    const defaultProjectId = await resolveDefaultProjectId(projectPath);
+    const defaultProjectId = resolveDefaultProjectId(projectPath);
     if (!defaultProjectId) {
       console.warn(
         `[ocwatch] --project path did not match any known project directory: ${projectPath}`

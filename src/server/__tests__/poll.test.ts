@@ -171,17 +171,18 @@ describe("GET /api/poll", () => {
     expect(data.sessions.length).toBeLessThanOrEqual(20);
   });
 
-  it("should filter sessions to last 24 hours", async () => {
+  it("should include sessions older than 24 hours", async () => {
     const req = new Request("http://localhost:50234/api/poll");
     const res = await app.fetch(req);
     const data = await res.json();
 
-    const now = Date.now();
-    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
-
-    for (const session of data.sessions) {
-      const updatedAt = new Date(session.updatedAt).getTime();
-      expect(updatedAt).toBeGreaterThanOrEqual(twentyFourHoursAgo);
+    // Sessions should be returned regardless of age (no 24h filter)
+    expect(Array.isArray(data.sessions)).toBe(true);
+    // Verify sessions are sorted by updatedAt descending
+    for (let i = 1; i < data.sessions.length; i++) {
+      const prevTime = new Date(data.sessions[i - 1].updatedAt).getTime();
+      const currTime = new Date(data.sessions[i].updatedAt).getTime();
+      expect(prevTime).toBeGreaterThanOrEqual(currTime);
     }
   });
 

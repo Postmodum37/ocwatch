@@ -1,7 +1,5 @@
 import type { Database, Statement } from "bun:sqlite";
 import { getDb } from "./db";
-import type { SessionMetadata } from "../../shared/types";
-import { toSessionMetadata } from "../services/parsing";
 
 export interface DbProjectRow {
   id: string;
@@ -58,6 +56,13 @@ export interface DbTodoRow {
   timeUpdated: number;
 }
 
+export interface DbProjectSummaryRow {
+  id: string;
+  worktree: string;
+  sessionCount: number;
+  lastActivityAt: number;
+}
+
 let cachedDb: Database | null | undefined;
 
 let queryProjectsStmt: Statement<DbProjectRow, []> | null = null;
@@ -69,6 +74,8 @@ let queryPartsStmt: Statement<DbPartRow, [string]> | null = null;
 let queryPartStmt: Statement<DbPartRow, [string]> | null = null;
 let queryTodosStmt: Statement<DbTodoRow, [string]> | null = null;
 let queryMaxTimestampStmt: Statement<{ maxTimestamp: number | null }, []> | null = null;
+let queryProjectByWorktreeStmt: Statement<DbProjectRow, [string]> | null = null;
+let queryProjectSummariesStmt: Statement<DbProjectSummaryRow, []> | null = null;
 
 function getReadyDb(): Database | null {
   const db = getDb();
@@ -225,6 +232,33 @@ function getReadyDb(): Database | null {
     )
   `);
 
+  queryProjectByWorktreeStmt = db.query<DbProjectRow, [string]>(`
+    SELECT
+      id,
+      name,
+      worktree,
+      vcs,
+      commands,
+      sandboxes,
+      time_created AS timeCreated,
+      time_updated AS timeUpdated
+    FROM project
+    WHERE worktree = ?1
+    LIMIT 1
+  `);
+
+  queryProjectSummariesStmt = db.query<DbProjectSummaryRow, []>(`
+    SELECT
+      p.id,
+      p.worktree,
+      COUNT(s.id) AS sessionCount,
+      COALESCE(MAX(s.time_updated), p.time_updated) AS lastActivityAt
+    FROM project p
+    LEFT JOIN session s ON s.project_id = p.id
+    GROUP BY p.id
+    ORDER BY lastActivityAt DESC
+  `);
+
   return db;
 }
 
@@ -319,7 +353,20 @@ export function listProjects(): string[] {
   return projects.map((p) => p.id);
 }
 
-export function listAllSessions(): SessionMetadata[] {
-  const sessions = querySessions(undefined, undefined, 10000);
-  return sessions.map(toSessionMetadata);
+export function queryProjectByWorktree(directory: string): DbProjectRow | null {
+  const db = getReadyDb();
+  if (!db || !queryProjectByWorktreeStmt) {
+    return null;
+  }
+
+  return queryProjectByWorktreeStmt.get(directory);
+}
+
+export function queryProjectSummaries(): DbProjectSummaryRow[] {
+  const db = getReadyDb();
+  if (!db || !queryProjectSummariesStmt) {
+    return [];
+  }
+
+  return queryProjectSummariesStmt.all();
 }

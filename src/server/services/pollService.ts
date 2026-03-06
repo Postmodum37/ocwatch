@@ -37,7 +37,6 @@ import {
   getMostRecentPendingPart,
 } from "./parsing";
 import {
-  TWENTY_FOUR_HOURS_MS,
   MAX_SESSIONS_LIMIT,
   MAX_MESSAGES_LIMIT,
   POLL_CACHE_TTL_MS,
@@ -227,7 +226,8 @@ function updateIncrementalState(state: IncrementalPollState, projectId?: string)
     }
   }
 
-  if (changedSessionIds.size > 0) {
+  const wasFirstLoad = !hasBaseline || refreshAllSessions;
+  if (!wasFirstLoad && changedSessionIds.size > 0) {
     for (const sessionId of changedSessionIds) {
       loadMessagesForSession(state, sessionId, true);
       loadPartsForSession(state, sessionId, true);
@@ -260,10 +260,8 @@ export async function fetchPollData(projectId?: string): Promise<PollResponse> {
   }
 
   const now = Date.now();
-  const twentyFourHoursAgo = now - TWENTY_FOUR_HOURS_MS;
 
-  const recentSessions = scopedSessions.filter((session) => session.updatedAt.getTime() >= twentyFourHoursAgo);
-  const sortedSessions = recentSessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  const sortedSessions = scopedSessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   const limitedSessions = sortedSessions.slice(0, MAX_SESSIONS_LIMIT);
   const rootSessions = limitedSessions.filter((session) => !session.parentID);
 

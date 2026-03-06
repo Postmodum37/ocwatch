@@ -11,7 +11,7 @@ import { fetchSessionDetail } from "../services/pollService";
 import { toMessageMeta } from "../services/parsing";
 import { buildSessionTree } from "../services/sessionTree";
 import { sessionIdSchema, validateWithResponse } from "../validation";
-import { MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, TWENTY_FOUR_HOURS_MS, SESSION_SCAN_LIMIT } from "../../shared/constants";
+import { MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, SESSION_SCAN_LIMIT } from "../../shared/constants";
 import type { SessionMetadata } from "../../shared/types";
 
 function dbRowToSessionBase(row: DbSessionRow) {
@@ -47,10 +47,7 @@ export function registerSessionRoutes(app: Hono) {
       }, 200);
     }
 
-    const now = Date.now();
-    const twentyFourHoursAgo = now - TWENTY_FOUR_HOURS_MS;
-
-    const sessions = querySessions(undefined, twentyFourHoursAgo, MAX_SESSIONS_LIMIT)
+    const sessions = querySessions(undefined, undefined, MAX_SESSIONS_LIMIT)
       .filter((row) => !row.parentID)
       .map(dbRowToSessionBase);
 

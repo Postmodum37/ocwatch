@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { listAllSessions } from "../storage";
+import { queryProjects } from "../storage";
 import type { SessionMetadata } from "../../shared/types";
 
 async function directoryExists(directory: string): Promise<boolean> {
@@ -15,8 +15,14 @@ export async function resolveProjectDirectory(
   projectId: string,
   preloadedSessions?: SessionMetadata[],
 ): Promise<string | null> {
-  const allSessions = preloadedSessions ?? listAllSessions();
-  const directory = allSessions.find((session) => session.projectID === projectId)?.directory;
+  let directory: string | undefined;
+
+  if (preloadedSessions) {
+    directory = preloadedSessions.find((session) => session.projectID === projectId)?.directory;
+  } else {
+    const projects = queryProjects();
+    directory = projects.find((p) => p.id === projectId)?.worktree;
+  }
 
   if (!directory) {
     return null;

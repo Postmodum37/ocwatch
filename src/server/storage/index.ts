@@ -5,17 +5,19 @@ export {
   queryPart,
   queryParts,
   queryProjects,
+  queryProjectByWorktree,
+  queryProjectSummaries,
   querySession,
   querySessionChildren,
   querySessions,
   queryTodos,
   listProjects,
-  listAllSessions,
 } from "./queries";
 export type {
   DbMessageRow,
   DbPartRow,
   DbProjectRow,
+  DbProjectSummaryRow,
   DbSessionRow,
   DbTodoRow,
 } from "./queries";

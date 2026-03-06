@@ -11,7 +11,8 @@ import {
   queryTodos,
   queryMaxTimestamp,
   listProjects,
-  listAllSessions,
+  queryProjectByWorktree,
+  queryProjectSummaries,
 } from '../server/storage/queries';
 
 // Evaluated once at module load — determines which test branches run.
@@ -110,9 +111,16 @@ describe('queries without DB', () => {
     }
   });
 
-  it('listAllSessions returns empty array when DB unavailable', () => {
+  it('queryProjectByWorktree returns null when DB unavailable', () => {
     if (!DB_AVAILABLE) {
-      const result = listAllSessions();
+      const result = queryProjectByWorktree('/nonexistent/path');
+      expect(result).toBeNull();
+    }
+  });
+
+  it('queryProjectSummaries returns empty array when DB unavailable', () => {
+    if (!DB_AVAILABLE) {
+      const result = queryProjectSummaries();
       expect(Array.isArray(result)).toBe(true);
       expect(result).toHaveLength(0);
     }
@@ -168,15 +176,39 @@ describe('queries with real DB', () => {
     }
   });
 
-  (DB_AVAILABLE ? it : it.skip)('listAllSessions returns SessionMetadata array', () => {
-    const sessions = listAllSessions();
-    expect(Array.isArray(sessions)).toBe(true);
-    if (sessions.length > 0) {
-      const first = sessions[0];
+  (DB_AVAILABLE ? it : it.skip)('queryProjectByWorktree returns null for nonexistent path', () => {
+    const result = queryProjectByWorktree('/definitely/does/not/exist');
+    expect(result).toBeNull();
+  });
+
+  (DB_AVAILABLE ? it : it.skip)('queryProjectByWorktree returns project for known worktree', () => {
+    const projects = queryProjects();
+    if (projects.length > 0) {
+      const knownWorktree = projects[0].worktree;
+      const result = queryProjectByWorktree(knownWorktree);
+      expect(result).not.toBeNull();
+      expect(result!.id).toBe(projects[0].id);
+      expect(result!.worktree).toBe(knownWorktree);
+    }
+  });
+
+  (DB_AVAILABLE ? it : it.skip)('queryProjectSummaries returns array with expected shape', () => {
+    const summaries = queryProjectSummaries();
+    expect(Array.isArray(summaries)).toBe(true);
+    if (summaries.length > 0) {
+      const first = summaries[0];
       expect(typeof first.id).toBe('string');
-      expect(typeof first.projectID).toBe('string');
-      expect(first.createdAt).toBeInstanceOf(Date);
-      expect(first.updatedAt).toBeInstanceOf(Date);
+      expect(typeof first.worktree).toBe('string');
+      expect(typeof first.sessionCount).toBe('number');
+      expect(typeof first.lastActivityAt).toBe('number');
+      expect(first.sessionCount).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  (DB_AVAILABLE ? it : it.skip)('queryProjectSummaries is sorted by lastActivityAt desc', () => {
+    const summaries = queryProjectSummaries();
+    for (let i = 1; i < summaries.length; i++) {
+      expect(summaries[i - 1].lastActivityAt).toBeGreaterThanOrEqual(summaries[i].lastActivityAt);
     }
   });
 
