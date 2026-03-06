@@ -11,10 +11,8 @@ import { fetchSessionDetail } from "../services/pollService";
 import { toMessageMeta } from "../services/parsing";
 import { buildSessionTree } from "../services/sessionService";
 import { sessionIdSchema, validateWithResponse } from "../validation";
-import { MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, TWENTY_FOUR_HOURS_MS } from "../../shared/constants";
+import { MAX_SESSIONS_LIMIT, MAX_MESSAGES_LIMIT, TWENTY_FOUR_HOURS_MS, SESSION_SCAN_LIMIT } from "../../shared/constants";
 import type { SessionMetadata } from "../../shared/types";
-
-const SESSION_SCAN_LIMIT = 50_000;
 
 function dbRowToSessionBase(row: DbSessionRow) {
   return {
