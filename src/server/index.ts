@@ -69,6 +69,8 @@ async function getDefaultProjectIdFromFlag(projectPath: string | null): Promise<
 
 const defaultProjectIdPromise = getDefaultProjectIdFromFlag(flags.projectPath);
 
+const isWildcard = flags.host === "0.0.0.0" || flags.host === "::";
+
 const app = new Hono();
 
 app.use("*", compress());
@@ -77,7 +79,7 @@ app.use("*", errorHandler);
 app.use(
   "/api/*",
   cors(
-    flags.host === "0.0.0.0"
+    isWildcard
       ? { origin: "*", credentials: false }
       : {
           origin: [
@@ -112,7 +114,7 @@ export { app };
 
 const port = flags.port;
 const hostname = flags.host;
-const displayHost = hostname === "0.0.0.0" ? "localhost" : hostname;
+const displayHost = isWildcard ? "localhost" : hostname;
 const url = `http://${displayHost}:${port}`;
 
 export default {

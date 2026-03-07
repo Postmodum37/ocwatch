@@ -39,6 +39,8 @@ export function parseArgs(): CLIFlags {
       } else if (hostValue) {
         console.warn(`[ocwatch] Invalid --host value ignored: ${hostValue}`);
         i++;
+      } else {
+        console.warn(`[ocwatch] --host requires a value`);
       }
     } else if (arg === "--project") {
       const projectPath = args[i + 1];
