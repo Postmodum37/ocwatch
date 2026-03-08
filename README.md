@@ -28,6 +28,7 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 | Flag | Description |
 |------|-------------|
 | `--port <number>` | Server port (default: 50234) |
+| `--host <address>` | Bind address (default: localhost, use 0.0.0.0 for all interfaces) |
 | `--no-browser` | Don't auto-open browser |
 | `--project <path>` | Set project directory for plan tracking |
 | `--help` | Show help |
