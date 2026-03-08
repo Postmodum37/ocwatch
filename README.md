@@ -41,30 +41,57 @@ Opens a dashboard at `http://localhost:50234` showing live agent sessions, tool 
 - **Plan progress** — task completion from `.sisyphus/boulder.json`
 - **Activity stream** — real-time feed of agent actions
 
+## Architecture
+
+- **Backend**: Bun + Hono — REST API, static file serving, `fs.watch` on OpenCode storage directories
+- **Frontend**: React 19 + Vite + Tailwind CSS — single dark-theme SPA
+- **Graph visualization**: XY Flow for the agent activity tree
+- **Data flow**: file watcher → cache invalidation → ETag polling + SSE → client
+- **Monorepo layout**: `src/server/`, `src/client/`, `src/shared/` with `@server/`/`@client/`/`@shared/` path aliases
+
 ## Requirements
 
 - [Bun](https://bun.sh) v1.0+
 - macOS
 - [OpenCode](https://github.com/anomalyco/opencode) running (reads from `~/.local/share/opencode/storage/`)
 
-## Testing
+## Development
+
+**Setup**
 
 ```bash
-# Root Bun suite (scoped to src/ via bunfig.toml)
-bun test
-
-# Project-standard server/shared/integration command
-bun run test
-
-# Client unit tests (Vitest)
-cd src/client && bun run test
-
-# Client E2E tests (Playwright)
-cd src/client && bun run test:e2e
+git clone https://github.com/tomascoox/ocwatch.git
+cd ocwatch
+bun install
+cd src/client && bun install && cd ../..
 ```
 
-- Client unit tests use `*.vitest.ts` / `*.vitest.tsx`.
-- Playwright specs use `*.pw.ts`.
+**Run**
+
+```bash
+bun run dev              # Server + Vite concurrently
+bun run dev:server       # Server only (port 50234)
+bun run dev:client       # Vite only (port 5173, proxies /api → server)
+```
+
+**Test**
+
+```bash
+bun run test                           # Server/shared tests
+cd src/client && bun run test          # Client unit tests (Vitest)
+cd src/client && bun run test:e2e      # E2E tests (Playwright)
+```
+
+**Type check & lint**
+
+```bash
+bun run tsc -b
+cd src/client && bun run lint
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Disclaimer
 
