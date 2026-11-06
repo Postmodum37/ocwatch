@@ -93,6 +93,7 @@ const url = `http://localhost:${port}`;
 export default {
   port,
   fetch: app.fetch,
+  idleTimeout: 0,
 };
 
 function shutdown() {
