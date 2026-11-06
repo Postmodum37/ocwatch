@@ -105,6 +105,15 @@ function getReadyDb(): Database | null {
   `);
 
   querySessionsStmt = db.query<DbSessionRow, [string | null, number | null, number]>(`
+    WITH all_sessions AS (
+      SELECT
+        id, project_id, parent_id, slug, directory, title, version, time_created, time_updated
+      FROM session
+      UNION ALL
+      SELECT
+        id, project_id, parent_id, slug, directory, title, version, time_created, time_updated
+      FROM session_v2
+    )
     SELECT
       id,
       project_id AS projectID,
@@ -115,7 +124,7 @@ function getReadyDb(): Database | null {
       version,
       time_created AS timeCreated,
       time_updated AS timeUpdated
-    FROM session
+    FROM all_sessions
     WHERE (?1 IS NULL OR project_id = ?1)
       AND (?2 IS NULL OR time_updated > ?2)
     ORDER BY time_updated DESC
@@ -123,6 +132,15 @@ function getReadyDb(): Database | null {
   `);
 
   querySessionStmt = db.query<DbSessionRow, [string]>(`
+    WITH all_sessions AS (
+      SELECT
+        id, project_id, parent_id, slug, directory, title, version, time_created, time_updated
+      FROM session
+      UNION ALL
+      SELECT
+        id, project_id, parent_id, slug, directory, title, version, time_created, time_updated
+      FROM session_v2
+    )
     SELECT
       id,
       project_id AS projectID,
@@ -133,12 +151,21 @@ function getReadyDb(): Database | null {
       version,
       time_created AS timeCreated,
       time_updated AS timeUpdated
-    FROM session
+    FROM all_sessions
     WHERE id = ?1
     LIMIT 1
   `);
 
   querySessionChildrenStmt = db.query<DbSessionRow, [string]>(`
+    WITH all_sessions AS (
+      SELECT
+        id, project_id, parent_id, slug, directory, title, version, time_created, time_updated
+      FROM session
+      UNION ALL
+      SELECT
+        id, project_id, parent_id, slug, directory, title, version, time_created, time_updated
+      FROM session_v2
+    )
     SELECT
       id,
       project_id AS projectID,
@@ -149,13 +176,22 @@ function getReadyDb(): Database | null {
       version,
       time_created AS timeCreated,
       time_updated AS timeUpdated
-    FROM session
+    FROM all_sessions
     WHERE parent_id = ?1
     ORDER BY time_created ASC
   `);
 
   querySessionSubtreeStmt = db.query<DbSessionRow, [string]>(`
-    WITH RECURSIVE subtree AS (
+    WITH RECURSIVE all_sessions AS (
+      SELECT
+        id, project_id, parent_id, slug, directory, title, version, time_created, time_updated
+      FROM session
+      UNION ALL
+      SELECT
+        id, project_id, parent_id, slug, directory, title, version, time_created, time_updated
+      FROM session_v2
+    ),
+    subtree AS (
       SELECT
         id,
         project_id AS projectID,
@@ -166,7 +202,7 @@ function getReadyDb(): Database | null {
         version,
         time_created AS timeCreated,
         time_updated AS timeUpdated
-      FROM session
+      FROM all_sessions
       WHERE id = ?1
 
       UNION ALL
@@ -181,7 +217,7 @@ function getReadyDb(): Database | null {
         s.version,
         s.time_created AS timeCreated,
         s.time_updated AS timeUpdated
-      FROM session s
+      FROM all_sessions s
       INNER JOIN subtree st ON s.parent_id = st.id
     )
     SELECT
@@ -204,11 +240,34 @@ function getReadyDb(): Database | null {
       session_id AS sessionID,
       time_created AS timeCreated,
       time_updated AS timeUpdated,
-      json_extract(data, '$.role') AS role,
-      json_extract(data, '$.agent') AS agent,
+      COALESCE(json_extract(data, '$.role'), type) AS role,
+      COALESCE(json_extract(data, '$.agent'), json_extract(data, '$.agents[0]')) AS agent,
       data
-    FROM message
-    WHERE session_id = ?1
+    FROM (
+      SELECT
+        id,
+        session_id,
+        time_created,
+        time_updated,
+        json_extract(data, '$.role') AS type,
+        json_extract(data, '$.agent') AS agent,
+        data
+      FROM message
+      WHERE session_id = ?1
+
+      UNION ALL
+
+      SELECT
+        id,
+        session_id,
+        time_created,
+        time_updated,
+        type,
+        json_extract(data, '$.agent') AS agent,
+        data
+      FROM session_message
+      WHERE session_id = ?1
+    )
     ORDER BY time_created DESC
     LIMIT ?2
   `);
@@ -272,29 +331,42 @@ function getReadyDb(): Database | null {
     FROM (
       SELECT MAX(time_updated) AS ts FROM session
       UNION ALL
+      SELECT MAX(time_updated) AS ts FROM session_v2
+      UNION ALL
       SELECT MAX(time_updated) AS ts FROM message
+      UNION ALL
+      SELECT MAX(time_updated) AS ts FROM session_message
       UNION ALL
       SELECT MAX(time_updated) AS ts FROM part
     )
   `);
 
   querySessionSubtreeRevisionStmt = db.query<{ maxTimestamp: number | null }, [string]>(`
-    WITH RECURSIVE subtree AS (
+    WITH RECURSIVE all_sessions AS (
+      SELECT id, parent_id FROM session
+      UNION ALL
+      SELECT id, parent_id FROM session_v2
+    ),
+    subtree AS (
       SELECT id
-      FROM session
+      FROM all_sessions
       WHERE id = ?1
 
       UNION ALL
 
       SELECT s.id
-      FROM session s
+      FROM all_sessions s
       INNER JOIN subtree st ON s.parent_id = st.id
     )
     SELECT MAX(ts) AS maxTimestamp
     FROM (
       SELECT MAX(time_updated) AS ts FROM session WHERE id IN (SELECT id FROM subtree)
       UNION ALL
+      SELECT MAX(time_updated) AS ts FROM session_v2 WHERE id IN (SELECT id FROM subtree)
+      UNION ALL
       SELECT MAX(time_updated) AS ts FROM message WHERE session_id IN (SELECT id FROM subtree)
+      UNION ALL
+      SELECT MAX(time_updated) AS ts FROM session_message WHERE session_id IN (SELECT id FROM subtree)
       UNION ALL
       SELECT MAX(time_updated) AS ts FROM part WHERE session_id IN (SELECT id FROM subtree)
     )
@@ -322,7 +394,11 @@ function getReadyDb(): Database | null {
       COUNT(s.id) AS sessionCount,
       COALESCE(MAX(s.time_updated), p.time_updated) AS lastActivityAt
     FROM project p
-    LEFT JOIN session s ON s.project_id = p.id
+    LEFT JOIN (
+      SELECT id, project_id, time_updated FROM session
+      UNION ALL
+      SELECT id, project_id, time_updated FROM session_v2
+    ) s ON s.project_id = p.id
     GROUP BY p.id
     ORDER BY lastActivityAt DESC
   `);
@@ -428,6 +504,23 @@ export function queryMessagesForSessions(sessionIds: string[], limitPerSession =
           ORDER BY time_created DESC, id DESC
         ) AS rowNumber
       FROM message
+      WHERE session_id IN (${placeholders})
+
+      UNION ALL
+
+      SELECT
+        id,
+        session_id AS sessionID,
+        time_created AS timeCreated,
+        time_updated AS timeUpdated,
+        COALESCE(json_extract(data, '$.role'), type) AS role,
+        COALESCE(json_extract(data, '$.agent'), json_extract(data, '$.agents[0]')) AS agent,
+        data,
+        ROW_NUMBER() OVER (
+          PARTITION BY session_id
+          ORDER BY time_created DESC, id DESC
+        ) AS rowNumber
+      FROM session_message
       WHERE session_id IN (${placeholders})
     )
     WHERE rowNumber <= ${limitParam}
